@@ -33,3 +33,5 @@ jobs:
         run: python -m evals.p2b_indirect_prompt_injection
       - name: P2-C MCP tool-poisoning evaluation
         run: python -m evals.p2c_mcp_tool_poisoning
+      - name: P2-D token-passthrough evaluation
+        run: python -m evals.p2d_token_passthrough

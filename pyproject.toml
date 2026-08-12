@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aegisdesk"
-version = "0.6.0"
+version = "0.7.0"
 description = "Zero-Trust Agentic RAG Security Lab"
 requires-python = ">=3.12,<3.14"
 dependencies = [
