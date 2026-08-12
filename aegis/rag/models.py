@@ -1,3 +1,5 @@
+from enum import StrEnum
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -40,3 +42,25 @@ class SearchResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     results: list[SearchResult]
+
+
+class RagToolStatus(StrEnum):
+    NONE = "none"
+    BLOCKED = "blocked"
+    EXECUTED = "executed"
+
+
+class RagAnswerRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    query: str = Field(min_length=1, max_length=500)
+    limit: int = Field(default=3, ge=1, le=5)
+
+
+class RagAnswerResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    answer: str
+    retrieved_document_ids: list[int]
+    proposed_tool: str | None = None
+    tool_status: RagToolStatus = RagToolStatus.NONE

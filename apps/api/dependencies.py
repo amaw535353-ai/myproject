@@ -6,11 +6,14 @@ from fastapi import Header, HTTPException, status
 
 from aegis.agent.fake_model import DeterministicFakeModel
 from aegis.agent.graph import AgentRunner
+from aegis.agent.rag_model import DeterministicRagSecurityModel
 from aegis.approvals.store import ApprovalStore
 from aegis.helpdesk.stores import AssetStore, TicketStore
 from aegis.identity.models import Principal
 from aegis.identity.synthetic_auth import resolve_synthetic_principal
 from aegis.mcp_gateway.gateway import ToolGateway
+from aegis.policy.tool_capabilities import READ_ONLY_RAG_POLICY
+from aegis.rag.answering import RagAnswerRunner
 from aegis.rag.store import KnowledgeStore
 
 
@@ -73,4 +76,14 @@ def get_agent_runner() -> AgentRunner:
         model=DeterministicFakeModel(),
         gateway=get_tool_gateway(),
         approval_store=get_approval_store(),
+    )
+
+
+@lru_cache(maxsize=1)
+def get_rag_answer_runner() -> RagAnswerRunner:
+    return RagAnswerRunner(
+        knowledge_store=get_knowledge_store(),
+        model=DeterministicRagSecurityModel(),
+        gateway=get_tool_gateway(),
+        capability_policy=READ_ONLY_RAG_POLICY,
     )
