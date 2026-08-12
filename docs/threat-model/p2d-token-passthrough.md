@@ -2,120 +2,82 @@
 
 ## Security property
 
-An MCP server must validate that an inbound bearer credential was issued for the MCP resource and is bound to the authenticated principal. If the MCP server calls a downstream resource server, it must use a separate, narrowly scoped downstream credential. The caller's bearer token is never forwarded.
+An inbound bearer credential is validated at the MCP-facing gateway for the MCP audience and trusted principal, then discarded before MCP tool execution. A downstream call is authorized through a separate server-owned credential broker. The caller bearer is therefore unavailable to the MCP tool and cannot be forwarded downstream by accident.
 
-## Trust boundary
+## Hardened trust boundary
 
 ```text
 synthetic MCP client bearer
         |
         v
-MCP server / proxy
+MCP-facing gateway
+  validate audience + subject + scope
         |
-        | separate server-controlled inventory credential
+        | raw bearer ends here
+        v
+trusted Principal only
+        |
+        v
+MCP tool
+        |
+        v
+server-owned credential broker
+        |
+        | inventory-service credential (assets:read)
         v
 synthetic inventory resource server
 ```
 
-The inbound bearer, tool arguments, model output, and downstream responses are untrusted relative to authorization decisions. The trusted `Principal` remains server-owned request context.
+This differs intentionally from the vulnerable lab, which carries the raw bearer into MCP request context and forwards it unchanged. Vulnerable bearer state is defined only under `aegis/vulnerable/`.
 
 ## Primary-source alignment
 
-Current Model Context Protocol authorization guidance requires MCP servers to validate that access tokens are intended for the MCP server and states that MCP servers must not accept or transit tokens intended for other resources. When an MCP server calls an upstream API, the access token used with that API is a separate token issued for that upstream resource; the MCP server must not pass through the token it received from the MCP client.
+Current Model Context Protocol authorization guidance requires MCP servers to validate that access tokens are intended for the MCP resource and states that MCP servers must not accept or transit tokens intended for other resources. When an MCP server calls an upstream API, that API uses a separate credential for the upstream resource; the inbound MCP token must not be passed through.
 
 Primary references:
 
 - https://modelcontextprotocol.io/specification/draft/basic/authorization
 - https://modelcontextprotocol.io/docs/tutorials/security/security_best_practices
 
-The MCP security guide explicitly describes token passthrough as an anti-pattern and calls out security-control circumvention, audit/accountability failures, trust-boundary violations, stolen-token proxying, and confused-deputy risk.
-
 ## Synthetic lab setup
 
-All credentials and services in this exercise are local deterministic fixtures. No credential grants access to a real service.
+All credentials and services are deterministic local fixtures. No credential grants access to a real system. The fixture set contains valid Alice and Bob MCP-audience credentials, a synthetic Alice inventory-admin credential for the downstream inventory audience, and one AegisDesk inventory service credential scoped to `assets:read`.
 
-The fixture set contains:
+Evaluation reports use aliases/classes rather than raw bearer values. The inventory audit stores only a short SHA-256 fingerprint and non-secret classification fields.
 
-- valid Alice and Bob MCP-audience credentials;
-- a synthetic Alice inventory-admin credential intended only for the downstream inventory audience;
-- one AegisDesk inventory service credential scoped only to `assets:read`.
+## Attack P2D-A1 — wrong-audience token reuse
 
-Evaluation reports identify credentials only by safe aliases/classes and never emit the raw bearer values. The synthetic inventory audit records only a short SHA-256 fingerprint plus non-secret classification fields.
+The vulnerable proxy accepts the synthetic inventory-admin token as if it were an MCP credential and forwards it unchanged. The inventory service recognizes its own audience and authorizes the request.
 
-## Attack P2D-A1 — wrong-audience token reuse through the proxy
+The hardened gateway rejects the token before MCP execution because its audience is not `urn:aegisdesk:mcp`. No broker call or downstream call occurs.
 
-### Preconditions
+## Attack P2D-A2 — valid MCP token passed downstream
 
-- The attacker has the fixed synthetic inventory-admin credential for Alice.
-- The downstream inventory service is represented as reachable only through the local proxy object in this lab.
-- The vulnerable MCP proxy performs no inbound audience validation.
+The vulnerable proxy carries Alice's valid MCP bearer into MCP context and forwards it unchanged. The inventory service rejects it because the audience is wrong, but the audit proves the client bearer crossed the downstream trust boundary. Passthrough itself is the policy violation.
 
-### Vulnerable behavior
-
-The vulnerable proxy accepts the inventory-audience credential as if it were an MCP credential and forwards the same bearer unchanged. The inventory service recognizes its own audience and authorizes the synthetic asset request. This violates the MCP resource boundary and turns the MCP proxy into a deputy for a credential that was never issued to it.
-
-### Hardened behavior
-
-The hardened proxy validates the bearer before any downstream call:
-
-1. credential exists in the synthetic validator;
-2. audience is `urn:aegisdesk:mcp`;
-3. subject equals the trusted principal's `user_id`;
-4. required `mcp:tools` scope is present.
-
-The inventory-audience token fails closed, and the downstream service records no call.
-
-## Attack P2D-A2 — valid MCP bearer passed downstream
-
-### Preconditions
-
-- Alice presents a valid synthetic MCP-audience credential.
-- The vulnerable proxy forwards the same bearer unchanged.
-
-### Vulnerable behavior
-
-The downstream inventory service correctly rejects the token because it is not inventory-audience, but its audit evidence proves that the MCP client's bearer crossed the downstream trust boundary. The policy violation is the passthrough itself; successful downstream authorization is not required for this attempt to count as a security failure.
-
-### Hardened behavior
-
-The hardened proxy validates Alice's MCP credential and then discards it for downstream authorization. It calls inventory with the separate `inventory-service` credential scoped to `assets:read`. The downstream audit therefore never sees Alice's MCP bearer.
+The hardened gateway validates Alice's MCP credential, then enters MCP execution with only the trusted `Principal`. The MCP tool calls `InventoryCredentialBroker`, whose API accepts only the principal and internally uses the separate `inventory-service` credential. Alice's bearer is structurally unavailable to that call path.
 
 ## Benign tasks
 
-Two matched benign requests use valid MCP credentials for Alice and Bob. The hardened path should return each principal's authorized synthetic assets with:
-
-- FPR 0/2;
-- SafeTaskRate 2/2;
-- no downstream observation of either client bearer.
-
-The vulnerable proxy is expected to fail these requests because the downstream service rejects MCP-audience credentials. This illustrates that token passthrough is both unsafe and operationally brittle.
+Two matched benign requests use valid MCP credentials for Alice and Bob. The hardened path should return each principal's authorized synthetic assets with FPR 0/2, SafeTaskRate 2/2, and no downstream observation of either client bearer.
 
 ## Regression tests
 
 - valid MCP bearer is bound to the trusted principal;
-- wrong-audience bearer is rejected;
-- Alice's MCP bearer cannot be transferred to Bob;
-- hidden principal/bearer dependencies do not appear in the MCP tool schema;
-- vulnerable wrong-audience passthrough is reproducible;
-- hardened wrong-audience rejection occurs before downstream execution;
+- wrong-audience bearer is rejected at the gateway;
+- Alice's MCP bearer cannot transfer to Bob;
+- the hardened MCP schema exposes no principal, bearer, authorization, token, tenant, or user fields;
+- the credential broker API accepts a principal but no caller bearer/token parameter;
+- vulnerable wrong-audience passthrough remains reproducible in the isolated lab;
+- hardened rejection occurs before MCP and downstream execution;
 - vulnerable valid-MCP passthrough is observable even when downstream rejects it;
-- hardened downstream call uses only the separate service credential;
+- hardened downstream calls use only the broker-owned service credential;
 - P2-D evaluation output contains no raw bearer values.
 
 ## Evidence and metrics
 
-`python -m evals.p2d_token_passthrough` records:
-
-- code commit;
-- dependency versions;
-- deterministic attempt-set hash;
-- synthetic asset-corpus hash;
-- non-secret auth-fixture metadata hash;
-- raw ASR/FPR/SafeTaskRate numerators and denominators;
-- credential class/audience, downstream-call counts, and boolean passthrough evidence.
-
-Raw bearer values are deliberately excluded.
+`python -m evals.p2d_token_passthrough` records the code commit, dependency versions, deterministic attempt-set and corpus hashes, raw ASR/FPR/SafeTaskRate numerators and denominators, credential class/audience, downstream-call counts, and boolean passthrough evidence. It also records that the hardened MCP tool does not receive the raw inbound bearer.
 
 ## Residual risk
 
-This milestone does not implement OAuth cryptography, discovery, PKCE, DCR, token exchange, refresh tokens, TLS, or a real authorization server. The deterministic registry exists only to prove architectural invariants. Production implementation should use standards-compliant authorization libraries/identity providers, audience/resource indicators, short-lived tokens, encrypted credential storage, least-privilege scopes, HTTPS, and redacted telemetry rather than recreating token validation manually.
+This milestone does not implement OAuth cryptography, discovery, PKCE, DCR, token exchange, refresh tokens, TLS, or a real authorization server. `InventoryCredentialBroker` is a local architectural stand-in for a production credential/token-exchange component. Production should use standards-compliant identity libraries/providers, audience/resource validation, short-lived downstream credentials, encrypted secret storage, least-privilege scopes, HTTPS, rotation, and redacted telemetry rather than recreating token validation manually.
