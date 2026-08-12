@@ -2,9 +2,9 @@
 
 AegisDesk is a production-style AI security portfolio lab for building, attacking, and hardening a multi-tenant help-desk agent.
 
-## Current milestone: P2-F
+## Current milestone: P2-G
 
-P2-F adds a deterministic **durable-memory poisoning** comparison at the persisted context -> authorization trust boundary.
+P2-G adds a deterministic **agent-loop and resource-exhaustion** comparison at the model/tool execution -> host resource-budget trust boundary.
 
 Verified security architecture carried forward:
 
@@ -16,14 +16,15 @@ Verified security architecture carried forward:
 - inbound MCP bearer credentials terminate at the gateway and never reach downstream tool execution;
 - downstream access uses a server-owned credential broker with a separate least-privilege credential;
 - outbound URL policy revalidates DNS answers and every redirect target before synthetic connection;
+- durable memory remains data and cannot replace server-derived identity, tenant, role, or approval authority;
 - intentionally vulnerable demonstrations remain isolated and use only local synthetic effects;
 - deterministic fake/no-model evaluations, Qdrant local mode, SQLite, in-memory MCP, and GitHub Actions require no paid model API.
 
-P2-F introduces a SQLite-backed `SqliteMemoryStore` and a hardened `MemoryAwareService`. Memory rows are server-stamped with the authenticated tenant/user and recalled only for that same principal. Stored content remains untrusted data: it is never parsed into `Principal`, roles, tenant identity, or approval authority.
+P2-G introduces `AgentExecutionLimits`, `ExecutionBudget`, and `BoundedLoopAgentRunner`. The host owns limits for steps, model calls, tool calls, retries, input/context/result bytes, elapsed time, and repeated identical tool calls. Model output, retrieved text, MCP results, and client state cannot alter those limits.
 
-The intentionally vulnerable comparison does the opposite. It recognizes a synthetic `AEGIS_MEMORY_PRINCIPAL=` directive inside a persisted note and promotes it into the Principal used by downstream authorization-sensitive services. Two fixed attacks demonstrate why that is unsafe: a durable cross-tenant asset identity override and a durable fabricated human-approver identity.
+The intentionally vulnerable comparison uses the same authenticated principal, deterministic runaway model, MCP gateway, tool schemas, corpus, and six-iteration lab safety ceiling but does not apply a security budget. One attack repeats the same side-effecting ticket call; the other grows context through repeated authorized searches with unique call arguments.
 
-P2-F is currently a **service-level security boundary** rather than a new default FastAPI route. That keeps persistence isolated until its authorization properties are proven.
+The existing default `AgentRunner` remains structurally stricter for its current workflow because it allows only one tool call. P2-G is a service-level multi-step boundary so future agent loops can be enabled without making model persistence equivalent to unlimited execution authority.
 
 ## Run in Codespaces
 
@@ -51,11 +52,12 @@ python -m evals.p2c_mcp_tool_poisoning
 python -m evals.p2d_token_passthrough
 python -m evals.p2e_ssrf_redirects
 python -m evals.p2f_durable_memory_poisoning
+python -m evals.p2g_resource_exhaustion
 ```
 
-P2-F uses two fixed adversarial attempts and two benign attempts per variant. Both variants use the same authenticated users, asset corpus, SQLite memory store, approval store, persisted payloads, and attempt budget; only whether recalled memory is allowed to replace authoritative identity differs.
+P2-G uses two fixed adversarial attempts and two benign attempts per variant. Both variants use the same authenticated synthetic employee, deterministic model and prompt version, MCP gateway, schemas, data, and lab iteration ceiling; only the server-owned execution-budget policy differs.
 
-The evaluation reopens the same SQLite file through a new service/store instance before the second action. Reports include raw ASR/FPR/SafeTaskRate numerators and denominators plus code/dependency/policy/dataset evidence without raw memory contents.
+Reports include raw ASR/FPR/SafeTaskRate numerators and denominators plus code/dependency/model/prompt/policy/dataset evidence. They record counters and the hardened block dimension, but do not print tool-result bodies, raw context, ticket IDs, credentials, or canaries.
 
 Threat-model evidence:
 
@@ -65,10 +67,11 @@ Threat-model evidence:
 - `docs/threat-model/p2d-token-passthrough.md`
 - `docs/threat-model/p2e-ssrf-redirects.md`
 - `docs/threat-model/p2f-durable-memory-poisoning.md`
+- `docs/threat-model/p2g-resource-exhaustion.md`
 
 ### Prototype limitations
 
-P2-F proves that durable memory cannot replace authentication or authorization state. It does not yet cover semantic poisoning of harmless responses, memory provenance/retention, cross-tenant vectorized memory, summarization attacks, or deletion/incident-response workflows.
+P2-G proves deterministic in-process resource accounting. A production agent still needs provider-side token/cost limits, cancellation for hung tools, streaming byte caps, distributed per-user/per-tenant quotas, concurrency/load shedding, and operating-system/container CPU and memory isolation.
 
 The approval subsystem still uses LangGraph `InMemorySaver` and an in-memory approval store. A process restart loses pending workflows. Durable approval persistence remains a later hardening milestone.
 
@@ -81,4 +84,4 @@ The approval subsystem still uses LangGraph `InMemorySaver` and an in-memory app
 
 `X-Aegis-User` is a synthetic lab authentication handle, not a production authentication design.
 
-All organizations, identities, records, credentials, canaries, poison documents, MCP servers, network routes, memory records, and side effects in this repository are synthetic.
+All organizations, identities, records, credentials, canaries, poison documents, MCP servers, network routes, memory records, resource-exhaustion workloads, and side effects in this repository are synthetic.
