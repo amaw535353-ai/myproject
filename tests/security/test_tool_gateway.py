@@ -4,6 +4,7 @@ import pytest
 from mcp import Client
 from pydantic import ValidationError
 
+from aegis.approvals.store import ApprovalStore
 from aegis.helpdesk.models import AssetRecord
 from aegis.helpdesk.stores import AssetStore, TicketStore
 from aegis.identity.synthetic_auth import resolve_synthetic_principal
@@ -42,6 +43,7 @@ def build_gateway() -> tuple[ToolGateway, TicketStore]:
             knowledge_store=knowledge_store,
             asset_store=asset_store,
             ticket_store=ticket_store,
+            approval_store=ApprovalStore(),
         ),
         ticket_store,
     )
@@ -77,6 +79,29 @@ def test_model_cannot_supply_tenant_or_user_identity_arguments() -> None:
                     arguments={"user_id": "usr_dig_bob"},
                 ),
             )
+        with pytest.raises(ToolValidationError):
+            await gateway.dispatch(
+                principal=principal,
+                proposal=ToolCallProposal(
+                    name=ToolName.REQUEST_PASSWORD_RESET,
+                    arguments={
+                        "reason": "reset",
+                        "user_id": "usr_dig_bob",
+                    },
+                ),
+            )
+        with pytest.raises(ToolValidationError):
+            await gateway.dispatch(
+                principal=principal,
+                proposal=ToolCallProposal(
+                    name=ToolName.REQUEST_ACCESS,
+                    arguments={
+                        "resource": "finance-admin",
+                        "justification": "test",
+                        "approved": True,
+                    },
+                ),
+            )
 
     asyncio.run(exercise())
 
@@ -91,12 +116,15 @@ def test_mcp_tool_schemas_hide_authoritative_identity() -> None:
                 "search_knowledge_base",
                 "get_my_assets",
                 "create_ticket",
+                "request_access",
+                "request_password_reset",
             }
             for tool in tools.tools:
                 properties = tool.input_schema.get("properties", {})
                 assert "principal" not in properties
                 assert "tenant_id" not in properties
                 assert "user_id" not in properties
+                assert "approved" not in properties
 
     asyncio.run(list_schemas())
 

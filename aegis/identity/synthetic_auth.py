@@ -7,10 +7,20 @@ _SYNTHETIC_PRINCIPALS: dict[str, Principal] = {
         tenant_id="tenant_northstar_dynamics",
         roles=frozenset({Role.EMPLOYEE}),
     ),
+    "carol.approver@northstar-dynamics.test": Principal(
+        user_id="usr_dyn_carol",
+        tenant_id="tenant_northstar_dynamics",
+        roles=frozenset({Role.ADMIN_APPROVER}),
+    ),
     "bob@northstar-digital.test": Principal(
         user_id="usr_dig_bob",
         tenant_id="tenant_northstar_digital",
         roles=frozenset({Role.EMPLOYEE}),
+    ),
+    "dave.approver@northstar-digital.test": Principal(
+        user_id="usr_dig_dave",
+        tenant_id="tenant_northstar_digital",
+        roles=frozenset({Role.ADMIN_APPROVER}),
     ),
 }
 

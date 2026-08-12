@@ -4,6 +4,8 @@ from fastapi import Depends, FastAPI, HTTPException, status
 
 from aegis.agent.graph import AgentRunner
 from aegis.agent.models import AgentRunRequest, AgentRunResponse
+from aegis.approvals.models import ApprovalDecisionRequest
+from aegis.approvals.store import ApprovalError
 from aegis.identity.models import Principal
 from aegis.mcp_gateway.gateway import ToolGatewayError
 from aegis.rag.models import SearchRequest, SearchResponse, SearchResult
@@ -15,7 +17,7 @@ from apps.api.dependencies import (
 )
 
 
-app = FastAPI(title="AegisDesk", version="0.2.0")
+app = FastAPI(title="AegisDesk", version="0.3.0")
 
 
 @app.get("/healthz")
@@ -58,4 +60,27 @@ async def run_agent(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Tool request rejected by the server-side gateway",
+        ) from exc
+
+
+@app.post(
+    "/v1/approvals/{approval_id}/decision",
+    response_model=AgentRunResponse,
+)
+async def decide_approval(
+    approval_id: str,
+    request: ApprovalDecisionRequest,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    agent: Annotated[AgentRunner, Depends(get_agent_runner)],
+) -> AgentRunResponse:
+    try:
+        return await agent.review_and_resume(
+            approval_id=approval_id,
+            approver=principal,
+            decision=request.decision,
+        )
+    except ApprovalError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Approval decision rejected by server-side policy",
         ) from exc

@@ -11,6 +11,8 @@ class ToolName(StrEnum):
     SEARCH_KNOWLEDGE_BASE = "search_knowledge_base"
     GET_MY_ASSETS = "get_my_assets"
     CREATE_TICKET = "create_ticket"
+    REQUEST_ACCESS = "request_access"
+    REQUEST_PASSWORD_RESET = "request_password_reset"
 
 
 class ToolCallProposal(BaseModel):
@@ -32,10 +34,23 @@ class GetMyAssetsArgs(BaseModel):
 
 
 class CreateTicketArgs(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     title: str = Field(min_length=1, max_length=120)
     description: str = Field(min_length=1, max_length=2000)
+
+
+class RequestAccessArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    resource: str = Field(min_length=1, max_length=200)
+    justification: str = Field(min_length=1, max_length=1000)
+
+
+class RequestPasswordResetArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    reason: str = Field(min_length=1, max_length=1000)
 
 
 class SearchKnowledgeBaseOutput(BaseModel):
@@ -56,3 +71,12 @@ class CreateTicketOutput(BaseModel):
     ticket_id: str
     status: str
     title: str
+
+
+class ApprovalRequestOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    approval_id: str
+    action: str
+    status: str
+    expires_at: str

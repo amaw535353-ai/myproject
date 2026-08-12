@@ -6,6 +6,7 @@ from fastapi import Header, HTTPException, status
 
 from aegis.agent.fake_model import DeterministicFakeModel
 from aegis.agent.graph import AgentRunner
+from aegis.approvals.store import ApprovalStore
 from aegis.helpdesk.stores import AssetStore, TicketStore
 from aegis.identity.models import Principal
 from aegis.identity.synthetic_auth import resolve_synthetic_principal
@@ -52,11 +53,17 @@ def get_ticket_store() -> TicketStore:
 
 
 @lru_cache(maxsize=1)
+def get_approval_store() -> ApprovalStore:
+    return ApprovalStore()
+
+
+@lru_cache(maxsize=1)
 def get_tool_gateway() -> ToolGateway:
     return ToolGateway(
         knowledge_store=get_knowledge_store(),
         asset_store=get_asset_store(),
         ticket_store=get_ticket_store(),
+        approval_store=get_approval_store(),
     )
 
 
@@ -65,4 +72,5 @@ def get_agent_runner() -> AgentRunner:
     return AgentRunner(
         model=DeterministicFakeModel(),
         gateway=get_tool_gateway(),
+        approval_store=get_approval_store(),
     )
