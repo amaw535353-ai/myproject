@@ -12,6 +12,12 @@ from aegis.helpdesk.stores import AssetStore, TicketStore
 from aegis.identity.models import Principal
 from aegis.identity.synthetic_auth import resolve_synthetic_principal
 from aegis.mcp_gateway.gateway import ToolGateway
+from aegis.observability.security_events import (
+    P2H_SYNTHETIC_KEY_ID,
+    InMemorySecurityEventSink,
+    SecurityTelemetryRecorder,
+    TelemetryPseudonymizer,
+)
 from aegis.policy.tool_capabilities import READ_ONLY_RAG_POLICY
 from aegis.rag.answering import RagAnswerRunner
 from aegis.rag.store import KnowledgeStore
@@ -20,6 +26,12 @@ from aegis.rag.store import KnowledgeStore
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 _KNOWLEDGE_PATH = _REPOSITORY_ROOT / "synthetic_data" / "knowledge.json"
 _ASSETS_PATH = _REPOSITORY_ROOT / "synthetic_data" / "assets.json"
+
+# Local synthetic lab key only. Production must load telemetry pseudonymization
+# material from a secret manager or equivalent protected configuration.
+_SYNTHETIC_TELEMETRY_HMAC_KEY = (
+    b"aegisdesk-local-synthetic-telemetry-hmac-key-v1-2026"
+)
 
 
 async def get_current_principal(
@@ -71,11 +83,28 @@ def get_tool_gateway() -> ToolGateway:
 
 
 @lru_cache(maxsize=1)
+def get_security_event_sink() -> InMemorySecurityEventSink:
+    return InMemorySecurityEventSink()
+
+
+@lru_cache(maxsize=1)
+def get_security_telemetry_recorder() -> SecurityTelemetryRecorder:
+    return SecurityTelemetryRecorder(
+        sink=get_security_event_sink(),
+        pseudonymizer=TelemetryPseudonymizer(
+            key=_SYNTHETIC_TELEMETRY_HMAC_KEY,
+            key_id=P2H_SYNTHETIC_KEY_ID,
+        ),
+    )
+
+
+@lru_cache(maxsize=1)
 def get_agent_runner() -> AgentRunner:
     return AgentRunner(
         model=DeterministicFakeModel(),
         gateway=get_tool_gateway(),
         approval_store=get_approval_store(),
+        telemetry=get_security_telemetry_recorder(),
     )
 
 

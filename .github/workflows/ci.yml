@@ -41,3 +41,5 @@ jobs:
         run: python -m evals.p2f_durable_memory_poisoning
       - name: P2-G resource-exhaustion evaluation
         run: python -m evals.p2g_resource_exhaustion
+      - name: P2-H telemetry-redaction evaluation
+        run: python -m evals.p2h_telemetry_leakage

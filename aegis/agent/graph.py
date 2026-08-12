@@ -1,3 +1,4 @@
+import time
 from dataclasses import dataclass
 from threading import RLock
 from typing import Any, Literal, TypedDict
@@ -14,6 +15,7 @@ from aegis.approvals.store import ApprovalStateError, ApprovalStore
 from aegis.identity.models import Principal
 from aegis.mcp_gateway.gateway import ToolGateway
 from aegis.mcp_gateway.models import ToolCallProposal, ToolName
+from aegis.observability.security_events import ToolTelemetryRecorder
 
 
 MAX_TOOL_CALLS = 1
@@ -30,11 +32,13 @@ class AgentState(TypedDict, total=False):
     tool_result: dict[str, Any]
     tool_calls: int
     approval_outcome: str
+    trace_id: str
 
 
 @dataclass(frozen=True)
 class PendingRun:
     thread_id: str
+    trace_id: str
     requester: Principal
     proposal: ToolCallProposal
 
@@ -46,10 +50,12 @@ class AgentRunner:
         model: DeterministicFakeModel,
         gateway: ToolGateway,
         approval_store: ApprovalStore,
+        telemetry: ToolTelemetryRecorder | None = None,
     ) -> None:
         self._model = model
         self._gateway = gateway
         self._approval_store = approval_store
+        self._telemetry = telemetry
         self._pending_runs: dict[str, PendingRun] = {}
         self._pending_lock = RLock()
 
@@ -79,10 +85,23 @@ class AgentRunner:
             raise RuntimeError("tool call budget exhausted")
 
         normalized = self._gateway.normalize_proposal(state["proposal"])
+        started_ns = time.monotonic_ns()
         result = await self._gateway.dispatch(
             principal=state["principal"],
             proposal=normalized,
         )
+        duration_ms = max(0, (time.monotonic_ns() - started_ns) // 1_000_000)
+
+        if self._telemetry is not None:
+            self._telemetry.record_tool_execution(
+                trace_id=state["trace_id"],
+                principal=state["principal"],
+                message=state["message"],
+                proposal=normalized,
+                result=result,
+                duration_ms=duration_ms,
+            )
+
         return {
             "proposal": normalized,
             "tool_result": result,
@@ -127,9 +146,15 @@ class AgentRunner:
 
     async def run(self, *, principal: Principal, message: str) -> AgentRunResponse:
         thread_id = uuid4().hex
+        trace_id = uuid4().hex
         config = {"configurable": {"thread_id": thread_id}}
         state = await self._graph.ainvoke(
-            {"principal": principal, "message": message, "tool_calls": 0},
+            {
+                "principal": principal,
+                "message": message,
+                "tool_calls": 0,
+                "trace_id": trace_id,
+            },
             config=config,
         )
         proposal = state["proposal"]
@@ -139,6 +164,7 @@ class AgentRunner:
             with self._pending_lock:
                 self._pending_runs[approval_id] = PendingRun(
                     thread_id=thread_id,
+                    trace_id=trace_id,
                     requester=principal,
                     proposal=proposal,
                 )
@@ -191,6 +217,18 @@ class AgentRunner:
             if outcome == "approved"
             else AgentRunStatus.REJECTED
         )
+
+        if self._telemetry is not None:
+            self._telemetry.record_approval_decision(
+                trace_id=pending.trace_id,
+                requester=pending.requester,
+                approver=approver,
+                approval_id=approval_id,
+                proposal=pending.proposal,
+                decision=decision,
+                final_status=ApprovalStatus(state["tool_result"]["status"]),
+            )
+
         return AgentRunResponse(
             tool=pending.proposal.name,
             result=state["tool_result"],
