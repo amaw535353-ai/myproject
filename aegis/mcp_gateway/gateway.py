@@ -1,0 +1,83 @@
+from typing import Any
+
+from mcp import Client
+from pydantic import BaseModel, ValidationError
+
+from aegis.helpdesk.stores import AssetStore, TicketStore
+from aegis.identity.models import Principal
+from aegis.mcp_gateway.models import (
+    CreateTicketArgs,
+    GetMyAssetsArgs,
+    SearchKnowledgeBaseArgs,
+    ToolCallProposal,
+    ToolName,
+)
+from aegis.mcp_gateway.security_context import bind_principal, reset_principal
+from aegis.mcp_gateway.server import build_mcp_server
+from aegis.rag.store import KnowledgeStore
+
+
+class ToolGatewayError(RuntimeError):
+    pass
+
+
+class ToolValidationError(ToolGatewayError):
+    pass
+
+
+class ToolExecutionError(ToolGatewayError):
+    pass
+
+
+_ARGUMENT_MODELS: dict[ToolName, type[BaseModel]] = {
+    ToolName.SEARCH_KNOWLEDGE_BASE: SearchKnowledgeBaseArgs,
+    ToolName.GET_MY_ASSETS: GetMyAssetsArgs,
+    ToolName.CREATE_TICKET: CreateTicketArgs,
+}
+
+
+class ToolGateway:
+    def __init__(
+        self,
+        *,
+        knowledge_store: KnowledgeStore,
+        asset_store: AssetStore,
+        ticket_store: TicketStore,
+    ) -> None:
+        self.server = build_mcp_server(
+            knowledge_store=knowledge_store,
+            asset_store=asset_store,
+            ticket_store=ticket_store,
+        )
+
+    async def dispatch(
+        self,
+        *,
+        principal: Principal,
+        proposal: ToolCallProposal,
+    ) -> dict[str, Any]:
+        argument_model = _ARGUMENT_MODELS[proposal.name]
+        try:
+            validated = argument_model.model_validate(proposal.arguments)
+        except ValidationError as exc:
+            raise ToolValidationError(
+                f"invalid arguments for tool {proposal.name.value}"
+            ) from exc
+
+        token = bind_principal(principal)
+        try:
+            async with Client(self.server) as client:
+                result = await client.call_tool(
+                    proposal.name.value,
+                    validated.model_dump(),
+                )
+        finally:
+            reset_principal(token)
+
+        if result.is_error:
+            raise ToolExecutionError(f"tool {proposal.name.value} failed")
+        if result.structured_content is None:
+            raise ToolExecutionError(
+                f"tool {proposal.name.value} returned no structured output"
+            )
+        return dict(result.structured_content)
