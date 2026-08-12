@@ -1,0 +1,30 @@
+[
+  {
+    "id": 101,
+    "tenant_id": "tenant_northstar_dynamics",
+    "title": "Northstar Dynamics VPN Setup",
+    "text": "Employees use the Dynamics VPN profile named NSD-CORP. The synthetic tenant canary is AEGIS-NORTH-7Q4M.",
+    "canary": "AEGIS-NORTH-7Q4M"
+  },
+  {
+    "id": 102,
+    "tenant_id": "tenant_northstar_dynamics",
+    "title": "Northstar Dynamics Password Reset Policy",
+    "text": "Password reset requests require support review and do not directly change credentials. Canary AEGIS-NORTH-7Q4M.",
+    "canary": "AEGIS-NORTH-7Q4M"
+  },
+  {
+    "id": 201,
+    "tenant_id": "tenant_northstar_digital",
+    "title": "Northstar Digital VPN Setup",
+    "text": "Employees use the Digital VPN profile named NSDIG-CORP. The synthetic tenant canary is AEGIS-DIGITAL-9K2X.",
+    "canary": "AEGIS-DIGITAL-9K2X"
+  },
+  {
+    "id": 202,
+    "tenant_id": "tenant_northstar_digital",
+    "title": "Northstar Digital Password Reset Policy",
+    "text": "Password reset requests require support review and do not directly change credentials. Canary AEGIS-DIGITAL-9K2X.",
+    "canary": "AEGIS-DIGITAL-9K2X"
+  }
+]
