@@ -37,3 +37,5 @@ jobs:
         run: python -m evals.p2d_token_passthrough
       - name: P2-E SSRF and redirect evaluation
         run: python -m evals.p2e_ssrf_redirects
+      - name: P2-F durable-memory evaluation
+        run: python -m evals.p2f_durable_memory_poisoning
