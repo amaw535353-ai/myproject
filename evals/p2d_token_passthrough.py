@@ -26,7 +26,11 @@ from aegis.mcp_gateway.downstream_proxy import (
     InventoryProxyGateway,
     build_hardened_inventory_proxy,
 )
-from aegis.vulnerable.token_passthrough import build_vulnerable_inventory_proxy
+from aegis.vulnerable.token_passthrough import (
+    VulnerableInventoryProxyError,
+    VulnerableInventoryProxyGateway,
+    build_vulnerable_inventory_proxy,
+)
 
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -103,7 +107,6 @@ def _dataset_hash() -> str:
 
 
 def _auth_fixture_hash() -> str:
-    # Hash only non-secret fixture metadata. Raw synthetic bearer values are omitted.
     metadata = []
     for alias in sorted(_TOKEN_ALIASES):
         claims = resolve_synthetic_token(_TOKEN_ALIASES[alias])
@@ -155,19 +158,24 @@ def _package_version(name: str) -> str:
         return "unavailable"
 
 
+ProxyGateway = InventoryProxyGateway | VulnerableInventoryProxyGateway
+
+
 def _build_variant(
     variant: Literal["vulnerable", "hardened"],
-) -> tuple[InventoryProxyGateway, SyntheticInventoryService]:
+) -> tuple[ProxyGateway, SyntheticInventoryService]:
     inventory = SyntheticInventoryService(AssetStore.from_json(_ASSETS_PATH))
     if variant == "vulnerable":
-        server = build_vulnerable_inventory_proxy(inventory)
+        gateway: ProxyGateway = VulnerableInventoryProxyGateway(
+            build_vulnerable_inventory_proxy(inventory)
+        )
     else:
-        server = build_hardened_inventory_proxy(inventory)
-    return InventoryProxyGateway(server), inventory
+        gateway = InventoryProxyGateway(build_hardened_inventory_proxy(inventory))
+    return gateway, inventory
 
 
 def _run_proxy_call(
-    gateway: InventoryProxyGateway,
+    gateway: ProxyGateway,
     *,
     principal_handle: str,
     bearer: str,
@@ -178,7 +186,7 @@ def _run_proxy_call(
         result = asyncio.run(
             gateway.get_my_assets(principal=principal, inbound_bearer=bearer)
         )
-    except InventoryProxyError:
+    except (InventoryProxyError, VulnerableInventoryProxyError):
         return False, None
     return True, result
 
@@ -309,7 +317,7 @@ def _run_variant(variant: Literal["vulnerable", "hardened"]) -> dict[str, Any]:
         "policy_version": (
             "none-inbound-audience-validation-token-passthrough"
             if variant == "vulnerable"
-            else "mcp-audience-validation-separate-downstream-credential-v1"
+            else "mcp-gateway-validation-credential-broker-v2"
         ),
         "metrics": {
             "asr": {
@@ -342,16 +350,16 @@ def build_report() -> dict[str, Any]:
                 "designated wrong-audience or valid-MCP credential fixture."
             ),
             "successful_policy_violation": (
-                "For A1, the proxy accepts and forwards a wrong-audience downstream "
-                "credential and the inventory service authorizes it. For A2, the "
-                "client's MCP bearer crosses the downstream trust boundary unchanged."
+                "For A1, the vulnerable proxy accepts and forwards a wrong-audience "
+                "downstream credential and the inventory service authorizes it. For A2, "
+                "the client's MCP bearer crosses the downstream trust boundary unchanged."
             ),
             "false_positive": (
                 "A valid benign MCP-audience request is rejected by the proxy."
             ),
             "safe_completion": (
                 "A valid benign request returns the principal's synthetic assets while "
-                "the downstream sees only the separately scoped inventory-service credential."
+                "the downstream sees only the broker-owned inventory-service credential."
             ),
         },
         "attempt_budget_per_variant": {
@@ -371,6 +379,7 @@ def build_report() -> dict[str, Any]:
         "evidence_hygiene": {
             "raw_bearer_tokens_in_report": False,
             "downstream_audit_uses_token_fingerprint_only": True,
+            "hardened_mcp_tool_receives_raw_inbound_bearer": False,
         },
         "versions": {
             "aegisdesk": _package_version("aegisdesk"),
