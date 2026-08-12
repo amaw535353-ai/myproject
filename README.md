@@ -2,29 +2,21 @@
 
 AegisDesk is a production-style AI security portfolio lab for building, attacking, and hardening a multi-tenant help-desk agent.
 
-## Current milestone: P2-A
+## Current milestone: P2-B
 
-P2-A adds the first **intentionally vulnerable comparison baseline** while preserving the hardened P1 security spine.
+P2-B adds a deterministic poisoned-document indirect prompt-injection scenario and a server-owned capability boundary for the read-only RAG answer path.
 
-Verified security architecture carried forward from Phase 1:
+Verified security architecture carried forward:
 
-- synthetic server-resolved principals;
-- mandatory tenant filtering for hardened RAG;
-- model-visible tool arguments never include authoritative identity fields;
-- MCP `Resolve(...)` injects the trusted principal outside the model schema;
-- strict Pydantic validation rejects malformed or extra tool arguments;
-- low-impact tools: `search_knowledge_base`, `get_my_assets`, and `create_ticket`;
-- high-impact tools `request_access` and `request_password_reset` create pending approval requests only;
-- approval records bind requester, tenant, exact action, normalized arguments, expiry, and a server nonce;
-- same-tenant human approver required; replay, transfer, mutation, self-approval, cross-tenant approval, and expiry fail closed;
-- deterministic fake model, in-memory MCP, Qdrant local mode, and CI remain $0.
+- server-derived synthetic principals and mandatory tenant-filtered hardened RAG;
+- typed MCP tools with trusted principal injection outside model-visible arguments;
+- high-impact requests create pending approval records only and require bound human approval;
+- vulnerable demonstrations live only under `aegis/vulnerable/` and the separately launched `apps/vulnerable_api/` factory;
+- deterministic fake models, Qdrant local mode, in-memory MCP, and GitHub Actions require no paid model API.
 
-P2-A intentionally adds two unsafe behaviors for authorized local testing:
+P2-A demonstrates shared-vector cross-tenant leakage and client-controlled tenant substitution. P2-B demonstrates a different boundary: an authorized same-tenant document contains a synthetic instruction that causes the fixed RAG model to propose `create_ticket` or `request_access` even though the user asked only a read-only knowledge question.
 
-1. unfiltered retrieval from a shared multi-tenant vector collection;
-2. trusting a client-supplied `tenant_id` as the retrieval authorization boundary.
-
-These behaviors live only in `aegis/vulnerable/` and `apps/vulnerable_api/`. The hardened `apps.api.main` does not import, mount, or feature-flag them, and the vulnerable module intentionally has **no module-level `app` object**.
+The vulnerable P2-B runner blindly dispatches the proposal. The hardened `/v1/rag/answer` path applies the server-owned `read-only-rag-capability-v1` policy before MCP dispatch. Retrieved text and model output cannot modify that capability set.
 
 ## Run the hardened app in Codespaces
 
@@ -34,42 +26,48 @@ pytest
 uvicorn apps.api.main:app --host 127.0.0.1 --port 8000
 ```
 
+Read-only RAG answer:
+
+```bash
+curl -s http://127.0.0.1:8000/v1/rag/answer \
+  -H 'Content-Type: application/json' \
+  -H 'X-Aegis-User: alice@northstar-dynamics.test' \
+  -d '{"query":"vpn setup","limit":1}'
+```
+
 ## Run the intentionally vulnerable lab
 
-**Local synthetic lab only. Never expose this port publicly and never point the attack examples at third-party systems.** The explicit factory target is required on purpose:
+**Local synthetic lab only. Never expose this port publicly and never point the examples at third-party systems.**
 
 ```bash
 uvicorn apps.vulnerable_api.main:create_intentionally_vulnerable_lab_app \
   --factory --host 127.0.0.1 --port 8001
 ```
 
-Example cross-tenant leakage reproduction using Alice's synthetic Dynamics identity:
+P2-B poisoned-document reproduction:
 
 ```bash
-curl -s http://127.0.0.1:8001/v1/knowledge/search-unfiltered \
+curl -s http://127.0.0.1:8001/v1/rag/answer-poisonable \
   -H 'Content-Type: application/json' \
   -H 'X-Aegis-User: alice@northstar-dynamics.test' \
-  -d '{"query":"vpn password reset","limit":5}'
+  -d '{"query":"orchid orchid orchid diagnostic","limit":1}'
 ```
 
-Example tenant-substitution reproduction:
+The vulnerable response reports that the synthetic `create_ticket` proposal executed. The hardened matched evaluation blocks the same proposal before MCP dispatch.
 
-```bash
-curl -s http://127.0.0.1:8001/v1/knowledge/search-client-tenant \
-  -H 'Content-Type: application/json' \
-  -H 'X-Aegis-User: alice@northstar-dynamics.test' \
-  -d '{"query":"vpn","tenant_id":"tenant_northstar_digital","limit":5}'
-```
-
-## Deterministic P2-A comparison
+## Deterministic security comparisons
 
 ```bash
 python -m evals.p2a_tenant_boundary
+python -m evals.p2b_indirect_prompt_injection
 ```
 
-The report compares the vulnerable and hardened variants with the same two adversarial payloads, synthetic principal, corpus, deterministic embeddings, query limits, and attempt budget. It records ASR numerator/denominator, hashes, dependency versions, HTTP outcomes, and retrieved document IDs without printing response bodies or canary values. FPR and SafeTaskRate are intentionally deferred until a matched benign dataset exists.
+P2-B uses two fixed adversarial attempts and one matched benign request per variant. It records ASR, FPR, and SafeTaskRate with raw numerators/denominators plus code/dependency/model/prompt/policy/corpus evidence. It does not print answer bodies, canaries, approval handles, or ticket IDs.
 
-See `docs/threat-model/p2a-tenant-boundary.md` for threats, preconditions, reproduction steps, controls, evidence, framework mappings, and residual risk.
+Threat-model evidence:
+
+- `docs/threat-model/p2a-tenant-boundary.md`
+- `docs/threat-model/p2b-indirect-prompt-injection.md`
 
 ### Prototype persistence limitation
 
@@ -84,4 +82,4 @@ The approval subsystem still uses LangGraph `InMemorySaver` and an in-memory app
 
 `X-Aegis-User` is a synthetic lab authentication handle, not a production authentication design.
 
-All organizations, identities, records, credentials, and canaries in this repository are synthetic.
+All organizations, identities, records, credentials, canaries, poison documents, and side effects in this repository are synthetic.

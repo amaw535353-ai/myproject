@@ -29,3 +29,5 @@ jobs:
         run: pytest
       - name: P2-A tenant-boundary evaluation
         run: python -m evals.p2a_tenant_boundary
+      - name: P2-B indirect-prompt-injection evaluation
+        run: python -m evals.p2b_indirect_prompt_injection

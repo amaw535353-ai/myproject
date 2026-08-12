@@ -8,16 +8,24 @@ from aegis.approvals.models import ApprovalDecisionRequest
 from aegis.approvals.store import ApprovalError
 from aegis.identity.models import Principal
 from aegis.mcp_gateway.gateway import ToolGatewayError
-from aegis.rag.models import SearchRequest, SearchResponse, SearchResult
+from aegis.rag.answering import RagAnswerRunner, to_public_response
+from aegis.rag.models import (
+    RagAnswerRequest,
+    RagAnswerResponse,
+    SearchRequest,
+    SearchResponse,
+    SearchResult,
+)
 from aegis.rag.store import KnowledgeStore
 from apps.api.dependencies import (
     get_agent_runner,
     get_current_principal,
     get_knowledge_store,
+    get_rag_answer_runner,
 )
 
 
-app = FastAPI(title="AegisDesk", version="0.3.0")
+app = FastAPI(title="AegisDesk", version="0.5.0")
 
 
 @app.get("/healthz")
@@ -46,6 +54,20 @@ def search_knowledge_base(
             for document in documents
         ]
     )
+
+
+@app.post("/v1/rag/answer", response_model=RagAnswerResponse)
+async def answer_with_rag(
+    request: RagAnswerRequest,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    runner: Annotated[RagAnswerRunner, Depends(get_rag_answer_runner)],
+) -> RagAnswerResponse:
+    outcome = await runner.answer(
+        principal=principal,
+        query=request.query,
+        limit=request.limit,
+    )
+    return to_public_response(outcome)
 
 
 @app.post("/v1/agent/run", response_model=AgentRunResponse)
