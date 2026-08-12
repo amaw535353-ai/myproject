@@ -132,3 +132,64 @@ def test_expired_approval_fails_closed() -> None:
             decision=ApprovalDecision.APPROVE,
         )
     assert store.get(record.approval_id).status is ApprovalStatus.EXPIRED
+
+
+def test_action_substitution_invalidates_approval() -> None:
+    store = ApprovalStore()
+    alice = _principal("alice@northstar-dynamics.test")
+    carol = _principal("carol.approver@northstar-dynamics.test")
+    arguments = {"resource": "finance-read", "justification": "quarterly reports"}
+
+    record = store.create(
+        requester=alice,
+        action=ApprovalAction.REQUEST_ACCESS,
+        arguments=arguments,
+    )
+    store.decide(
+        approval_id=record.approval_id,
+        approver=carol,
+        decision=ApprovalDecision.APPROVE,
+    )
+
+    with pytest.raises(ApprovalBindingError):
+        store.consume(
+            approval_id=record.approval_id,
+            requester=alice,
+            action=ApprovalAction.REQUEST_PASSWORD_RESET,
+            arguments=arguments,
+        )
+
+    assert store.get(record.approval_id).status is ApprovalStatus.APPROVED
+
+
+def test_approved_record_cannot_be_consumed_after_expiry() -> None:
+    now = [datetime(2026, 8, 12, 12, 0, tzinfo=timezone.utc)]
+    store = ApprovalStore(
+        ttl=timedelta(seconds=30),
+        clock=lambda: now[0],
+    )
+    alice = _principal("alice@northstar-dynamics.test")
+    carol = _principal("carol.approver@northstar-dynamics.test")
+    arguments = {"resource": "finance-read", "justification": "test"}
+
+    record = store.create(
+        requester=alice,
+        action=ApprovalAction.REQUEST_ACCESS,
+        arguments=arguments,
+    )
+    store.decide(
+        approval_id=record.approval_id,
+        approver=carol,
+        decision=ApprovalDecision.APPROVE,
+    )
+    now[0] += timedelta(seconds=31)
+
+    with pytest.raises(ApprovalStateError):
+        store.consume(
+            approval_id=record.approval_id,
+            requester=alice,
+            action=ApprovalAction.REQUEST_ACCESS,
+            arguments=arguments,
+        )
+
+    assert store.get(record.approval_id).status is ApprovalStatus.EXPIRED
