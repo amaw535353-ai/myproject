@@ -2,18 +2,22 @@
 
 AegisDesk is a production-style AI security portfolio lab for building, attacking, and hardening a multi-tenant help-desk agent.
 
-## Current milestone: P1-A
+## Current milestone: P1-B
 
-This branch implements the first security spine:
+P1-B adds a deterministic LangGraph agent and an MCP v2 tool gateway while preserving the P1-A tenant boundary.
+
+Security properties implemented so far:
 
 - synthetic server-resolved principals;
-- direct Qdrant local-mode retrieval;
-- mandatory server-side tenant filtering;
-- strict request schemas that reject identity/tenant substitution;
-- deterministic, zero-cost local embeddings;
-- CI that uses no paid model API or external model service.
+- mandatory tenant filtering for RAG;
+- model-visible tool arguments never include authoritative identity fields;
+- MCP `Resolve(...)` injects the trusted principal outside the model schema;
+- a second Pydantic validation boundary rejects malformed or extra tool arguments;
+- only three low-impact tools are available: `search_knowledge_base`, `get_my_assets`, and `create_ticket`;
+- each agent run has a one-tool-call budget;
+- deterministic fake model and local in-memory MCP client keep CI at $0.
 
-The effective `tenant_id` is never accepted from the request body, prompt, retrieved text, or model output. It is derived from the authenticated principal by trusted server-side code.
+High-impact tools (`request_access` and `request_password_reset`) are intentionally deferred until the approval-binding milestone.
 
 ## Synthetic identities
 
@@ -22,7 +26,7 @@ Use the `X-Aegis-User` header in this lab only:
 - `alice@northstar-dynamics.test`
 - `bob@northstar-digital.test`
 
-These values are synthetic handles. The server maps them to immutable principals and tenant IDs. `X-Aegis-User` is not intended as a production authentication mechanism.
+The header is a synthetic lab authentication handle, not a production authentication design.
 
 ## Run in Codespaces
 
@@ -32,7 +36,7 @@ pytest
 uvicorn apps.api.main:app --host 127.0.0.1 --port 8000
 ```
 
-Example:
+Tenant-isolated RAG:
 
 ```bash
 curl -s http://127.0.0.1:8000/v1/knowledge/search \
@@ -41,8 +45,20 @@ curl -s http://127.0.0.1:8000/v1/knowledge/search \
   -d '{"query":"vpn setup","limit":3}'
 ```
 
-## Security status
+Deterministic agent:
 
-Only P1-A controls are implemented. Approval workflows, MCP tools, the vulnerable baseline, agent execution, tracing, SSRF protections, and later evaluation tooling are intentionally not present yet.
+```bash
+curl -s http://127.0.0.1:8000/v1/agent/run \
+  -H 'Content-Type: application/json' \
+  -H 'X-Aegis-User: alice@northstar-dynamics.test' \
+  -d '{"message":"assets"}'
+```
 
-All organizations, identities, records, and canary strings in this repository are synthetic.
+Other deterministic examples:
+
+```text
+search: vpn setup
+ticket: VPN problem | I cannot connect to the synthetic VPN.
+```
+
+All organizations, identities, records, credentials, and canaries in this repository are synthetic.

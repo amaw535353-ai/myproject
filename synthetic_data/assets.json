@@ -1,0 +1,23 @@
+[
+  {
+    "asset_id": "NSD-LAPTOP-001",
+    "tenant_id": "tenant_northstar_dynamics",
+    "assigned_user_id": "usr_dyn_alice",
+    "asset_type": "laptop",
+    "label": "Dynamics Engineering Laptop"
+  },
+  {
+    "asset_id": "NSD-PHONE-001",
+    "tenant_id": "tenant_northstar_dynamics",
+    "assigned_user_id": "usr_dyn_alice",
+    "asset_type": "phone",
+    "label": "Dynamics Test Phone"
+  },
+  {
+    "asset_id": "NSDIG-LAPTOP-001",
+    "tenant_id": "tenant_northstar_digital",
+    "assigned_user_id": "usr_dig_bob",
+    "asset_type": "laptop",
+    "label": "Digital Support Laptop"
+  }
+]
