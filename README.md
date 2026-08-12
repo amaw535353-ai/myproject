@@ -2,9 +2,9 @@
 
 AegisDesk is a production-style AI security portfolio lab for building, attacking, and hardening a multi-tenant help-desk agent.
 
-## Current milestone: P2-D
+## Current milestone: P2-E
 
-P2-D adds a deterministic **MCP token-passthrough / confused-deputy** comparison at the `MCP client -> gateway -> MCP tool -> downstream resource` trust boundaries.
+P2-E adds a deterministic **SSRF / DNS / redirect-revalidation** comparison at the outbound URL -> network destination trust boundary.
 
 Verified security architecture carried forward:
 
@@ -13,10 +13,14 @@ Verified security architecture carried forward:
 - high-impact requests create pending approval records only and require bound human approval;
 - retrieved text cannot expand server-owned tool capabilities;
 - MCP discovery metadata cannot override host-owned server/tool bindings;
+- inbound MCP bearer credentials terminate at the gateway and are never available to downstream MCP tool execution;
+- downstream access uses a server-owned credential broker with a separate least-privilege credential;
 - intentionally vulnerable demonstrations remain isolated and use only local synthetic effects;
 - deterministic fake/no-model evaluations, Qdrant local mode, in-memory MCP, and GitHub Actions require no paid model API.
 
-P2-D uses a local synthetic inventory resource server and fixed synthetic bearer fixtures. The intentionally vulnerable proxy performs no MCP audience validation, carries the caller bearer into MCP context, and forwards it unchanged. The hardened design takes a different path: the MCP-facing gateway validates audience, subject, and scope, **discards the raw bearer before MCP execution**, binds only the trusted `Principal`, and lets a server-owned `InventoryCredentialBroker` call inventory with a separate `assets:read` service credential. Raw bearer values are excluded from evaluation output and downstream audit evidence.
+P2-E introduces a server-owned `UrlSecurityPolicy`, deterministic resolver, and in-memory synthetic HTTP transport. The vulnerable comparison checks only the initial allowlisted hostname, then trusts its DNS answer and follows redirects without revalidation. The hardened fetcher requires HTTPS, exact host allowlisting, default port, safe authority syntax, globally routable DNS answers, bounded redirects/body size, and **revalidates every redirect target before connection**.
+
+No P2-E test opens a socket or performs real DNS. Link-local and loopback addresses are deterministic labels inside the synthetic transport only.
 
 ## Run in Codespaces
 
@@ -33,7 +37,7 @@ uvicorn apps.vulnerable_api.main:create_intentionally_vulnerable_lab_app \
   --factory --host 127.0.0.1 --port 8001
 ```
 
-Never expose the vulnerable lab publicly and never point the attack examples at third-party systems.
+Never expose the vulnerable lab publicly and never point attack examples at third-party systems.
 
 ## Deterministic security comparisons
 
@@ -42,13 +46,17 @@ python -m evals.p2a_tenant_boundary
 python -m evals.p2b_indirect_prompt_injection
 python -m evals.p2c_mcp_tool_poisoning
 python -m evals.p2d_token_passthrough
+python -m evals.p2e_ssrf_redirects
 ```
 
-P2-D uses two fixed adversarial attempts and two benign attempts per variant. Both variants use the same synthetic principals, token fixtures, inventory service, asset corpus, MCP tool surface, and attempt budget; only credential-boundary handling differs.
+P2-E uses two fixed adversarial attempts and two benign attempts per variant. Both variants use the same synthetic allowlist, DNS records, routes, redirect/body budgets, and attempt budget; only outbound authorization differs.
 
-The adversarial cases demonstrate wrong-audience token reuse and valid MCP token passthrough. In the hardened path, wrong-audience credentials are rejected before MCP execution, and valid MCP credentials are never placed in MCP tool context or forwarded downstream. The broker API accepts only the trusted principal; it owns the separate inventory-service credential.
+The adversarial cases are:
 
-Reports include raw ASR/FPR/SafeTaskRate numerators and denominators plus code/dependency/model/policy/dataset/corpus metadata. They do not print raw bearer values, response bodies, canaries, approval handles, or ticket IDs.
+- an allowlisted public URL that redirects to a synthetic link-local destination;
+- an allowlisted hostname whose deterministic DNS result is loopback/private.
+
+The hardened path revalidates the redirect and rejects non-global resolved addresses before transport dispatch. Reports include raw ASR/FPR/SafeTaskRate numerators and denominators plus code/dependency/policy/dataset/network-fixture evidence without response bodies or real network traffic.
 
 Threat-model evidence:
 
@@ -56,10 +64,11 @@ Threat-model evidence:
 - `docs/threat-model/p2b-indirect-prompt-injection.md`
 - `docs/threat-model/p2c-mcp-tool-poisoning.md`
 - `docs/threat-model/p2d-token-passthrough.md`
+- `docs/threat-model/p2e-ssrf-redirects.md`
 
 ### Prototype limitations
 
-The P2-D synthetic token registry and `InventoryCredentialBroker` prove trust-boundary behavior; they are **not** an OAuth or token-exchange implementation. Production code must use standards-compliant authorization libraries/identity providers, resource/audience binding, short-lived tokens, HTTPS, least-privilege scopes, secure credential storage/rotation, and redacted telemetry.
+P2-E proves outbound authorization invariants with a synthetic transport. A production network tool still needs a real HTTP client integration that pins the policy-approved destination, strong TLS verification, explicit proxy behavior, independent egress filtering, timeouts, byte/redirect budgets, and telemetry redaction.
 
 The approval subsystem still uses LangGraph `InMemorySaver` and an in-memory approval store. A process restart loses pending workflows. Durable persistence remains a later hardening milestone.
 
@@ -72,4 +81,4 @@ The approval subsystem still uses LangGraph `InMemorySaver` and an in-memory app
 
 `X-Aegis-User` is a synthetic lab authentication handle, not a production authentication design.
 
-All organizations, identities, records, credentials, canaries, poison documents, MCP servers, and side effects in this repository are synthetic.
+All organizations, identities, records, credentials, canaries, poison documents, MCP servers, network routes, and side effects in this repository are synthetic.
