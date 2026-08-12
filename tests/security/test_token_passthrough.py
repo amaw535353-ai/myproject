@@ -20,7 +20,11 @@ from aegis.mcp_gateway.downstream_proxy import (
     InventoryProxyGateway,
     build_hardened_inventory_proxy,
 )
-from aegis.vulnerable.token_passthrough import build_vulnerable_inventory_proxy
+from aegis.vulnerable.token_passthrough import (
+    VulnerableInventoryProxyError,
+    VulnerableInventoryProxyGateway,
+    build_vulnerable_inventory_proxy,
+)
 from evals.p2d_token_passthrough import build_report
 
 
@@ -42,6 +46,8 @@ def test_hardened_proxy_tool_schema_hides_identity_and_bearer() -> None:
         properties = tool.input_schema.get("properties", {})
         assert "principal" not in properties
         assert "inbound_bearer" not in properties
+        assert "authorization" not in properties
+        assert "token" not in properties
         assert "tenant_id" not in properties
         assert "user_id" not in properties
 
@@ -52,7 +58,9 @@ def test_vulnerable_proxy_forwards_wrong_audience_token_and_downstream_authorize
     alice = resolve_synthetic_principal("alice@northstar-dynamics.test")
     assert alice is not None
     inventory = _inventory()
-    gateway = InventoryProxyGateway(build_vulnerable_inventory_proxy(inventory))
+    gateway = VulnerableInventoryProxyGateway(
+        build_vulnerable_inventory_proxy(inventory)
+    )
 
     result = asyncio.run(
         gateway.get_my_assets(
@@ -69,7 +77,7 @@ def test_vulnerable_proxy_forwards_wrong_audience_token_and_downstream_authorize
     assert events[0].authorized is True
 
 
-def test_hardened_proxy_rejects_wrong_audience_before_downstream() -> None:
+def test_hardened_proxy_rejects_wrong_audience_before_mcp_or_downstream() -> None:
     alice = resolve_synthetic_principal("alice@northstar-dynamics.test")
     assert alice is not None
     inventory = _inventory()
@@ -90,9 +98,11 @@ def test_vulnerable_proxy_leaks_valid_mcp_token_even_when_downstream_rejects() -
     alice = resolve_synthetic_principal("alice@northstar-dynamics.test")
     assert alice is not None
     inventory = _inventory()
-    gateway = InventoryProxyGateway(build_vulnerable_inventory_proxy(inventory))
+    gateway = VulnerableInventoryProxyGateway(
+        build_vulnerable_inventory_proxy(inventory)
+    )
 
-    with pytest.raises(InventoryProxyError):
+    with pytest.raises(VulnerableInventoryProxyError):
         asyncio.run(
             gateway.get_my_assets(principal=alice, inbound_bearer=MCP_ALICE_TOKEN)
         )
@@ -104,7 +114,7 @@ def test_vulnerable_proxy_leaks_valid_mcp_token_even_when_downstream_rejects() -
     assert events[0].authorized is False
 
 
-def test_hardened_proxy_uses_separate_service_credential_downstream() -> None:
+def test_hardened_proxy_uses_broker_owned_service_credential_downstream() -> None:
     alice = resolve_synthetic_principal("alice@northstar-dynamics.test")
     assert alice is not None
     inventory = _inventory()
@@ -124,8 +134,10 @@ def test_hardened_proxy_uses_separate_service_credential_downstream() -> None:
 
 
 def test_p2d_evaluation_report_never_contains_raw_bearer_values() -> None:
-    rendered = json.dumps(build_report(), sort_keys=True)
+    report = build_report()
+    rendered = json.dumps(report, sort_keys=True)
 
+    assert report["evidence_hygiene"]["hardened_mcp_tool_receives_raw_inbound_bearer"] is False
     for raw_token in (
         MCP_ALICE_TOKEN,
         MCP_BOB_TOKEN,
