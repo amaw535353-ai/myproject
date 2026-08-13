@@ -1,0 +1,293 @@
+{
+  "schema_version": "aegis.phase2-control-evidence.v1",
+  "release_version": "0.23.0",
+  "phase2_exit": {
+    "decision": "pass-for-deterministic-local-lab-objectives",
+    "phase3_entry": "ready-with-open-integration-gaps",
+    "production_readiness": false,
+    "basis": "P2-A through P2-S remain deterministic CI-gated security comparisons. This registry distinguishes controls used by the default API from reusable components and evaluation-only control-plane proofs."
+  },
+  "runtime_status_definitions": {
+    "default_api": "The hardened control is directly composed into the default FastAPI runtime path relevant to the control.",
+    "component_only": "A hardened reusable component exists and is regression-tested, but the corresponding optional feature or boundary is not composed into the default API path.",
+    "evaluation_only": "The hardened control-plane primitive is proven by deterministic tests/evaluation but is not default application authority."
+  },
+  "controls": [
+    {
+      "id": "P2-A",
+      "title": "Tenant-boundary RAG isolation",
+      "security_property": "Retrieval authority comes from the server-derived principal and hardened knowledge queries are tenant-filtered.",
+      "runtime_status": "default_api",
+      "implementation_paths": ["aegis/rag/store.py", "apps/api/main.py"],
+      "vulnerable_path": "aegis/vulnerable/rag.py",
+      "threat_model": "docs/threat-model/p2a-tenant-boundary.md",
+      "eval_module": "evals.p2a_tenant_boundary",
+      "phase3_action": "Keep tenant derivation and query filters inside the consolidated runtime composition root."
+    },
+    {
+      "id": "P2-B",
+      "title": "Indirect prompt injection capability boundary",
+      "security_property": "Retrieved content can influence language but cannot expand server-owned tool capability.",
+      "runtime_status": "default_api",
+      "implementation_paths": ["aegis/rag/answering.py", "aegis/policy/tool_capabilities.py", "apps/api/dependencies.py"],
+      "vulnerable_path": "aegis/vulnerable/indirect_prompt_injection.py",
+      "threat_model": "docs/threat-model/p2b-indirect-prompt-injection.md",
+      "eval_module": "evals.p2b_indirect_prompt_injection",
+      "phase3_action": "Retain explicit host-owned capability policies at every untrusted-content boundary."
+    },
+    {
+      "id": "P2-C",
+      "title": "MCP tool poisoning and shadowing",
+      "security_property": "MCP discovery metadata cannot override host-owned server/tool identity and dispatch bindings.",
+      "runtime_status": "component_only",
+      "implementation_paths": ["aegis/mcp_gateway/host_registry.py"],
+      "vulnerable_path": "aegis/vulnerable/mcp_tool_poisoning.py",
+      "threat_model": "docs/threat-model/p2c-mcp-tool-poisoning.md",
+      "eval_module": "evals.p2c_mcp_tool_poisoning",
+      "phase3_action": "Require the host registry before runtime configuration can enable external or dynamic MCP discovery."
+    },
+    {
+      "id": "P2-D",
+      "title": "Credential termination and downstream brokering",
+      "security_property": "Inbound MCP bearer credentials terminate at the gateway and are never forwarded as downstream authority.",
+      "runtime_status": "component_only",
+      "implementation_paths": ["aegis/mcp_gateway/downstream_proxy.py", "aegis/downstream/credential_broker.py"],
+      "vulnerable_path": "aegis/vulnerable/token_passthrough.py",
+      "threat_model": "docs/threat-model/p2d-token-passthrough.md",
+      "eval_module": "evals.p2d_token_passthrough",
+      "phase3_action": "Route future downstream integrations through the broker instead of direct synthetic stores."
+    },
+    {
+      "id": "P2-E",
+      "title": "SSRF, DNS, and redirect revalidation",
+      "security_property": "Outbound fetches use exact host policy, public resolved addresses, redirect revalidation, and bounded transport.",
+      "runtime_status": "component_only",
+      "implementation_paths": ["aegis/network/fetcher.py", "aegis/network/policy.py"],
+      "vulnerable_path": "aegis/vulnerable/ssrf.py",
+      "threat_model": "docs/threat-model/p2e-ssrf-redirects.md",
+      "eval_module": "evals.p2e_ssrf_redirects",
+      "phase3_action": "Make the hardened fetcher mandatory before browser or network features can be enabled."
+    },
+    {
+      "id": "P2-F",
+      "title": "Durable memory is data, not authority",
+      "security_property": "Persisted memory cannot replace authenticated identity, tenant, role, or approval authority.",
+      "runtime_status": "component_only",
+      "implementation_paths": ["aegis/memory/service.py", "aegis/memory/store.py"],
+      "vulnerable_path": "aegis/vulnerable/memory_poisoning.py",
+      "threat_model": "docs/threat-model/p2f-durable-memory-poisoning.md",
+      "eval_module": "evals.p2f_durable_memory_poisoning",
+      "phase3_action": "Wire memory only through an explicit data-only interface if it becomes a default runtime feature."
+    },
+    {
+      "id": "P2-G",
+      "title": "Agent loop and resource exhaustion limits",
+      "security_property": "Multi-step execution is bounded by server-owned step, model, tool, retry, byte, duplicate-call, and time budgets.",
+      "runtime_status": "component_only",
+      "implementation_paths": ["aegis/agent/bounded_loop.py", "aegis/agent/execution_budget.py"],
+      "vulnerable_path": "aegis/vulnerable/resource_exhaustion.py",
+      "threat_model": "docs/threat-model/p2g-resource-exhaustion.md",
+      "eval_module": "evals.p2g_resource_exhaustion",
+      "phase3_action": "Use the shared bounded execution policy before enabling general multi-step agents."
+    },
+    {
+      "id": "P2-H",
+      "title": "Telemetry minimization and redaction",
+      "security_property": "Telemetry leaves the agent as typed allowlisted pseudonymized security events rather than raw sensitive objects.",
+      "runtime_status": "default_api",
+      "implementation_paths": ["aegis/observability/security_events.py", "apps/api/dependencies.py"],
+      "vulnerable_path": "aegis/vulnerable/telemetry_leakage.py",
+      "threat_model": "docs/threat-model/p2h-telemetry-redaction.md",
+      "eval_module": "evals.p2h_telemetry_leakage",
+      "phase3_action": "Preserve application-side minimization when replacing the in-memory telemetry sink."
+    },
+    {
+      "id": "P2-I",
+      "title": "Malicious artifact handling",
+      "security_property": "Untrusted artifacts receive server-owned paths, passive handling, and bounded archive extraction.",
+      "runtime_status": "component_only",
+      "implementation_paths": ["aegis/artifacts/service.py"],
+      "vulnerable_path": "aegis/vulnerable/artifact_handling.py",
+      "threat_model": "docs/threat-model/p2i-malicious-artifacts.md",
+      "eval_module": "evals.p2i_artifact_handling",
+      "phase3_action": "Require the hardened artifact service before adding artifact endpoints to the default API."
+    },
+    {
+      "id": "P2-J",
+      "title": "Browser indirect prompt injection",
+      "security_property": "Webpage content remains untrusted data and cannot create tool authority; fetches stay behind the hardened network boundary.",
+      "runtime_status": "component_only",
+      "implementation_paths": ["aegis/browser/answering.py", "aegis/network/fetcher.py"],
+      "vulnerable_path": "aegis/vulnerable/browser_prompt_injection.py",
+      "threat_model": "docs/threat-model/p2j-browser-prompt-injection.md",
+      "eval_module": "evals.p2j_browser_prompt_injection",
+      "phase3_action": "Promote browser support only as a read-only capability composed with P2-E and P2-B."
+    },
+    {
+      "id": "P2-K",
+      "title": "Durable approval workflow restart safety",
+      "security_property": "Human review is server-bound, durable, and non-replayable across restart; completed approvals are not bearer capabilities.",
+      "runtime_status": "default_api",
+      "implementation_paths": ["aegis/approvals/durable.py", "aegis/agent/graph.py", "apps/api/dependencies.py"],
+      "vulnerable_path": "aegis/vulnerable/p2k_restartable_approval.py",
+      "threat_model": "docs/threat-model/p2k-durable-approval-workflow.md",
+      "eval_module": "evals.p2k_durable_approval_workflow",
+      "phase3_action": "Keep approval/workflow binding as the sole resume authority in the consolidated high-impact path."
+    },
+    {
+      "id": "P2-L",
+      "title": "Transactional outbox and idempotent synthetic effects",
+      "security_property": "Approval consumption and outbox creation are atomic and duplicate delivery cannot create a duplicate synthetic effect.",
+      "runtime_status": "default_api",
+      "implementation_paths": ["aegis/effects/durable.py", "apps/api/dependencies.py"],
+      "vulnerable_path": "aegis/vulnerable/p2l_duplicate_effect.py",
+      "threat_model": "docs/threat-model/p2l-transactional-outbox.md",
+      "eval_module": "evals.p2l_transactional_outbox",
+      "phase3_action": "Preserve server-derived idempotency while higher authorization fences are composed into the worker."
+    },
+    {
+      "id": "P2-M",
+      "title": "Execution-time authorization revalidation",
+      "security_property": "The first synthetic effect revalidates current server-owned authorization atomically with effect insertion and durable denial.",
+      "runtime_status": "default_api",
+      "implementation_paths": ["aegis/effects/revalidation.py", "apps/api/dependencies.py"],
+      "vulnerable_path": "aegis/vulnerable/p2m_stale_approval.py",
+      "threat_model": "docs/threat-model/p2m-execution-time-authorization.md",
+      "eval_module": "evals.p2m_execution_time_authorization",
+      "phase3_action": "Use P2-M as the default-runtime floor while P2-N through P2-S are consolidated above it."
+    },
+    {
+      "id": "P2-N",
+      "title": "Authorization freshness and version fencing",
+      "security_property": "Cached authorization is usable only when policy version and revocation epoch match authoritative state at the first effect.",
+      "runtime_status": "evaluation_only",
+      "implementation_paths": ["aegis/effects/versioned_revalidation.py"],
+      "vulnerable_path": "aegis/vulnerable/p2n_stale_cache.py",
+      "threat_model": "docs/threat-model/p2n-authorization-freshness.md",
+      "eval_module": "evals.p2n_authorization_freshness",
+      "phase3_action": "Integrate version-fenced freshness into the default high-impact effect worker."
+    },
+    {
+      "id": "P2-O",
+      "title": "Authenticated authorization provenance",
+      "security_property": "Authorization evidence is signed for the exact issuer, audience, binding, validity window, signing key, and key epoch.",
+      "runtime_status": "evaluation_only",
+      "implementation_paths": ["aegis/effects/signed_authorization.py"],
+      "vulnerable_path": "aegis/vulnerable/p2o_unsigned_authorization.py",
+      "threat_model": "docs/threat-model/p2o-authorization-provenance.md",
+      "eval_module": "evals.p2o_authorization_provenance",
+      "phase3_action": "Compose signed provenance and monotonic key-epoch validation into the default worker."
+    },
+    {
+      "id": "P2-P",
+      "title": "Rollback-resistant trust anchor",
+      "security_property": "The first new effect requires signed authorization to match an independent monotonic control-plane generation.",
+      "runtime_status": "evaluation_only",
+      "implementation_paths": ["aegis/effects/rollback_anchor.py"],
+      "vulnerable_path": "aegis/vulnerable/p2p_rollback_blind_authorization.py",
+      "threat_model": "docs/threat-model/p2p-rollback-resistant-trust-anchor.md",
+      "eval_module": "evals.p2p_rollback_resistant_anchor",
+      "phase3_action": "Make independent generation state part of the consolidated control-plane composition root."
+    },
+    {
+      "id": "P2-Q",
+      "title": "Crash-safe control-plane recovery",
+      "security_property": "Security mutations follow prepared/applied/active convergence and authorization fails closed while recovery is pending or generations disagree.",
+      "runtime_status": "evaluation_only",
+      "implementation_paths": ["aegis/effects/control_plane_recovery.py"],
+      "vulnerable_path": "aegis/vulnerable/p2q_partial_control_plane.py",
+      "threat_model": "docs/threat-model/p2q-control-plane-recovery.md",
+      "eval_module": "evals.p2q_control_plane_recovery",
+      "phase3_action": "Centralize covered security-state writes behind one crash-safe coordinator and recover before authorization issuance."
+    },
+    {
+      "id": "P2-R",
+      "title": "Protected monotonic recovery checkpoint",
+      "security_property": "A protected generation and journal head outside the local rollback set fence obsolete but internally consistent local state.",
+      "runtime_status": "evaluation_only",
+      "implementation_paths": ["aegis/effects/protected_checkpoint.py"],
+      "vulnerable_path": "aegis/vulnerable/p2r_local_snapshot_checkpoint.py",
+      "threat_model": "docs/threat-model/p2r-protected-recovery-checkpoint.md",
+      "eval_module": "evals.p2r_protected_checkpoint",
+      "phase3_action": "Inject the checkpoint authority behind an explicit protected-domain interface with fail-closed startup."
+    },
+    {
+      "id": "P2-S",
+      "title": "Authenticated checkpoint history and equivocation detection",
+      "security_property": "Protected receipts are Ed25519-authenticated, predecessor-linked, and single-history pinned so forgery and equivocation fail closed.",
+      "runtime_status": "evaluation_only",
+      "implementation_paths": ["aegis/effects/checkpoint_receipt_boundary.py", "aegis/effects/checkpoint_receipt_models.py", "aegis/effects/receipt_witness.py"],
+      "vulnerable_path": "aegis/vulnerable/p2s_checkpoint_metadata_lab.py",
+      "threat_model": "docs/threat-model/p2s-checkpoint-authenticity.md",
+      "eval_module": "evals.p2s_checkpoint_authenticity",
+      "phase3_action": "Make signed receipt verification and durable witness history part of the consolidated default high-impact boundary."
+    }
+  ],
+  "phase3_gaps": [
+    {
+      "id": "P3-G01",
+      "severity": "critical",
+      "title": "Default runtime stops at P2-M",
+      "status": "open",
+      "risk": "P2-N through P2-S are proven controls but are not yet the authority used by the default API high-impact effect path.",
+      "acceptance_criteria": [
+        "The default approval-to-synthetic-effect path composes P2-N through P2-S above P2-L/P2-M.",
+        "Stale, forged, rollback-restored, and equivocated authority cases are rejected through default application wiring.",
+        "High-impact tools remain approval requests and synthetic local effects only."
+      ],
+      "evidence_required": ["default-runtime integration tests", "deterministic regression evaluation", "composition-root documentation"]
+    },
+    {
+      "id": "P3-G02",
+      "severity": "critical",
+      "title": "Control-plane write-path exclusivity",
+      "status": "open",
+      "risk": "Future direct writes can violate generation, journal, checkpoint, and receipt-history invariants.",
+      "acceptance_criteria": [
+        "One authoritative repository/coordinator owns covered subject, policy, signing-key, generation, checkpoint, and witness mutations.",
+        "Runtime modules cannot obtain direct mutation-capable stores that bypass the coordinator.",
+        "Negative tests prove bypass writes are unavailable or fail closed."
+      ],
+      "evidence_required": ["write-path inventory", "negative bypass tests", "single-writer architecture note"]
+    },
+    {
+      "id": "P3-G03",
+      "severity": "high",
+      "title": "Protected authority trust-domain abstraction",
+      "status": "open",
+      "risk": "The checkpoint and witness are local SQLite proofs; colocating production state with rollback-restorable authority invalidates the independence claim.",
+      "acceptance_criteria": [
+        "Checkpoint and witness dependencies are injected behind explicit interfaces with server-owned authority, audience, and key configuration.",
+        "Runtime startup rejects rollback-domain aliasing or missing protected authority.",
+        "The local deterministic implementation remains a documented lab adapter only."
+      ],
+      "evidence_required": ["startup fail-closed tests", "trust-domain configuration tests", "deployment-boundary documentation"]
+    },
+    {
+      "id": "P3-G04",
+      "severity": "high",
+      "title": "Control-plane composition and startup recovery",
+      "status": "open",
+      "risk": "State, effect, anchor, checkpoint, and witness primitives do not yet have one default composition root that owns safe ordering and startup recovery.",
+      "acceptance_criteria": [
+        "One composition root owns the high-impact control-plane stores and ordering relationships.",
+        "Crash recovery and protected-history validation finish before new authorization or first-effect execution is enabled.",
+        "Duplicate authority representations are removed or explicitly non-authoritative."
+      ],
+      "evidence_required": ["composition-root tests", "startup recovery tests", "authority/data-flow diagram"]
+    },
+    {
+      "id": "P3-G05",
+      "severity": "medium",
+      "title": "Feature promotion gates for component-only controls",
+      "status": "open",
+      "risk": "Optional features could later be enabled without their hardened Phase 2 boundary.",
+      "acceptance_criteria": [
+        "External MCP discovery, network/browser access, artifact ingestion, durable memory, and general multi-step execution each require their hardened control at enablement.",
+        "Configuration tests reject feature/control mismatches.",
+        "The default API remains safe with optional features disabled."
+      ],
+      "evidence_required": ["feature-control mapping", "configuration regression tests", "default-runtime inventory"]
+    }
+  ]
+}
