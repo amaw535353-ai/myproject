@@ -3,9 +3,11 @@ from typing import Any
 
 from aegis.agent.execution_budget import (
     AgentExecutionLimits,
+    ClockMs,
     ExecutionBudget,
     P2G_EXECUTION_LIMITS,
     P2G_POLICY_VERSION,
+    monotonic_ms,
 )
 from aegis.agent.graph import AgentRunner
 
@@ -23,7 +25,9 @@ class DefaultBudgetedAgentRunner(AgentRunner):
         self,
         *,
         limits: AgentExecutionLimits = P2G_EXECUTION_LIMITS,
+        clock_ms: ClockMs = monotonic_ms,
         **kwargs: Any,
     ) -> None:
         self._execution_limits = limits
+        self._execution_clock_ms = clock_ms
         super().__init__(**kwargs)
