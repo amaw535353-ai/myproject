@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aegisdesk"
-version = "0.24.0"
+version = "0.25.0"
 description = "Zero-Trust Agentic RAG Security Lab"
 requires-python = ">=3.12,<3.14"
 dependencies = [
@@ -17,10 +17,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = [
-  "httpx==0.28.1",
-  "pytest==9.1.1",
-]
+dev = ["httpx==0.28.1", "pytest==9.1.1"]
 
 [tool.setuptools.packages.find]
 include = ["aegis*", "apps*"]
