@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from pathlib import Path
-
-import pytest
 
 from aegis.agent.checkpoint_security import (
     DEFAULT_CHECKPOINT_SERIALIZATION_POLICY,
@@ -24,15 +23,16 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def _runner() -> AgentRunner:
+    approvals = ApprovalStore()
     return AgentRunner(
         model=DeterministicFakeModel(),
         gateway=ToolGateway(
             knowledge_store=KnowledgeStore.from_json(ROOT / "synthetic_data" / "knowledge.json"),
             asset_store=AssetStore.from_json(ROOT / "synthetic_data" / "assets.json"),
             ticket_store=TicketStore(),
-            approval_store=ApprovalStore(),
+            approval_store=approvals,
         ),
-        approval_store=ApprovalStore(),
+        approval_store=approvals,
     )
 
 
@@ -56,13 +56,12 @@ def test_serializer_uses_strict_application_allowlist() -> None:
     assert serializer._allowed_msgpack_modules == set(P4A_ALLOWED_MSGPACK_TYPES)
 
 
-@pytest.mark.asyncio
-async def test_default_agent_checkpoint_roundtrip_has_no_permissive_warning(caplog) -> None:
+def test_default_agent_checkpoint_roundtrip_has_no_permissive_warning(caplog) -> None:
     alice = resolve_synthetic_principal("alice@northstar-dynamics.test")
     assert alice is not None
     runner = _runner()
     with caplog.at_level(logging.WARNING, logger="langgraph.checkpoint.serde.jsonplus"):
-        result = await runner.run(principal=alice, message="assets")
+        result = asyncio.run(runner.run(principal=alice, message="assets"))
     assert {item["asset_id"] for item in result.result["assets"]} == {
         "NSD-LAPTOP-001",
         "NSD-PHONE-001",
