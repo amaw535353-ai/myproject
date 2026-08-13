@@ -2,9 +2,9 @@
 
 AegisDesk is a production-style AI security portfolio lab for building, attacking, and hardening a multi-tenant help-desk agent.
 
-## Current milestone: P2-N
+## Current milestone: P2-O
 
-P2-N adds **revocation-epoch and policy-version fencing for cached authorization decisions**. A worker may still consult a cache or replica, but an old `allowed` decision is no longer sufficient: the side-effecting node accepts it only when its server-generated binding, tenant, policy version, and revocation epoch match the current authoritative version state immediately before the first synthetic effect is recorded.
+P2-O adds **authenticated authorization-decision provenance and signing-key anti-rollback**. P2-N already fenced stale policy/revocation versions; P2-O closes the remaining gap where a malicious cache or intermediary edits those fields to look current or replays a once-valid decision from an obsolete signing key.
 
 Verified security architecture carried forward:
 
@@ -24,9 +24,10 @@ Verified security architecture carried forward:
 - approved effects use a server-derived idempotency key and downstream idempotency ledger;
 - current authorization is revalidated at the first synthetic effect boundary;
 - cached authorization is accepted only when its policy version and revocation epoch match authoritative state;
-- authoritative subject/resource revocations advance a monotonic revocation epoch;
-- authoritative policy changes advance a monotonic policy version;
-- freshness denial creates durable terminal state so an old approval cannot revive after authorization restoration or cache catch-up;
+- authorization evidence must carry a valid Ed25519 signature from the expected issuer for the exact effect-worker audience;
+- signed claims bind the tenant, exact outbox record, policy version, revocation epoch, decision validity window, signing key ID, and monotonic key epoch;
+- an obsolete signing key cannot become authoritative again through the normal rotation API;
+- provenance/freshness denial creates durable terminal state so old evidence cannot later revive;
 - intentionally vulnerable demonstrations remain isolated and use only local synthetic effects;
 - deterministic fake/no-model evaluations, Qdrant local mode, SQLite, in-memory MCP, and GitHub Actions require no paid model API.
 
@@ -38,11 +39,13 @@ P2-M added `RevalidatingDurableEffectWorker` and `SyntheticRevalidatingEffectSer
 
 P2-N models the harder distributed case where that execution-time check is served by a stale replica. `CachedAuthorizationReplica` emits a frozen server-owned decision bound to the exact outbox record and carrying the replica's `policy_version` and `revocation_epoch`. `VersionFencedSyntheticEffectService` reads the authoritative counters and inserts the first synthetic effect in one transaction; exact version equality is required. A stale subject-revocation epoch or stale policy version therefore fails closed even when the replica still says `allowed`.
 
-`VersionedAuthorizationController` changes the synthetic authoritative state and its relevant monotonic counter in one SQLite transaction. Subject/resource authority changes advance the revocation epoch, while policy changes advance the policy version. The model, retrieved content, browser pages, tool output, and retry-time caller cannot supply or override these counters.
+P2-O makes those authorization claims cryptographically attributable. `AuthorizationDecisionSigner` signs canonical `aegis.authz-decision.v1` claims with a synthetic Ed25519 issuer key. The downstream `ProvenanceFencedSyntheticEffectService` accepts only the expected issuer/audience, trusted current signing-key epoch, valid signature and validity window, exact tenant/outbox binding, current P2-N policy/revocation versions, and an `allowed` result before the first synthetic effect is inserted.
 
-An already-recorded idempotent effect is checked before freshness validation. This preserves P2-L crash recovery: if an effect was validly authorized and committed before a worker crashed, a later revocation does not cause retry to duplicate or strand that already-executed outcome.
+`TrustedAuthorizationKeyStore` keeps only trusted Ed25519 public keys and the authoritative current key epoch in the same SQLite execution boundary as the P2-N version counters and synthetic effect ledger. Key rotation is monotonic. Signature verification, current key-epoch checking, P2-N freshness checking, durable denial lookup, and first effect insertion are serialized by the same local `BEGIN IMMEDIATE` transaction.
 
-The intentionally vulnerable P2-N comparison retains the bound cached decision and P2-L idempotent downstream ledger but ignores the authoritative version counters. Its only intended defect is trusting a stale cached `allowed` result without a point-of-effect freshness fence.
+An already-recorded idempotent effect is checked before provenance/freshness validation. This preserves P2-L crash recovery: if an effect was validly authorized and committed before a worker crashed, a later key rotation or authorization change does not duplicate or strand that already-executed outcome.
+
+The intentionally vulnerable P2-O comparison keeps issuer/audience strings, tenant/outbox binding, validity windows, current P2-N versions, the `allowed` requirement, and the P2-L idempotent effect ledger. Its intended defects are only that it never verifies the Ed25519 signature and never requires the decision's signing-key epoch to equal the authoritative current key epoch.
 
 ## Run in Codespaces
 
@@ -80,11 +83,12 @@ python -m evals.p2k_durable_approval_workflow
 python -m evals.p2l_transactional_outbox
 python -m evals.p2m_execution_time_authorization
 python -m evals.p2n_authorization_freshness
+python -m evals.p2o_authorization_provenance
 ```
 
-P2-N uses two fixed adversarial attempts and two benign attempts per variant. The adversarial set keeps a local authorization replica stale across an authoritative subject revocation and across a password-reset policy change. The benign set verifies a version-current access decision and a replica synchronized to a newer policy version still complete exactly once.
+P2-O uses two fixed adversarial attempts and two benign attempts per variant. A1 changes a signed stale revocation epoch to the current value while reusing the old signature; hardened execution rejects the forged claims. A2 rotates the trusted signing key from epoch 1 to epoch 2 and then replays the still-cryptographically-valid epoch-1 decision; hardened execution rejects the obsolete provenance. The benign set verifies current epoch-1 and post-rotation epoch-2 signed decisions still complete exactly once.
 
-Reports include raw ASR/FPR/SafeTaskRate numerators and denominators plus code/dependency/model/prompt/policy/dataset evidence. P2-N also reports only non-sensitive integer version counters and rejection reason codes. Approval IDs, idempotency keys, authorization binding hashes, raw authorization rows, raw effect arguments, effect references, credentials, and real external side effects are excluded.
+Reports include raw ASR/FPR/SafeTaskRate numerators and denominators plus code/dependency/model/prompt/policy/dataset evidence. P2-O reports only non-sensitive key/version epochs and rejection reason codes. Signatures, private-key bytes, deterministic seed labels, approval IDs, idempotency keys, authorization binding hashes, raw authorization rows, raw effect arguments, effect references, credentials, and real external side effects are excluded.
 
 Threat-model evidence:
 
@@ -102,14 +106,15 @@ Threat-model evidence:
 - `docs/threat-model/p2l-transactional-outbox.md`
 - `docs/threat-model/p2m-execution-time-authorization.md`
 - `docs/threat-model/p2n-authorization-freshness.md`
+- `docs/threat-model/p2o-authorization-provenance.md`
 
 ### Prototype limitations
 
-P2-N is a local proof of a distributed authorization-freshness invariant, not a distributed authorization service. The fence is only sound if every authoritative security mutation atomically advances the required monotonic counter and the effect boundary reads the genuinely authoritative counter. A replica that contains stale authorization data while falsely claiming the current epoch/version is outside this milestone and must be prevented by production decision issuance, provenance, and consistency controls.
+P2-O is a local signed-evidence proof, not a production PKI or distributed authorization platform. Production still needs protected issuer private-key custody, authenticated trust-root/public-key distribution, compromise recovery, secure rotation and revocation procedures, clock guarantees, algorithm agility, multi-region authoritative version allocation, and point-of-use enforcement at the real side-effecting service.
 
-A production multi-region design still needs authoritative version allocation, authenticated decision provenance, durable replication semantics, cache invalidation, tenant-scoped namespaces, rollback protection, explicit revocation propagation guarantees, failure handling when the authoritative fence is unavailable, and point-of-use authorization or tightly scoped short-lived capabilities at the real side-effecting service.
+The P2-O key epoch and P2-N authorization counters currently live inside the same authoritative local SQLite execution database. If an attacker can restore that **entire database** to an older internally consistent snapshot, the local service has no external monotonic fact with which to detect the rollback. Production anti-rollback therefore needs a trust anchor or control-plane generation whose durability/authority is independent of the rolled-back effect database.
 
-P2-L's exactly-once limitation still applies: a transactional outbox and freshness fence cannot guarantee exactly-once business outcomes. The real side-effecting system must provide a durable idempotency contract whose retention exceeds all plausible replay windows.
+P2-L's exactly-once limitation still applies: a transactional outbox and signed freshness fence cannot guarantee exactly-once business outcomes. The real side-effecting system must provide a durable idempotency contract whose retention exceeds all plausible replay windows.
 
 The downstream effect service intentionally records only a synthetic local ledger entry. AegisDesk does not grant real access or reset real credentials.
 
@@ -130,4 +135,4 @@ P2-G remains an in-process resource-control proof. A production agent still need
 
 `X-Aegis-User` is a synthetic lab authentication handle, not a production authentication design.
 
-All organizations, identities, records, credentials, canaries, poison documents, MCP servers, network routes, browser pages, memory records, resource-exhaustion workloads, telemetry records, artifacts, archives, approval workflows, outbox messages, authorization replicas, policy/revocation version counters, current authorization-state rows, policy changes, downstream effect ledger rows, and side effects in this repository are synthetic.
+All organizations, identities, records, credentials, canaries, poison documents, MCP servers, network routes, browser pages, memory records, resource-exhaustion workloads, telemetry records, artifacts, archives, approval workflows, outbox messages, authorization replicas, policy/revocation version counters, authorization-signing key labels, trusted public keys, signing-key epochs, current authorization-state rows, policy changes, downstream effect ledger rows, and side effects in this repository are synthetic.
