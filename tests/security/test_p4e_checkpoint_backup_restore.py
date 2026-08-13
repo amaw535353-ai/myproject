@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import shutil
 
 import pytest
@@ -41,6 +42,36 @@ def test_backup_keeps_dynamic_checkpoint_content_encrypted(client, tmp_path) -> 
     assert marker_value.encode() not in (backup / "checkpoints.sqlite3").read_bytes()
     assert manifest["active_encryption_key_id"] == checkpointer.key_provider.active_key_id
     assert manifest["production_backup_claim"] is False
+
+
+def test_backup_restore_preserves_injected_integrity_key_boundary(tmp_path) -> None:
+    integrity_key = hashlib.sha256(b"p4e-custom-integrity-test-key").digest()
+    integrity_key_id = "p4e-custom-integrity-test-key-v1"
+    source = KeyLifecycleConfidentialCheckpointer(
+        database_path=tmp_path / "source" / "checkpoints.sqlite3",
+        anchor_database_path=tmp_path / "source" / "anchors.sqlite3",
+        hmac_key=integrity_key,
+        key_id=integrity_key_id,
+    )
+    put(
+        source,
+        thread_id="p4e-custom-integrity",
+        checkpoint_id="00000001",
+        marker="custom-integrity-state",
+    )
+    backup = tmp_path / "custom-integrity-backup"
+    AuthenticatedCheckpointBackupManager(saver=source).create_backup(backup)
+    manifest = open_package((backup / "manifest.json").read_bytes(), key=P4E_LOCAL_BACKUP_KEY)
+    assert manifest["integrity_key_id"] == integrity_key_id
+
+    target = KeyLifecycleConfidentialCheckpointer(
+        database_path=tmp_path / "target" / "checkpoints.sqlite3",
+        anchor_database_path=tmp_path / "target" / "anchors.sqlite3",
+        hmac_key=integrity_key,
+        key_id=integrity_key_id,
+    )
+    AuthenticatedCheckpointBackupManager(saver=target).restore_backup(backup)
+    assert marker(target, "p4e-custom-integrity") == "custom-integrity-state"
 
 
 def test_stale_restore_is_rejected_and_current_head_is_preserved(tmp_path) -> None:
