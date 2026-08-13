@@ -18,6 +18,7 @@ from aegis.approvals.durable import (
 )
 from aegis.approvals.models import ApprovalAction, ApprovalDecision, ApprovalStatus
 from aegis.approvals.store import ApprovalStateError, ApprovalStore
+from aegis.effects.durable import DurableApprovedEffectPipeline
 from aegis.identity.models import Principal
 from aegis.mcp_gateway.gateway import ToolGateway
 from aegis.mcp_gateway.models import ToolCallProposal, ToolName
@@ -59,12 +60,14 @@ class AgentRunner:
         approval_store: ApprovalStore,
         telemetry: ToolTelemetryRecorder | None = None,
         workflow_store: DurableWorkflowStore | None = None,
+        approved_effect_pipeline: DurableApprovedEffectPipeline | None = None,
     ) -> None:
         self._model = model
         self._gateway = gateway
         self._approval_store = approval_store
         self._telemetry = telemetry
         self._workflow_store = workflow_store
+        self._approved_effect_pipeline = approved_effect_pipeline
         self._pending_runs: dict[str, PendingRun] = {}
         self._pending_lock = RLock()
 
@@ -137,9 +140,6 @@ class AgentRunner:
         return "done"
 
     def _await_approval(self, state: AgentState) -> dict[str, Any]:
-        # Durable mode uses the SQLite workflow journal as the pause/resume source of
-        # truth. The in-memory interrupt path is retained for isolated tests and old
-        # vulnerable comparisons that intentionally do not configure persistence.
         if self._workflow_store is not None:
             return {}
 
@@ -290,21 +290,25 @@ class AgentRunner:
         )
         requester = pending.requester
 
-        # DurableApprovalStore treats the same already-recorded reviewer decision as a
-        # crash-recovery continuation while the workflow is still pending. Conflicting
-        # reviewers/decisions remain rejected. Once the workflow is marked completed,
-        # require_pending() above blocks all replay attempts.
         self._approval_store.decide(
             approval_id=approval_id,
             approver=approver,
             decision=decision,
         )
-        record = self._approval_store.resolve_after_review(
-            approval_id=approval_id,
-            requester=requester,
-            action=pending.action,
-            arguments=pending.arguments,
-        )
+        if self._approved_effect_pipeline is not None:
+            record, _effect = self._approved_effect_pipeline.resolve_and_deliver(
+                approval_id=approval_id,
+                requester=requester,
+                action=pending.action,
+                arguments=pending.arguments,
+            )
+        else:
+            record = self._approval_store.resolve_after_review(
+                approval_id=approval_id,
+                requester=requester,
+                action=pending.action,
+                arguments=pending.arguments,
+            )
 
         if record.status is ApprovalStatus.REJECTED:
             outcome = "rejected"
