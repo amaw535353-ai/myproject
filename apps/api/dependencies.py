@@ -22,6 +22,7 @@ from aegis.helpdesk.stores import AssetStore, TicketStore
 from aegis.identity.models import Principal, Role
 from aegis.identity.synthetic_auth import resolve_synthetic_principal
 from aegis.mcp_gateway.gateway import ToolGateway
+from aegis.mcp_gateway.models import ToolName
 from aegis.observability.security_events import (
     P2H_SYNTHETIC_KEY_ID,
     InMemorySecurityEventSink,
@@ -31,6 +32,7 @@ from aegis.observability.security_events import (
 from aegis.policy.tool_capabilities import READ_ONLY_RAG_POLICY
 from aegis.rag.answering import RagAnswerRunner
 from aegis.rag.store import KnowledgeStore
+from aegis.security.default_surfaces import DEFAULT_EXTERNAL_SURFACE_POLICY
 
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -185,6 +187,7 @@ def get_approved_effect_pipeline() -> DurableApprovedEffectPipeline:
 
 @lru_cache(maxsize=1)
 def get_tool_gateway() -> ToolGateway:
+    DEFAULT_EXTERNAL_SURFACE_POLICY.assert_tool_catalog(tool.value for tool in ToolName)
     return ToolGateway(
         knowledge_store=get_knowledge_store(),
         asset_store=get_asset_store(),
