@@ -1,0 +1,8 @@
+{
+  "classification": "synthetic-test-only-public-fixture",
+  "authority_id": "aegisdesk-synthetic-authorization-control-plane",
+  "audience": "aegisdesk-protected-checkpoint-consumer",
+  "key_id": "checkpoint-ed25519-1",
+  "key_epoch": 1,
+  "seed_label": "aegisdesk-p2s-public-synthetic-checkpoint-signer"
+}
