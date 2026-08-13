@@ -45,3 +45,5 @@ jobs:
         run: python -m evals.p4c_checkpoint_confidentiality
       - name: P4-D checkpoint key lifecycle evaluation
         run: python -m evals.p4d_checkpoint_key_lifecycle
+      - name: P4-E checkpoint backup restore evaluation
+        run: python -m evals.p4e_checkpoint_backup_restore
