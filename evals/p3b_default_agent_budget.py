@@ -49,6 +49,16 @@ def _stores():
     return approvals, tickets, gateway
 
 
+def _runner(hardened: bool):
+    approvals, tickets, gateway = _stores()
+    model = DeterministicFakeModel()
+    if hardened:
+        runner = DefaultBudgetedAgentRunner(model=model, gateway=gateway, approval_store=approvals)
+    else:
+        runner = VulnerablePartialAgentRunner(model=model, gateway=gateway)
+    return runner, tickets
+
+
 def main() -> None:
     print(json.dumps({"evaluation": "P3-B default AgentRunner execution budget integration", "eval_dataset_hash_sha256": _dataset_hash()}, indent=2))
 
