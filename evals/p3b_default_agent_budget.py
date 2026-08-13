@@ -37,6 +37,18 @@ def _dataset_hash() -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
+def _stores():
+    approvals = ApprovalStore()
+    tickets = TicketStore()
+    gateway = ToolGateway(
+        knowledge_store=KnowledgeStore.from_json(ROOT / "synthetic_data" / "knowledge.json"),
+        asset_store=AssetStore.from_json(ROOT / "synthetic_data" / "assets.json"),
+        ticket_store=tickets,
+        approval_store=approvals,
+    )
+    return approvals, tickets, gateway
+
+
 def main() -> None:
     print(json.dumps({"evaluation": "P3-B default AgentRunner execution budget integration", "eval_dataset_hash_sha256": _dataset_hash()}, indent=2))
 
