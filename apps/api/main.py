@@ -1,3 +1,4 @@
+from importlib.metadata import version
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, status
@@ -25,7 +26,7 @@ from apps.api.dependencies import (
 )
 
 
-app = FastAPI(title="AegisDesk", version="0.16.0")
+app = FastAPI(title="AegisDesk", version=version("aegisdesk"))
 
 
 @app.get("/healthz")
