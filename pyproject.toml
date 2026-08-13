@@ -18,3 +18,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["httpx==0.28.1", "pytest==9.1.1"]
+
+[tool.setuptools.packages.find]
+include = ["aegis*", "apps*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["."]
