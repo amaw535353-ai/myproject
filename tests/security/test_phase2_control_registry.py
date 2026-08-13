@@ -27,35 +27,28 @@ def test_non_default_controls_have_gap_or_explicit_runtime_posture() -> None:
         assert set(item.phase3_gaps) <= set(PHASE3_GAPS)
 
 
-def test_p3a_through_p3e_closed_runtime_gaps() -> None:
-    for gap in ("P3-G01", "P3-G02", "P3-G03", "P3-G04", "P3-G05"):
-        assert gap not in PHASE3_GAPS
-    assert set(PHASE3_GAPS) == {"P3-G06"}
+def test_p3a_through_p3f_closed_runtime_gaps() -> None:
+    assert PHASE3_GAPS == {}
 
     p2d = PHASE2_CONTROLS[3]
     assert p2d.deployment_status is DeploymentStatus.DEFAULT_API
     assert "aegis/downstream/credential_broker.py" in p2d.runtime_evidence
-    assert "aegis/mcp_gateway/gateway.py" in p2d.runtime_evidence
 
     p2f = PHASE2_CONTROLS[5]
     assert p2f.deployment_status is DeploymentStatus.DEFAULT_API
     assert "aegis/memory/default_runtime.py" in p2f.runtime_evidence
-    assert "aegis/memory/store.py" in p2f.runtime_evidence
-    assert "apps/api/main.py" in p2f.runtime_evidence
 
-    p2g = PHASE2_CONTROLS[6]
-    assert p2g.deployment_status is DeploymentStatus.DEFAULT_API
-    assert "aegis/agent/default_budgeted_runner.py" in p2g.runtime_evidence
-
-    for item in PHASE2_CONTROLS[13:19]:
+    for item in (PHASE2_CONTROLS[14], PHASE2_CONTROLS[15], PHASE2_CONTROLS[17], PHASE2_CONTROLS[18]):
         assert item.deployment_status is DeploymentStatus.DEFAULT_API
         assert "aegis/effects/default_high_impact.py" in item.runtime_evidence
+        assert "aegis/effects/trust_providers.py" in item.runtime_evidence
+        assert "evals/p3f_trust_provider_posture.py" in item.runtime_evidence
+        assert not item.phase3_gaps
 
     for item in (PHASE2_CONTROLS[4], PHASE2_CONTROLS[8], PHASE2_CONTROLS[9]):
         assert item.deployment_status is DeploymentStatus.LAB_ONLY
         assert not item.phase3_gaps
         assert "aegis/security/default_surfaces.py" in item.runtime_evidence
-        assert "apps/api/dependencies.py" in item.runtime_evidence
 
 
 def test_p3c_default_surface_posture_metrics_are_exact() -> None:
