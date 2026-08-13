@@ -1,0 +1,9 @@
+{
+  "authority_id": "aegisdesk-synthetic-authorization-control-plane",
+  "initial_generation": 1,
+  "protected_domain_id": "synthetic-protected-checkpoint-authority-v1",
+  "rollback_set": [
+    "execution-authorization-and-effect-sqlite",
+    "control-plane-anchor-and-journal-sqlite"
+  ]
+}
