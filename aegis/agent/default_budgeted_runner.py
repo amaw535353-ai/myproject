@@ -38,3 +38,7 @@ class DefaultBudgetedAgentRunner(AgentRunner):
         if budget is None:
             raise RuntimeError("execution budget unavailable")
         return budget
+
+    def _plan(self, state: dict[str, Any]):
+        self._budget().before_model(state["message"])
+        return super()._plan(state)
