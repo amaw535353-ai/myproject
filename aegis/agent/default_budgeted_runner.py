@@ -42,3 +42,7 @@ class DefaultBudgetedAgentRunner(AgentRunner):
     def _plan(self, state: dict[str, Any]):
         self._budget().before_model(state["message"])
         return super()._plan(state)
+
+    async def _execute(self, state: dict[str, Any]) -> dict[str, Any]:
+        self._budget().before_tool(state["proposal"])
+        return await super()._execute(state)
