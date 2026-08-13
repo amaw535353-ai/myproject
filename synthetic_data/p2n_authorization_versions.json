@@ -1,0 +1,14 @@
+{
+  "tenants": [
+    {
+      "tenant_id": "tenant_northstar_dynamics",
+      "policy_version": 1,
+      "revocation_epoch": 1
+    },
+    {
+      "tenant_id": "tenant_northstar_digital",
+      "policy_version": 1,
+      "revocation_epoch": 1
+    }
+  ]
+}
