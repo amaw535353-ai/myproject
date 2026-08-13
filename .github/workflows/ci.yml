@@ -43,3 +43,5 @@ jobs:
         run: python -m evals.p2g_resource_exhaustion
       - name: P2-H telemetry-redaction evaluation
         run: python -m evals.p2h_telemetry_leakage
+      - name: P2-I malicious-artifact evaluation
+        run: python -m evals.p2i_artifact_handling
