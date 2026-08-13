@@ -6,8 +6,9 @@ from typing import Annotated
 
 from fastapi import Header, HTTPException, status
 
+from aegis.agent.default_budgeted_runner import DefaultBudgetedAgentRunner
+from aegis.agent.execution_budget import P2G_EXECUTION_LIMITS
 from aegis.agent.fake_model import DeterministicFakeModel
-from aegis.agent.graph import AgentRunner
 from aegis.agent.rag_model import DeterministicRagSecurityModel
 from aegis.approvals.durable import DurableApprovalStore, DurableWorkflowStore
 from aegis.effects.default_high_impact import (
@@ -206,14 +207,15 @@ def get_security_telemetry_recorder() -> SecurityTelemetryRecorder:
 
 
 @lru_cache(maxsize=1)
-def get_agent_runner() -> AgentRunner:
-    return AgentRunner(
+def get_agent_runner() -> DefaultBudgetedAgentRunner:
+    return DefaultBudgetedAgentRunner(
         model=DeterministicFakeModel(),
         gateway=get_tool_gateway(),
         approval_store=get_approval_store(),
         telemetry=get_security_telemetry_recorder(),
         workflow_store=get_approval_workflow_store(),
         approved_effect_pipeline=get_approved_effect_pipeline(),
+        limits=P2G_EXECUTION_LIMITS,
     )
 
 
