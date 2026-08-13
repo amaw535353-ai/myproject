@@ -46,7 +46,7 @@ def test_default_api_uses_versioned_checkpoint_key_provider(client) -> None:
     assert isinstance(saver, KeyLifecycleConfidentialCheckpointer)
     assert runner.checkpointer is saver
     assert saver.key_provider is provider
-    assert saver.policy_version == P4D_CHECKPOINT_KEY_LIFECYCLE_POLICY_VERSION
+    assert saver.key_lifecycle_policy_version == P4D_CHECKPOINT_KEY_LIFECYCLE_POLICY_VERSION
     assert provider.active_key_id == P4D_LOCAL_SYNTHETIC_ACTIVE_KEY_ID
     assert provider.key_state(P4D_LOCAL_SYNTHETIC_ACTIVE_KEY_ID) is CheckpointKeyState.ACTIVE
     assert provider.key_state(P4D_LOCAL_SYNTHETIC_LEGACY_KEY_ID) is CheckpointKeyState.DECRYPT_ONLY
