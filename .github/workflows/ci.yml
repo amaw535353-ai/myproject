@@ -63,3 +63,5 @@ jobs:
         run: python -m evals.p2q_control_plane_recovery
       - name: P2-R protected recovery-checkpoint evaluation
         run: python -m evals.p2r_protected_checkpoint
+      - name: P2-S deterministic evaluation
+        run: python -m evals.p2s_checkpoint_authenticity
