@@ -2,9 +2,9 @@
 
 AegisDesk is a production-style AI security portfolio lab for building, attacking, and hardening a multi-tenant help-desk agent.
 
-## Current milestone: P2-Q
+## Current milestone: P2-R
 
-P2-Q adds a **crash-safe control-plane commit and recovery protocol**. P2-P detects execution-database rollback with an independent generation anchor, but security-state mutation and generation advancement were still separate commits. P2-Q adds a durable `prepared -> applied -> active` journal, an execution-generation marker committed atomically with each covered security mutation, fail-closed convergence checks, and deterministic forward recovery after partial commits.
+P2-R adds an **externally protected monotonic recovery checkpoint abstraction** around the P2-Q control plane. P2-Q can detect and recover partial commits between the execution database and local anchor/journal, but restoring both local files to the same older internally consistent snapshot removes the local evidence that a later generation existed. P2-R adds a third synthetic protected-domain checkpoint that is excluded from that two-file restore set and binds the active generation to the canonical P2-Q journal hash-chain head. Authorization issuance and the first synthetic effect fail closed unless the local execution generation, local anchor generation, protected generation, and reconstructed journal head all agree.
 
 Verified security architecture carried forward:
 
@@ -32,7 +32,10 @@ Verified security architecture carried forward:
 - P2-Q journals control-plane changes as `prepared`, `applied`, and `active` and commits each covered security mutation with its execution-generation marker;
 - authorization issuance and the first effect fail closed while a control-plane change is pending or execution/anchor generations disagree;
 - deterministic recovery completes a recognized partial control-plane change forward before new authorization is usable;
-- the independent generation lock is held from generation read through the first effect commit, giving the local lab a total order between generation advancement and effect execution;
+- P2-R keeps a monotonic protected checkpoint outside the two local rollback-restorable databases;
+- the protected checkpoint binds generation to the canonical active P2-Q journal hash-chain head, so equal generation numbers are insufficient when journal integrity diverges;
+- a local generation that is ahead of the protected checkpoint is unusable until prefix-validated recovery catches the checkpoint forward, while a protected checkpoint ahead of local state is treated as rollback and never decremented;
+- the independent generation/checkpoint locks are held through first-effect validation and commit, giving the local lab an ordered security boundary rather than a distributed-consensus claim;
 - provenance/freshness denial creates durable terminal state so old evidence cannot later revive;
 - intentionally vulnerable demonstrations remain isolated and use only local synthetic effects;
 - deterministic fake/no-model evaluations, Qdrant local mode, SQLite, in-memory MCP, and GitHub Actions require no paid model API.
@@ -57,9 +60,15 @@ P2-Q adds `CrashSafeControlPlaneCoordinator`. The independent anchor database no
 
 `RecoverableAnchoredAuthorizationReplica` issues evidence only when there is no pending journal row and the execution generation equals the active anchor generation. `CrashSafeRollbackResistantSyntheticEffectService` rechecks the same condition under the independent generation lock before running the full P2-P/P2-O/P2-N checks and committing a first synthetic effect. `recover()` is idempotent and finishes `prepared` or `applied` changes forward; it never decrements a generation or attempts to reconstruct old authority.
 
+P2-R adds `SyntheticProtectedCheckpointAuthority` and `ExternallyCheckpointedControlPlaneCoordinator`. The checkpoint record is a monotonic `(authority_id, generation, journal_head_sha256)` tuple. Generation 1 starts from a deterministic genesis head; every active P2-Q change extends the canonical chain with the prior head, from/target generations, change ID, and canonical typed mutation hash. Before authority is usable, P2-R reconstructs and validates that active chain and requires its current head to equal the protected record.
+
+A P2-R commit deliberately does not pretend that three stores participate in one transaction. It finishes the P2-Q local protocol and then advances the protected checkpoint with compare-and-swap semantics. If the process dies after local activation, local generation can temporarily be ahead of the protected checkpoint; issuance/effect execution fails closed and recovery advances the protected checkpoint only after proving its current generation/head is an exact prefix of the local active chain. If the protected checkpoint is ahead of local generation, P2-R treats local state as obsolete rollback and does not decrement the protected record.
+
+`CheckpointBoundAuthorizationReplica` and `CheckpointBoundSyntheticEffectService` enforce the protected generation/head fence while preserving the complete P2-P/P2-O/P2-N provenance, key-epoch, freshness, binding, denial-tombstone, and first-effect checks. The protected checkpoint is modeled as a third local SQLite file only to keep the lab deterministic and offline; the security claim is explicitly conditional on that store being in a genuinely separate protected rollback domain in production.
+
 An already-recorded idempotent effect is checked by the inner P2-O service before provenance/freshness validation. This preserves P2-L crash recovery: if an effect was validly authorized and committed before a worker crashed, later key/version/generation changes do not duplicate the already-executed outcome.
 
-The intentionally vulnerable P2-Q comparison inherits the full P2-P signed-generation service. Its intended defect is only the old uncoordinated dual write: it commits execution authorization state first and advances the anchor second, with no durable change journal, no execution-generation marker, and no pending-change fence. A deterministic crash after the first commit therefore makes new local authority usable under the still-current old generation.
+The intentionally weak P2-R comparison uses the full P2-Q local coordinator but no protected checkpoint. Its intended defect is only the trust assumption under test: both authoritative local databases are restored together to an old generation, so their local equality checks agree on obsolete authority and the comparison can record a first effect.
 
 ## Run in Codespaces
 
@@ -69,7 +78,7 @@ pytest
 uvicorn apps.api.main:app --host 127.0.0.1 --port 8000
 ```
 
-The hardened API stores local synthetic approval/workflow/outbox state at `.aegisdesk/state.sqlite3` and its separate synthetic downstream effect/authorization state at `.aegisdesk/synthetic-effects.sqlite3` by default. P2-P/P2-Q's independent generation and recovery journal are currently evaluation/control-plane primitives rather than a new default API runtime file. Override the existing state/effect paths with `AEGISDESK_STATE_DB` and `AEGISDESK_EFFECT_DB` when needed.
+The hardened API stores local synthetic approval/workflow/outbox state at `.aegisdesk/state.sqlite3` and its separate synthetic downstream effect/authorization state at `.aegisdesk/synthetic-effects.sqlite3` by default. P2-P through P2-R's generation, recovery-journal, and protected-checkpoint components are currently evaluation/control-plane primitives rather than new default API runtime files. Override the existing state/effect paths with `AEGISDESK_STATE_DB` and `AEGISDESK_EFFECT_DB` when needed.
 
 The separate intentionally vulnerable HTTP lab from earlier Phase 2 exercises is launched only through its explicit factory:
 
@@ -100,11 +109,12 @@ python -m evals.p2n_authorization_freshness
 python -m evals.p2o_authorization_provenance
 python -m evals.p2p_rollback_resistant_anchor
 python -m evals.p2q_control_plane_recovery
+python -m evals.p2r_protected_checkpoint
 ```
 
-P2-Q uses two fixed adversarial attempts and two benign attempts per variant. A1 begins with the synthetic subject inactive, commits reactivation plus a revocation-epoch increment to the execution database, then crashes before generation activation. A2 commits signing-key rotation from epoch 1 to epoch 2 and crashes at the same boundary. The vulnerable P2-P-only comparison can execute during both partial-commit windows. The hardened P2-Q variant sees the pending journal/execution-generation mismatch, records no effect, keeps the outbox retryable, recovers forward to generation 2, and then completes exactly once. The benign set verifies fully activated subject-reactivation and key-rotation changes still complete normally.
+P2-R uses two fixed adversarial attempts and two benign attempts per variant. A1 advances a subject revocation from generation 1 to generation 2; A2 rotates the authorization signing key from epoch 1 to epoch 2 while advancing the generation. After each change is fully checkpointed, the evaluator restores **both** rollback-restorable local control-plane databases to their generation-1 snapshots while leaving the protected checkpoint at generation 2. The local-only comparison accepts the obsolete state and records a first synthetic effect. The hardened P2-R variant detects that the protected generation is ahead, records no effect, and leaves the outbox retryable. The benign set verifies current generation-1 authority and a correctly protected generation-2 key rotation still complete exactly once.
 
-Reports include raw ASR/FPR/SafeTaskRate numerators and denominators plus code/dependency/model/prompt/policy/dataset evidence. P2-Q reports only non-sensitive protocol status, generations/epochs, effect counts, outbox status, crash-point names, and rejection reason codes. Raw change payloads, signatures, private-key bytes, approval IDs, idempotency keys, database contents, raw effect arguments, credentials, and real external side effects are excluded.
+Reports include raw ASR/FPR/SafeTaskRate numerators and denominators plus code/dependency/model/prompt/policy/dataset evidence. P2-R reports only non-sensitive protocol status, generations/epochs, effect counts, outbox status, and rejection reason codes. Raw change payloads, signatures, private-key bytes, approval IDs, idempotency keys, database contents, raw effect arguments, credentials, and real external side effects are excluded.
 
 Threat-model evidence:
 
@@ -125,20 +135,23 @@ Threat-model evidence:
 - `docs/threat-model/p2o-authorization-provenance.md`
 - `docs/threat-model/p2p-rollback-resistant-trust-anchor.md`
 - `docs/threat-model/p2q-control-plane-recovery.md`
+- `docs/threat-model/p2r-protected-recovery-checkpoint.md`
 
 ### Prototype limitations
 
-P2-Q is a local crash-recovery proof, not a production rollback-resistant or highly available control plane. The independent anchor/journal is another SQLite file on the same host. If an attacker can restore **both** the execution database and the anchor/journal database to the same older snapshot, this prototype has no external fact with which to detect that rollback. Production needs an independently protected, authenticated, rollback-resistant generation authority appropriate to the deployment.
+P2-R is a deterministic protected-checkpoint proof, not a production external trust service. The repository's `SyntheticProtectedCheckpointAuthority` is another SQLite file so the entire lab remains local and reproducible. It models a distinct protected rollback domain by excluding that file from the two-database restore attack; merely placing three SQLite files on the same production host would not provide the claimed independence.
 
-All authorization-state writers must use `CrashSafeControlPlaneCoordinator`. Direct database writes can violate the prepared/applied/active protocol. Production needs write-path exclusivity, database permissions, authenticated administrative APIs, auditable change identity, and reliable startup/failure recovery.
+If an attacker can roll back, delete, equivocate, or compromise the protected checkpoint authority together with both local databases, this lab has no fourth independent fact with which to detect that coordinated restore. Production needs an authenticated and operationally independent monotonic authority appropriate to the deployment, plus provisioning, compromise recovery, backup/restore, and availability procedures.
 
-P2-Q does not implement distributed consensus, multi-region generation allocation, cross-host fencing leases, external two-phase commit, or Byzantine/storage-corruption recovery. A pending change intentionally stops new authorization and first-effect execution until recovery succeeds, so recovery liveness and control-plane availability are operational dependencies. The deterministic crash points model process termination after committed phases; they do not model torn pages, VFS faults, or malicious database corruption.
+All covered authorization-state writers must use the P2-Q/P2-R coordinator path. Direct database writes can violate the prepared/applied/active journal and protected-head invariant. Production needs write-path exclusivity, database permissions, authenticated administrative APIs, auditable change identity, and reliable startup/failure recovery.
 
-Only the subject-state, password-reset-policy, and authorization-signing-key mutations routed through P2-Q receive the execution-marker guarantee. Future authorization tables or trust roots must use the same protocol instead of being updated independently. The local `BEGIN IMMEDIATE` locking strategy prioritizes a simple safety invariant over production concurrency and throughput.
+P2-R does not implement distributed consensus, multi-region generation allocation, quorum replication, cross-host fencing leases, Byzantine-fault tolerance, hardware attestation, a TPM/HSM/cloud-KMS integration, or a remote transparency/checkpoint service. Protected-authority unavailability or inconsistency intentionally stops new authorization issuance and first-effect execution, so availability is traded for safety.
+
+Only the subject-state, password-reset-policy, and authorization-signing-key mutations routed through the covered coordinator receive the execution-marker and protected-checkpoint guarantee. Future authorization tables or trust roots must use the same protocol rather than being updated independently. The local `BEGIN IMMEDIATE` locking strategy prioritizes a simple safety invariant over production concurrency and throughput.
 
 P2-O remains a local signed-evidence proof, not a production PKI or distributed authorization platform. Production still needs protected issuer private-key custody, authenticated trust-root/public-key distribution, compromise recovery, secure rotation and revocation procedures, clock guarantees, algorithm agility, multi-region authoritative version allocation, and point-of-use enforcement at the real side-effecting service.
 
-P2-L's exactly-once limitation still applies: a transactional outbox, signed freshness fence, rollback anchor, and control-plane recovery protocol cannot guarantee exactly-once business outcomes. The real side-effecting system must provide a durable idempotency contract whose retention exceeds all plausible replay windows.
+P2-L's exactly-once limitation still applies: a transactional outbox, signed freshness fence, rollback anchor, crash-safe recovery protocol, and protected checkpoint cannot guarantee exactly-once business outcomes. The real side-effecting system must provide a durable idempotency contract whose retention exceeds all plausible replay windows.
 
 The downstream effect service intentionally records only a synthetic local ledger entry. AegisDesk does not grant real access or reset real credentials.
 
@@ -159,4 +172,4 @@ P2-G remains an in-process resource-control proof. A production agent still need
 
 `X-Aegis-User` is a synthetic lab authentication handle, not a production authentication design.
 
-All organizations, identities, records, credentials, canaries, poison documents, MCP servers, network routes, browser pages, memory records, resource-exhaustion workloads, telemetry records, artifacts, archives, approval workflows, outbox messages, authorization replicas, policy/revocation version counters, authorization-signing key labels, trusted public keys, signing-key epochs, control-plane generations, control-plane change journals, execution-generation markers, current authorization-state rows, policy changes, downstream effect ledger rows, database snapshots, crash injections, recovery operations, and side effects in this repository are synthetic.
+All organizations, identities, records, credentials, canaries, poison documents, MCP servers, network routes, browser pages, memory records, resource-exhaustion workloads, telemetry records, artifacts, archives, approval workflows, outbox messages, authorization replicas, policy/revocation version counters, authorization-signing key labels, trusted public keys, signing-key epochs, control-plane generations, control-plane change journals, execution-generation markers, protected checkpoint generations, protected journal-head hashes, current authorization-state rows, policy changes, downstream effect ledger rows, database snapshots, crash injections, recovery operations, and side effects in this repository are synthetic.
