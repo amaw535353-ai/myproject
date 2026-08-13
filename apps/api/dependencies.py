@@ -1,3 +1,4 @@
+import json
 import os
 from functools import lru_cache
 from pathlib import Path
@@ -11,13 +12,16 @@ from aegis.agent.rag_model import DeterministicRagSecurityModel
 from aegis.approvals.durable import DurableApprovalStore, DurableWorkflowStore
 from aegis.effects.durable import (
     DurableApprovedEffectPipeline,
-    DurableEffectOutboxStore,
-    DurableEffectWorker,
-    SyntheticIdempotentEffectService,
     TransactionalEffectCoordinator,
 )
+from aegis.effects.revalidation import (
+    RevalidatingDurableEffectWorker,
+    RevalidatingEffectOutboxStore,
+    SyntheticAuthorizationStateStore,
+    SyntheticRevalidatingEffectService,
+)
 from aegis.helpdesk.stores import AssetStore, TicketStore
-from aegis.identity.models import Principal
+from aegis.identity.models import Principal, Role
 from aegis.identity.synthetic_auth import resolve_synthetic_principal
 from aegis.mcp_gateway.gateway import ToolGateway
 from aegis.observability.security_events import (
@@ -34,6 +38,9 @@ from aegis.rag.store import KnowledgeStore
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 _KNOWLEDGE_PATH = _REPOSITORY_ROOT / "synthetic_data" / "knowledge.json"
 _ASSETS_PATH = _REPOSITORY_ROOT / "synthetic_data" / "assets.json"
+_EXECUTION_AUTHORIZATION_PATH = (
+    _REPOSITORY_ROOT / "synthetic_data" / "p2m_authorization_state.json"
+)
 
 _SYNTHETIC_TELEMETRY_HMAC_KEY = (
     b"aegisdesk-local-synthetic-telemetry-hmac-key-v1-2026"
@@ -52,6 +59,34 @@ def _effect_database_path() -> Path:
     if configured:
         return Path(configured)
     return _REPOSITORY_ROOT / ".aegisdesk" / "synthetic-effects.sqlite3"
+
+
+def _ensure_default_execution_authorization_state() -> SyntheticAuthorizationStateStore:
+    store = SyntheticAuthorizationStateStore(_effect_database_path())
+    fixture = json.loads(_EXECUTION_AUTHORIZATION_PATH.read_text(encoding="utf-8"))
+
+    for subject in fixture["subjects"]:
+        store.ensure_subject(
+            user_id=subject["user_id"],
+            tenant_id=subject["tenant_id"],
+            active=subject["active"],
+            roles=frozenset(Role(role) for role in subject["roles"]),
+        )
+    for resource in fixture["resources"]:
+        required_role = resource["required_role"]
+        store.ensure_resource(
+            tenant_id=resource["tenant_id"],
+            resource=resource["resource"],
+            enabled=resource["enabled"],
+            owner_user_id=resource["owner_user_id"],
+            required_role=None if required_role is None else Role(required_role),
+        )
+    for policy in fixture["tenant_policies"]:
+        store.ensure_password_reset_policy(
+            tenant_id=policy["tenant_id"],
+            enabled=policy["password_reset_enabled"],
+        )
+    return store
 
 
 async def get_current_principal(
@@ -98,19 +133,23 @@ def get_approval_workflow_store() -> DurableWorkflowStore:
 
 
 @lru_cache(maxsize=1)
-def get_effect_outbox_store() -> DurableEffectOutboxStore:
-    return DurableEffectOutboxStore(_state_database_path())
+def get_effect_outbox_store() -> RevalidatingEffectOutboxStore:
+    return RevalidatingEffectOutboxStore(_state_database_path())
 
 
 @lru_cache(maxsize=1)
-def get_synthetic_effect_service() -> SyntheticIdempotentEffectService:
-    return SyntheticIdempotentEffectService(_effect_database_path())
+def get_synthetic_effect_service() -> SyntheticRevalidatingEffectService:
+    authorization = _ensure_default_execution_authorization_state()
+    return SyntheticRevalidatingEffectService(
+        _effect_database_path(),
+        authorization_store=authorization,
+    )
 
 
 @lru_cache(maxsize=1)
 def get_approved_effect_pipeline() -> DurableApprovedEffectPipeline:
     coordinator = TransactionalEffectCoordinator(get_approval_store())
-    worker = DurableEffectWorker(
+    worker = RevalidatingDurableEffectWorker(
         outbox_store=get_effect_outbox_store(),
         effect_service=get_synthetic_effect_service(),
     )
