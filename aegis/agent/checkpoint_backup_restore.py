@@ -79,6 +79,8 @@ def restore_checkpoint_backup(
             database_path=checkpoint_path,
             anchor_database_path=anchor_path,
             key_provider=saver.key_provider,
+            hmac_key=saver._hmac_key,
+            key_id=saver.key_id,
         )
         observed_heads = validate_heads(candidate)
         require_active_ciphertext(candidate)
