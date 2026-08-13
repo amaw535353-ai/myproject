@@ -1,0 +1,7 @@
+{
+  "authority_id": "aegisdesk-synthetic-authorization-control-plane",
+  "initial_generation": 1,
+  "journal_schema_version": "aegis.control-plane-change.v1",
+  "execution_state_schema_version": "aegis.execution-control-plane-state.v1",
+  "description": "Synthetic P2-Q prepared/applied/active recovery protocol fixture."
+}
