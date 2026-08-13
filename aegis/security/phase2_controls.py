@@ -25,13 +25,15 @@ class Phase2Control:
 
 
 PHASE3_GAPS = {
-    "P3-G01": "Wire P2-N through P2-S into one default high-impact effect path.",
     "P3-G02": "Wire the full P2-G execution budget into the default AgentRunner.",
     "P3-G03": "Keep browser, artifact, and outbound-network surfaces explicitly wired or explicitly non-default.",
     "P3-G04": "Use the P2-D credential broker for any future downstream asset adapter.",
     "P3-G05": "If durable memory is added to the API, preserve the P2-F data-not-authority rule.",
     "P3-G06": "Replace local checkpoint, witness, and signing-key abstractions before production trust claims.",
 }
+
+
+_P3A_RUNTIME = ("aegis/effects/default_high_impact.py", "apps/api/dependencies.py")
 
 
 PHASE2_CONTROLS: tuple[Phase2Control, ...] = (
@@ -48,12 +50,12 @@ PHASE2_CONTROLS: tuple[Phase2Control, ...] = (
     Phase2Control("P2-K", "docs/threat-model/p2k-durable-approval-workflow.md", "evals.p2k_durable_approval_workflow", DeploymentStatus.DEFAULT_API, ("aegis/approvals/durable.py", "aegis/agent/graph.py", "apps/api/dependencies.py")),
     Phase2Control("P2-L", "docs/threat-model/p2l-transactional-outbox.md", "evals.p2l_transactional_outbox", DeploymentStatus.DEFAULT_API, ("aegis/effects/durable.py", "apps/api/dependencies.py")),
     Phase2Control("P2-M", "docs/threat-model/p2m-execution-time-authorization.md", "evals.p2m_execution_time_authorization", DeploymentStatus.DEFAULT_API, ("aegis/effects/revalidation.py", "apps/api/dependencies.py")),
-    Phase2Control("P2-N", "docs/threat-model/p2n-authorization-freshness.md", "evals.p2n_authorization_freshness", DeploymentStatus.LAB_ONLY, phase3_gaps=("P3-G01",)),
-    Phase2Control("P2-O", "docs/threat-model/p2o-authorization-provenance.md", "evals.p2o_authorization_provenance", DeploymentStatus.LAB_ONLY, phase3_gaps=("P3-G01", "P3-G06")),
-    Phase2Control("P2-P", "docs/threat-model/p2p-rollback-resistant-trust-anchor.md", "evals.p2p_rollback_resistant_anchor", DeploymentStatus.LAB_ONLY, phase3_gaps=("P3-G01", "P3-G06")),
-    Phase2Control("P2-Q", "docs/threat-model/p2q-control-plane-recovery.md", "evals.p2q_control_plane_recovery", DeploymentStatus.LAB_ONLY, phase3_gaps=("P3-G01",)),
-    Phase2Control("P2-R", "docs/threat-model/p2r-protected-recovery-checkpoint.md", "evals.p2r_protected_checkpoint", DeploymentStatus.LAB_ONLY, phase3_gaps=("P3-G01", "P3-G06")),
-    Phase2Control("P2-S", "docs/threat-model/p2s-checkpoint-authenticity.md", "evals.p2s_checkpoint_authenticity", DeploymentStatus.LAB_ONLY, phase3_gaps=("P3-G01", "P3-G06")),
+    Phase2Control("P2-N", "docs/threat-model/p2n-authorization-freshness.md", "evals.p2n_authorization_freshness", DeploymentStatus.DEFAULT_API, _P3A_RUNTIME),
+    Phase2Control("P2-O", "docs/threat-model/p2o-authorization-provenance.md", "evals.p2o_authorization_provenance", DeploymentStatus.DEFAULT_API, _P3A_RUNTIME, ("P3-G06",)),
+    Phase2Control("P2-P", "docs/threat-model/p2p-rollback-resistant-trust-anchor.md", "evals.p2p_rollback_resistant_anchor", DeploymentStatus.DEFAULT_API, _P3A_RUNTIME, ("P3-G06",)),
+    Phase2Control("P2-Q", "docs/threat-model/p2q-control-plane-recovery.md", "evals.p2q_control_plane_recovery", DeploymentStatus.DEFAULT_API, _P3A_RUNTIME),
+    Phase2Control("P2-R", "docs/threat-model/p2r-protected-recovery-checkpoint.md", "evals.p2r_protected_checkpoint", DeploymentStatus.DEFAULT_API, _P3A_RUNTIME, ("P3-G06",)),
+    Phase2Control("P2-S", "docs/threat-model/p2s-checkpoint-authenticity.md", "evals.p2s_checkpoint_authenticity", DeploymentStatus.DEFAULT_API, _P3A_RUNTIME, ("P3-G06",)),
 )
 
 
