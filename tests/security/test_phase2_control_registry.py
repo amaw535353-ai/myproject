@@ -13,9 +13,9 @@ def test_phase2_registry_is_complete_and_ordered() -> None:
 def test_phase2_registry_classifies_runtime_posture() -> None:
     counts = {status: sum(item.deployment_status is status for item in PHASE2_CONTROLS) for status in DeploymentStatus}
     assert counts == {
-        DeploymentStatus.DEFAULT_API: 7,
+        DeploymentStatus.DEFAULT_API: 13,
         DeploymentStatus.PARTIAL_DEFAULT_API: 1,
-        DeploymentStatus.LAB_ONLY: 11,
+        DeploymentStatus.LAB_ONLY: 5,
     }
 
 
@@ -25,6 +25,14 @@ def test_non_default_controls_have_explicit_phase3_gap() -> None:
             continue
         assert item.phase3_gaps
         assert set(item.phase3_gaps) <= set(PHASE3_GAPS)
+
+
+def test_p3a_closed_default_high_impact_gap() -> None:
+    assert "P3-G01" not in PHASE3_GAPS
+    assert len(PHASE3_GAPS) == 5
+    for item in PHASE2_CONTROLS[13:19]:
+        assert item.deployment_status is DeploymentStatus.DEFAULT_API
+        assert "aegis/effects/default_high_impact.py" in item.runtime_evidence
 
 
 def test_phase2_exit_gate_has_no_missing_evidence() -> None:
