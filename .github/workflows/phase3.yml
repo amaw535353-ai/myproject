@@ -41,3 +41,5 @@ jobs:
         run: python -m evals.p4a_strict_checkpoint_serialization
       - name: P4-B durable checkpoint integrity evaluation
         run: python -m evals.p4b_durable_checkpoint_integrity
+      - name: P4-C checkpoint confidentiality evaluation
+        run: python -m evals.p4c_checkpoint_confidentiality

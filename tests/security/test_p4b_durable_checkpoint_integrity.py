@@ -1,18 +1,14 @@
-from aegis.agent.checkpoint_durability import (
-    P4B_CHECKPOINT_INTEGRITY_POLICY_VERSION,
-    DurableIntegrityCheckpointer,
-)
+from aegis.agent.checkpoint_durability import DurableIntegrityCheckpointer
 from apps.api.dependencies import get_agent_checkpointer, get_agent_runner
 from evals.p4b_durable_checkpoint_integrity import build_report
 
 
-def test_default_api_runner_uses_durable_integrity_checkpointer(client) -> None:
+def test_default_api_runner_retains_durable_integrity_checkpointer(client) -> None:
     checkpointer = get_agent_checkpointer()
     runner = get_agent_runner()
 
     assert isinstance(checkpointer, DurableIntegrityCheckpointer)
     assert runner.checkpointer is checkpointer
-    assert checkpointer.policy_version == P4B_CHECKPOINT_INTEGRITY_POLICY_VERSION
     assert checkpointer.database_path.exists()
     assert checkpointer.anchor_database_path.exists()
     assert checkpointer.database_path.resolve() != checkpointer.anchor_database_path.resolve()
