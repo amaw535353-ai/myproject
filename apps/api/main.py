@@ -3,6 +3,7 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, status
 
+from aegis.agent.execution_budget import BudgetDimension, BudgetExceeded
 from aegis.agent.graph import AgentRunner
 from aegis.agent.models import AgentRunRequest, AgentRunResponse
 from aegis.approvals.models import ApprovalDecisionRequest
@@ -79,6 +80,16 @@ async def run_agent(
 ) -> AgentRunResponse:
     try:
         return await agent.run(principal=principal, message=request.message)
+    except BudgetExceeded as exc:
+        status_code = (
+            status.HTTP_413_CONTENT_TOO_LARGE
+            if exc.dimension in {BudgetDimension.INPUT_BYTES, BudgetDimension.CONTEXT_BYTES}
+            else status.HTTP_429_TOO_MANY_REQUESTS
+        )
+        raise HTTPException(
+            status_code=status_code,
+            detail="Agent execution resource budget exceeded",
+        ) from exc
     except ToolGatewayError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

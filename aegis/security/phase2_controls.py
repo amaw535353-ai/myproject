@@ -25,7 +25,6 @@ class Phase2Control:
 
 
 PHASE3_GAPS = {
-    "P3-G02": "Wire the full P2-G execution budget into the default AgentRunner.",
     "P3-G03": "Keep browser, artifact, and outbound-network surfaces explicitly wired or explicitly non-default.",
     "P3-G04": "Use the P2-D credential broker for any future downstream asset adapter.",
     "P3-G05": "If durable memory is added to the API, preserve the P2-F data-not-authority rule.",
@@ -43,7 +42,7 @@ PHASE2_CONTROLS: tuple[Phase2Control, ...] = (
     Phase2Control("P2-D", "docs/threat-model/p2d-token-passthrough.md", "evals.p2d_token_passthrough", DeploymentStatus.LAB_ONLY, phase3_gaps=("P3-G04",)),
     Phase2Control("P2-E", "docs/threat-model/p2e-ssrf-redirects.md", "evals.p2e_ssrf_redirects", DeploymentStatus.LAB_ONLY, phase3_gaps=("P3-G03",)),
     Phase2Control("P2-F", "docs/threat-model/p2f-durable-memory-poisoning.md", "evals.p2f_durable_memory_poisoning", DeploymentStatus.LAB_ONLY, phase3_gaps=("P3-G05",)),
-    Phase2Control("P2-G", "docs/threat-model/p2g-resource-exhaustion.md", "evals.p2g_resource_exhaustion", DeploymentStatus.PARTIAL_DEFAULT_API, ("aegis/agent/graph.py",), ("P3-G02",)),
+    Phase2Control("P2-G", "docs/threat-model/p2g-resource-exhaustion.md", "evals.p2g_resource_exhaustion", DeploymentStatus.DEFAULT_API, ("aegis/agent/default_budgeted_runner.py", "apps/api/dependencies.py", "apps/api/main.py")),
     Phase2Control("P2-H", "docs/threat-model/p2h-telemetry-redaction.md", "evals.p2h_telemetry_leakage", DeploymentStatus.DEFAULT_API, ("aegis/observability/security_events.py", "apps/api/dependencies.py")),
     Phase2Control("P2-I", "docs/threat-model/p2i-malicious-artifacts.md", "evals.p2i_artifact_handling", DeploymentStatus.LAB_ONLY, phase3_gaps=("P3-G03",)),
     Phase2Control("P2-J", "docs/threat-model/p2j-browser-prompt-injection.md", "evals.p2j_browser_prompt_injection", DeploymentStatus.LAB_ONLY, phase3_gaps=("P3-G03",)),
