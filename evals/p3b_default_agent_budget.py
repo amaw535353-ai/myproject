@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from aegis.agent.default_budgeted_runner import DefaultBudgetedAgentRunner
-from aegis.agent.execution_budget import BudgetExceeded, P2G_EXECUTION_LIMITS, byte_size
+from aegis.agent.execution_budget import BudgetExceeded, P2G_EXECUTION_LIMITS, P2G_POLICY_VERSION, byte_size
 from aegis.agent.fake_model import DeterministicFakeModel
 from aegis.approvals.store import ApprovalStore
 from aegis.helpdesk.stores import AssetStore, TicketStore
