@@ -34,3 +34,5 @@ jobs:
         run: python -m evals.p3d_default_credential_broker
       - name: P3-E default durable-memory boundary evaluation
         run: python -m evals.p3e_default_memory_boundary
+      - name: P3-F production trust-provider posture evaluation
+        run: python -m evals.p3f_trust_provider_posture

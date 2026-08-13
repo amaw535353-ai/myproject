@@ -38,6 +38,12 @@ from aegis.effects.protected_checkpoint import (
 from aegis.effects.revalidation import RevalidatingEffectOutboxStore, SyntheticAuthorizationStateStore
 from aegis.effects.rollback_anchor import AnchoredAuthorizationSigner, ControlPlaneGenerationStore
 from aegis.effects.signed_authorization import AuthorizationDecisionSigner, TrustedAuthorizationKeyStore
+from aegis.effects.trust_providers import (
+    HighImpactTrustProviderFactory,
+    LOCAL_SYNTHETIC_TRUST_MANIFEST,
+    TrustDeploymentProfile,
+    TrustProviderManifest,
+)
 from aegis.effects.versioned_revalidation import AuthorizationVersionStore, CachedAuthorizationReplica
 
 
@@ -68,6 +74,8 @@ class DefaultHighImpactPaths:
 class DefaultHighImpactSecurityStack:
     policy_version: str
     paths: DefaultHighImpactPaths
+    trust_profile: TrustDeploymentProfile
+    trust_manifest: TrustProviderManifest
     authorization_versions: AuthorizationVersionStore
     trusted_authorization_keys: TrustedAuthorizationKeyStore
     generation_store: ControlPlaneGenerationStore
@@ -268,6 +276,53 @@ def _authorization_signer(
     )
 
 
+class LocalSyntheticHighImpactTrustProviderFactory:
+    """Explicit local provider bundle used only by the synthetic/default lab profile."""
+
+    manifest = LOCAL_SYNTHETIC_TRUST_MANIFEST
+
+    def authorization_signer(
+        self,
+        *,
+        registry: TrustedAuthorizationKeyStore,
+        fixture: dict[str, Any],
+    ) -> AuthorizationDecisionSigner:
+        return _authorization_signer(registry=registry, fixture=fixture)
+
+    def protected_checkpoint_authority(
+        self,
+        *,
+        database_path: Path,
+    ) -> SyntheticProtectedCheckpointAuthority:
+        return SyntheticProtectedCheckpointAuthority(database_path)
+
+    def checkpoint_receipt_source(
+        self,
+        *,
+        checkpoint_authority: SyntheticProtectedCheckpointAuthority,
+        fixture: dict[str, Any],
+    ) -> SyntheticProtectedCheckpointReceiptSource:
+        return SyntheticProtectedCheckpointReceiptSource(
+            checkpoint_authority=checkpoint_authority,
+            authority_id=str(fixture["authority_id"]),
+            audience=str(fixture["audience"]),
+            key_id=str(fixture["key_id"]),
+            key_epoch=int(fixture["key_epoch"]),
+            seed_label=str(fixture["seed_label"]),
+        )
+
+    def checkpoint_receipt_observer(
+        self,
+        *,
+        receipt_source: SyntheticProtectedCheckpointReceiptSource,
+        witness_database_path: Path,
+    ) -> Ed25519CheckpointReceiptObserver:
+        return Ed25519CheckpointReceiptObserver(
+            trusted_key=receipt_source.trusted_key(),
+            witness_database_path=witness_database_path,
+        )
+
+
 def build_default_high_impact_security_stack(
     *,
     paths: DefaultHighImpactPaths,
@@ -278,6 +333,8 @@ def build_default_high_impact_security_stack(
     authorization_key_fixture: dict[str, Any],
     control_plane_fixture: dict[str, Any],
     checkpoint_receipt_fixture: dict[str, Any],
+    trust_profile: TrustDeploymentProfile = TrustDeploymentProfile.LOCAL_SYNTHETIC,
+    trust_provider_factory: HighImpactTrustProviderFactory | None = None,
 ) -> DefaultHighImpactSecurityStack:
     if approval_store.database_path.resolve() != Path(paths.state_database_path).resolve():
         raise ValueError("approval store must use the configured P3-A state database")
@@ -286,11 +343,17 @@ def build_default_high_impact_security_stack(
     if authorization_store.database_path.resolve() != Path(paths.execution_database_path).resolve():
         raise ValueError("authorization state must share the P3-A execution database")
 
+    provider_factory = trust_provider_factory or LocalSyntheticHighImpactTrustProviderFactory()
+    provider_factory.manifest.assert_allowed(trust_profile)
+
     versions = AuthorizationVersionStore(paths.execution_database_path)
     _ensure_versions(versions, authorization_version_fixture)
 
     registry = TrustedAuthorizationKeyStore(paths.execution_database_path)
-    signer = _authorization_signer(registry=registry, fixture=authorization_key_fixture)
+    signer = provider_factory.authorization_signer(
+        registry=registry,
+        fixture=authorization_key_fixture,
+    )
 
     authority_id = str(control_plane_fixture["authority_id"])
     initial_generation = int(control_plane_fixture["initial_generation"])
@@ -300,7 +363,9 @@ def build_default_high_impact_security_stack(
         generation_store=generation_store,
         authority_id=authority_id,
     )
-    protected_authority = SyntheticProtectedCheckpointAuthority(paths.protected_checkpoint_database_path)
+    protected_authority = provider_factory.protected_checkpoint_authority(
+        database_path=paths.protected_checkpoint_database_path,
+    )
     protected = ExternallyCheckpointedControlPlaneCoordinator(
         local_coordinator=local,
         checkpoint_authority=protected_authority,
@@ -312,18 +377,15 @@ def build_default_high_impact_security_stack(
     else:
         protected.recover()
 
-    receipt_source = SyntheticProtectedCheckpointReceiptSource(
+    receipt_source = provider_factory.checkpoint_receipt_source(
         checkpoint_authority=protected_authority,
-        authority_id=str(checkpoint_receipt_fixture["authority_id"]),
-        audience=str(checkpoint_receipt_fixture["audience"]),
-        key_id=str(checkpoint_receipt_fixture["key_id"]),
-        key_epoch=int(checkpoint_receipt_fixture["key_epoch"]),
-        seed_label=str(checkpoint_receipt_fixture["seed_label"]),
+        fixture=checkpoint_receipt_fixture,
     )
-    if receipt_source.trusted_key().authority_id != authority_id:
+    trusted_checkpoint_key = receipt_source.trusted_key()
+    if trusted_checkpoint_key.authority_id != authority_id:
         raise ValueError("checkpoint receipt authority must match the control-plane authority")
-    observer = Ed25519CheckpointReceiptObserver(
-        trusted_key=receipt_source.trusted_key(),
+    observer = provider_factory.checkpoint_receipt_observer(
+        receipt_source=receipt_source,
         witness_database_path=paths.receipt_witness_database_path,
     )
     checkpoint_fence = CheckpointReceiptGenerationFence(
@@ -364,6 +426,8 @@ def build_default_high_impact_security_stack(
     return DefaultHighImpactSecurityStack(
         policy_version=P3A_POLICY_VERSION,
         paths=paths,
+        trust_profile=trust_profile,
+        trust_manifest=provider_factory.manifest,
         authorization_versions=versions,
         trusted_authorization_keys=registry,
         generation_store=generation_store,

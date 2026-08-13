@@ -17,6 +17,7 @@ from aegis.effects.default_high_impact import (
 )
 from aegis.effects.durable import DurableApprovedEffectPipeline
 from aegis.effects.revalidation import RevalidatingEffectOutboxStore, SyntheticAuthorizationStateStore
+from aegis.effects.trust_providers import TrustDeploymentProfile
 from aegis.helpdesk.stores import AssetStore, TicketStore
 from aegis.identity.models import Principal, Role
 from aegis.identity.synthetic_auth import resolve_synthetic_principal
@@ -86,6 +87,14 @@ def _protected_checkpoint_database_path() -> Path:
 
 def _receipt_witness_database_path() -> Path:
     return _security_database_path("AEGISDESK_RECEIPT_WITNESS_DB", "checkpoint-receipt-witness.sqlite3")
+
+
+def _trust_deployment_profile() -> TrustDeploymentProfile:
+    raw = os.getenv("AEGISDESK_TRUST_PROFILE", TrustDeploymentProfile.LOCAL_SYNTHETIC.value)
+    try:
+        return TrustDeploymentProfile(raw)
+    except ValueError as exc:
+        raise RuntimeError("invalid AEGISDESK_TRUST_PROFILE") from exc
 
 
 def _read_fixture(path: Path) -> dict:
@@ -189,6 +198,7 @@ def get_default_high_impact_stack() -> DefaultHighImpactSecurityStack:
         authorization_key_fixture=_read_fixture(_AUTHORIZATION_KEY_PATH),
         control_plane_fixture=_read_fixture(_CONTROL_PLANE_PATH),
         checkpoint_receipt_fixture=_read_fixture(_CHECKPOINT_RECEIPT_PATH),
+        trust_profile=_trust_deployment_profile(),
     )
 
 
