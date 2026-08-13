@@ -32,3 +32,5 @@ jobs:
         run: python -c 'import json; from evals.phase2_exit_gate import build_p3c_surface_posture_report as build; report = build(); print(json.dumps(report, indent=2, sort_keys=True)); raise SystemExit(0 if report["passed"] else 1)'
       - name: P3-D default credential-broker evaluation
         run: python -m evals.p3d_default_credential_broker
+      - name: P3-E default durable-memory boundary evaluation
+        run: python -m evals.p3e_default_memory_boundary
