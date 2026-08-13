@@ -46,4 +46,6 @@ class DefaultBudgetedAgentRunner(AgentRunner):
     async def _execute(self, state: dict[str, Any]) -> dict[str, Any]:
         self._budget().before_tool(state["proposal"])
         outcome = await super()._execute(state)
+        measured = dict(outcome.get("tool_result", {}))
+        self._budget().after_tool(measured)
         return outcome
