@@ -4,6 +4,7 @@ from threading import RLock
 from typing import Any, Literal, TypedDict
 from uuid import uuid4
 
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 
@@ -61,6 +62,7 @@ class AgentRunner:
         telemetry: ToolTelemetryRecorder | None = None,
         workflow_store: DurableWorkflowStore | None = None,
         approved_effect_pipeline: DurableApprovedEffectPipeline | None = None,
+        checkpointer: BaseCheckpointSaver | None = None,
     ) -> None:
         self._model = model
         self._gateway = gateway
@@ -70,6 +72,7 @@ class AgentRunner:
         self._approved_effect_pipeline = approved_effect_pipeline
         self._pending_runs: dict[str, PendingRun] = {}
         self._pending_lock = RLock()
+        self._checkpointer = checkpointer or build_strict_in_memory_checkpointer()
 
         graph = StateGraph(AgentState)
         graph.add_node("plan", self._plan)
@@ -86,7 +89,11 @@ class AgentRunner:
             },
         )
         graph.add_edge("await_approval", END)
-        self._graph = graph.compile(checkpointer=build_strict_in_memory_checkpointer())
+        self._graph = graph.compile(checkpointer=self._checkpointer)
+
+    @property
+    def checkpointer(self) -> BaseCheckpointSaver:
+        return self._checkpointer
 
     def _plan(self, state: AgentState) -> dict[str, ToolCallProposal]:
         return {"proposal": self._model.propose(state["message"])}
