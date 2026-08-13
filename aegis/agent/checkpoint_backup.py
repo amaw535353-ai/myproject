@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from aegis.agent.checkpoint_backup_create_v2 import (
+from aegis.agent.checkpoint_backup_create import (
     CheckpointBackupArtifact,
     create_checkpoint_backup,
 )
