@@ -11,8 +11,9 @@ class ToolCapabilityDenied(RuntimeError):
 class ToolCapabilityPolicy:
     """Server-owned allowlist for a specific execution context.
 
-    The model, prompt, retrieved documents, MCP responses, and client cannot alter
-    this object. A caller must satisfy this policy before any MCP dispatch occurs.
+    The model, prompt, retrieved documents, MCP responses, browser content, and
+    client cannot alter this object. A caller must satisfy this policy before any
+    MCP dispatch occurs.
     """
 
     name: str
@@ -27,5 +28,10 @@ class ToolCapabilityPolicy:
 
 READ_ONLY_RAG_POLICY = ToolCapabilityPolicy(
     name="read-only-rag-capability-v1",
+    allowed_tools=frozenset(),
+)
+
+READ_ONLY_BROWSER_POLICY = ToolCapabilityPolicy(
+    name="read-only-browser-capability-v1",
     allowed_tools=frozenset(),
 )

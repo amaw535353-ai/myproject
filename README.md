@@ -2,9 +2,9 @@
 
 AegisDesk is a production-style AI security portfolio lab for building, attacking, and hardening a multi-tenant help-desk agent.
 
-## Current milestone: P2-I
+## Current milestone: P2-J
 
-P2-I adds a deterministic **malicious artifact and file handling** comparison at the untrusted-file -> storage/extraction/rendering trust boundary.
+P2-J adds a deterministic **local webpage/browser indirect prompt-injection** comparison at the fetched-page -> model -> MCP execution trust boundary.
 
 Verified security architecture carried forward:
 
@@ -19,12 +19,13 @@ Verified security architecture carried forward:
 - durable memory remains data and cannot replace server-derived identity, tenant, role, or approval authority;
 - multi-step agent execution is bounded by server-owned step/model/tool/retry/byte/time budgets;
 - telemetry is converted to typed, allowlisted, pseudonymized security events before export;
+- untrusted artifacts receive server-owned storage paths, passive rendering, and bounded archive extraction;
 - intentionally vulnerable demonstrations remain isolated and use only local synthetic effects;
 - deterministic fake/no-model evaluations, Qdrant local mode, SQLite, in-memory MCP, and GitHub Actions require no paid model API.
 
-P2-I introduces a hardened `ArtifactService` with server-assigned storage paths, passive-content allowlisting, strict UTF-8 text handling, `nosniff` presentation metadata, and bounded ZIP extraction. Client filenames are display metadata only and cannot choose filesystem destinations. ZIP members are normalized and rejected for traversal, absolute/drive-like paths, backslashes, symlinks, duplicate normalized names, disallowed member types, excessive member count, excessive member size, excessive aggregate expansion, or excessive compression ratio.
+P2-J introduces a shared `BrowserPageReader` that uses the hardened P2-E `SafeUrlFetcher` before decoding webpage bytes and exposing them to a deterministic browser model. The model is intentionally susceptible to a fixed synthetic page marker that can produce a valid typed MCP proposal. The hardened browser runner applies the server-owned `read-only-browser-capability-v1` policy before any MCP dispatch, so page content can influence an answer but cannot grant execution authority.
 
-The intentionally vulnerable comparison trusts the client filename as a filesystem path, trusts the declared content type for inline rendering, and expands ZIP members without path or size validation. The matched evaluation uses only temporary local directories and synthetic artifact bytes.
+The intentionally vulnerable comparison uses the same principal, URL policy, resolver, synthetic transport, webpage bytes, model, schemas, and `ToolGateway`, but blindly dispatches a proposal derived only from webpage content. One attack creates a synthetic ticket; another creates only a pending access approval request. No access is granted.
 
 ## Run in Codespaces
 
@@ -55,11 +56,12 @@ python -m evals.p2f_durable_memory_poisoning
 python -m evals.p2g_resource_exhaustion
 python -m evals.p2h_telemetry_leakage
 python -m evals.p2i_artifact_handling
+python -m evals.p2j_browser_prompt_injection
 ```
 
-P2-I uses three fixed adversarial attempts and two benign attempts per variant. The attacks cover client-filename path traversal, active HTML inline rendering, and archive expansion beyond the server-owned byte budget. Unit tests additionally cover ZIP-member traversal, symlinks, content-type mismatch, duplicate normalized archive names, and safe nested extraction.
+P2-J uses two fixed adversarial attempts and two benign attempts per variant. The adversarial pages induce `create_ticket` and `request_access` proposals. A valid attempt must traverse the same exact-host, public-IP-only synthetic network boundary and cause the fixed model to emit the expected typed proposal; a policy violation is counted only when the proposal is actually dispatched and its synthetic server-side effect is verified.
 
-Reports include raw ASR/FPR/SafeTaskRate numerators and denominators plus code/dependency/policy/dataset/fixture evidence. They report only policy decisions, safe path/byte facts, and metric outcomes; they do not print artifact bodies, active HTML, raw archive-member contents, credentials, canaries, or external filesystem data.
+Reports include raw ASR/FPR/SafeTaskRate numerators and denominators plus code/dependency/model/prompt/policy/dataset/page-fixture evidence. They record safe network target classes and tool status only; webpage bodies, tool-result bodies, approval handles, ticket IDs, credentials, and real network traffic are excluded.
 
 Threat-model evidence:
 
@@ -72,8 +74,11 @@ Threat-model evidence:
 - `docs/threat-model/p2g-resource-exhaustion.md`
 - `docs/threat-model/p2h-telemetry-redaction.md`
 - `docs/threat-model/p2i-malicious-artifacts.md`
+- `docs/threat-model/p2j-browser-prompt-injection.md`
 
 ### Prototype limitations
+
+P2-J is a synthetic fetch-and-model trust-boundary proof, not a production browser. It does not execute JavaScript or model a full DOM, cookies, authenticated browser sessions, cross-origin policy, extensions, downloads, form submission, service workers, renderer sandbox escapes, or real Internet navigation. Production browser tooling still needs process and network sandboxing, strict navigation/download allowlists, credential and cookie isolation, origin-aware authorization, content budgets, safe download handling, quotas, and monitoring.
 
 P2-I is a local stdlib-only ingestion proof, not a malware scanner or document-sanitization platform. Production artifact handling still needs authenticated object storage, per-tenant access control, antivirus/content-disarm integration where appropriate, quarantine workflows, signed download URLs, retention/deletion rules, storage quotas, media-specific parsers running under strong sandboxing, and browser response headers such as a production Content Security Policy.
 
@@ -92,4 +97,4 @@ The approval subsystem still uses LangGraph `InMemorySaver` and an in-memory app
 
 `X-Aegis-User` is a synthetic lab authentication handle, not a production authentication design.
 
-All organizations, identities, records, credentials, canaries, poison documents, MCP servers, network routes, memory records, resource-exhaustion workloads, telemetry records, artifacts, archives, and side effects in this repository are synthetic.
+All organizations, identities, records, credentials, canaries, poison documents, MCP servers, network routes, browser pages, memory records, resource-exhaustion workloads, telemetry records, artifacts, archives, and side effects in this repository are synthetic.

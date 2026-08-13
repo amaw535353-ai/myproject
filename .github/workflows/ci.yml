@@ -45,3 +45,5 @@ jobs:
         run: python -m evals.p2h_telemetry_leakage
       - name: P2-I malicious-artifact evaluation
         run: python -m evals.p2i_artifact_handling
+      - name: P2-J browser-prompt-injection evaluation
+        run: python -m evals.p2j_browser_prompt_injection
