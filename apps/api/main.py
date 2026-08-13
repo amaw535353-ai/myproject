@@ -25,7 +25,7 @@ from apps.api.dependencies import (
 )
 
 
-app = FastAPI(title="AegisDesk", version="0.11.0")
+app = FastAPI(title="AegisDesk", version="0.13.0")
 
 
 @app.get("/healthz")
