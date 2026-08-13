@@ -1,0 +1,17 @@
+{
+  "classification": "synthetic-test-only-public-fixture",
+  "issuer_id": "aegisdesk-authz",
+  "audience": "aegisdesk-synthetic-effect-worker",
+  "keys": [
+    {
+      "key_id": "authz-ed25519-1",
+      "key_epoch": 1,
+      "seed_label": "aegisdesk-p2o-synthetic-signing-key-1"
+    },
+    {
+      "key_id": "authz-ed25519-2",
+      "key_epoch": 2,
+      "seed_label": "aegisdesk-p2o-synthetic-signing-key-2"
+    }
+  ]
+}
