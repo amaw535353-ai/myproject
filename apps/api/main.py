@@ -1,7 +1,7 @@
 from importlib.metadata import version
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Query, status
 
 from aegis.agent.execution_budget import BudgetDimension, BudgetExceeded
 from aegis.agent.graph import AgentRunner
@@ -10,6 +10,8 @@ from aegis.approvals.models import ApprovalDecisionRequest
 from aegis.approvals.store import ApprovalError
 from aegis.identity.models import Principal
 from aegis.mcp_gateway.gateway import ToolGatewayError
+from aegis.memory.default_runtime import DefaultMemoryContextService
+from aegis.memory.models import MemoryRecord, RememberNote
 from aegis.rag.answering import RagAnswerRunner, to_public_response
 from aegis.rag.models import (
     RagAnswerRequest,
@@ -23,6 +25,7 @@ from apps.api.dependencies import (
     get_agent_runner,
     get_current_principal,
     get_knowledge_store,
+    get_memory_context_service,
     get_rag_answer_runner,
 )
 
@@ -70,6 +73,24 @@ async def answer_with_rag(
         limit=request.limit,
     )
     return to_public_response(outcome)
+
+
+@app.post("/v1/memory/notes", response_model=MemoryRecord)
+def remember_note(
+    request: RememberNote,
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    memory: Annotated[DefaultMemoryContextService, Depends(get_memory_context_service)],
+) -> MemoryRecord:
+    return memory.remember(principal=principal, content=request.content)
+
+
+@app.get("/v1/memory/notes", response_model=list[MemoryRecord])
+def list_memory_notes(
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    memory: Annotated[DefaultMemoryContextService, Depends(get_memory_context_service)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> list[MemoryRecord]:
+    return memory.recall(principal=principal, limit=limit)
 
 
 @app.post("/v1/agent/run", response_model=AgentRunResponse)
