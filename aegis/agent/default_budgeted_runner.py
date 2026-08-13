@@ -49,3 +49,9 @@ class DefaultBudgetedAgentRunner(AgentRunner):
         measured = dict(outcome.get("tool_result", {}))
         self._budget().after_tool(measured)
         return outcome
+
+    async def run(self, *, principal, message: str):
+        budget = ExecutionBudget(limits=self._execution_limits, clock_ms=self._execution_clock_ms)
+        budget.validate_input(message)
+        _ACTIVE_BUDGET.set(budget)
+        return await super().run(principal=principal, message=message)
