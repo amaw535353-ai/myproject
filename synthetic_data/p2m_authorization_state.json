@@ -43,6 +43,13 @@
     },
     {
       "tenant_id": "tenant_northstar_dynamics",
+      "resource": "finance-admin",
+      "enabled": true,
+      "owner_user_id": null,
+      "required_role": "employee"
+    },
+    {
+      "tenant_id": "tenant_northstar_dynamics",
       "resource": "synthetic-vpn",
       "enabled": true,
       "owner_user_id": "usr_dyn_alice",
