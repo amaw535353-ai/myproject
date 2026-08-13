@@ -93,8 +93,18 @@ def _metrics(adversarial: list[dict], benign: list[dict]) -> dict:
     }
 
 
+async def evaluate() -> dict:
+    vulnerable = [await _case(spec, False) for spec in CASES]
+    hardened = [await _case(spec, True) for spec in CASES]
+    return {
+        "vulnerable": {"adversarial_attempts": vulnerable[:2], "benign_attempts": vulnerable[2:], "metrics": _metrics(vulnerable[:2], vulnerable[2:])},
+        "hardened": {"adversarial_attempts": hardened[:2], "benign_attempts": hardened[2:], "metrics": _metrics(hardened[:2], hardened[2:])},
+    }
+
+
 def main() -> None:
-    print(json.dumps({"evaluation": "P3-B default AgentRunner execution budget integration", "eval_dataset_hash_sha256": _dataset_hash()}, indent=2))
+    variants = asyncio.run(evaluate())
+    print(json.dumps({"evaluation": "P3-B default AgentRunner execution budget integration", "eval_dataset_hash_sha256": _dataset_hash(), "variants": variants}, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":
