@@ -1,3 +1,4 @@
+from contextvars import ContextVar
 from typing import Any
 
 from aegis.agent.execution_budget import (
@@ -7,6 +8,12 @@ from aegis.agent.execution_budget import (
     P2G_POLICY_VERSION,
 )
 from aegis.agent.graph import AgentRunner
+
+
+_ACTIVE_BUDGET: ContextVar[ExecutionBudget | None] = ContextVar(
+    "aegisdesk_default_agent_execution_budget",
+    default=None,
+)
 
 
 class DefaultBudgetedAgentRunner(AgentRunner):
