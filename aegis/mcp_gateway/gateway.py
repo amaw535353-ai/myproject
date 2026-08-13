@@ -4,6 +4,8 @@ from mcp import Client
 from pydantic import BaseModel, ValidationError
 
 from aegis.approvals.store import ApprovalStore
+from aegis.downstream.credential_broker import InventoryCredentialBroker
+from aegis.downstream.inventory import SyntheticInventoryService
 from aegis.helpdesk.stores import AssetStore, TicketStore
 from aegis.identity.models import Principal
 from aegis.mcp_gateway.models import (
@@ -50,9 +52,16 @@ class ToolGateway:
         ticket_store: TicketStore,
         approval_store: ApprovalStore,
     ) -> None:
+        # P3-D default composition: the MCP tool never talks directly to the asset
+        # store. The synthetic downstream resource server requires a distinct
+        # server-owned service credential, and the broker API accepts only Principal.
+        self._inventory_service = SyntheticInventoryService(asset_store)
+        self._inventory_credential_broker = InventoryCredentialBroker(
+            self._inventory_service
+        )
         self.server = build_mcp_server(
             knowledge_store=knowledge_store,
-            asset_store=asset_store,
+            asset_reader=self._inventory_credential_broker,
             ticket_store=ticket_store,
             approval_store=approval_store,
         )
