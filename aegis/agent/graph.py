@@ -4,10 +4,10 @@ from threading import RLock
 from typing import Any, Literal, TypedDict
 from uuid import uuid4
 
-from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 
+from aegis.agent.checkpoint_security import build_strict_in_memory_checkpointer
 from aegis.agent.fake_model import DeterministicFakeModel
 from aegis.agent.models import AgentRunResponse, AgentRunStatus
 from aegis.approvals.durable import (
@@ -86,7 +86,7 @@ class AgentRunner:
             },
         )
         graph.add_edge("await_approval", END)
-        self._graph = graph.compile(checkpointer=InMemorySaver())
+        self._graph = graph.compile(checkpointer=build_strict_in_memory_checkpointer())
 
     def _plan(self, state: AgentState) -> dict[str, ToolCallProposal]:
         return {"proposal": self._model.propose(state["message"])}
