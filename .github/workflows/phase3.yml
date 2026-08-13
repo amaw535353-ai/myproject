@@ -28,3 +28,5 @@ jobs:
         run: pytest
       - name: P3-A consolidated runtime evaluation
         run: python -m evals.p3a_default_high_impact_chain
+      - name: P3-C default surface posture evaluation
+        run: python -c 'import json; from evals.phase2_exit_gate import build_p3c_surface_posture_report as build; report = build(); print(json.dumps(report, indent=2, sort_keys=True)); raise SystemExit(0 if report["passed"] else 1)'
