@@ -61,3 +61,5 @@ jobs:
         run: python -m evals.p2p_rollback_resistant_anchor
       - name: P2-Q crash-safe control-plane recovery evaluation
         run: python -m evals.p2q_control_plane_recovery
+      - name: P2-R protected recovery-checkpoint evaluation
+        run: python -m evals.p2r_protected_checkpoint
