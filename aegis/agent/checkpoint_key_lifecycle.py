@@ -24,7 +24,7 @@ from aegis.agent.checkpoint_keys import (
 class KeyLifecycleConfidentialCheckpointer(ConfidentialDurableIntegrityCheckpointer):
     """P4-C saver with a versioned provider and explicit re-encryption migration."""
 
-    policy_version = P4D_CHECKPOINT_KEY_LIFECYCLE_POLICY_VERSION
+    key_lifecycle_policy_version = P4D_CHECKPOINT_KEY_LIFECYCLE_POLICY_VERSION
 
     def __init__(
         self,
