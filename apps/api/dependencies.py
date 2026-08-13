@@ -6,7 +6,6 @@ from typing import Annotated
 
 from fastapi import Header, HTTPException, status
 
-from aegis.agent.default_budgeted_runner import DefaultBudgetedAgentRunner
 from aegis.agent.execution_budget import P2G_EXECUTION_LIMITS
 from aegis.agent.fake_model import DeterministicFakeModel
 from aegis.agent.rag_model import DeterministicRagSecurityModel
@@ -23,6 +22,8 @@ from aegis.identity.models import Principal, Role
 from aegis.identity.synthetic_auth import resolve_synthetic_principal
 from aegis.mcp_gateway.gateway import ToolGateway
 from aegis.mcp_gateway.models import ToolName
+from aegis.memory.default_runtime import DefaultMemoryAwareAgentRunner, DefaultMemoryContextService
+from aegis.memory.store import SqliteMemoryStore
 from aegis.observability.security_events import (
     P2H_SYNTHETIC_KEY_ID,
     InMemorySecurityEventSink,
@@ -52,6 +53,13 @@ def _state_database_path() -> Path:
     if configured:
         return Path(configured)
     return _REPOSITORY_ROOT / ".aegisdesk" / "state.sqlite3"
+
+
+def _memory_database_path() -> Path:
+    configured = os.getenv("AEGISDESK_MEMORY_DB")
+    if configured:
+        return Path(configured)
+    return _state_database_path().with_name("memory.sqlite3")
 
 
 def _effect_database_path() -> Path:
@@ -139,6 +147,16 @@ def get_ticket_store() -> TicketStore:
 
 
 @lru_cache(maxsize=1)
+def get_memory_store() -> SqliteMemoryStore:
+    return SqliteMemoryStore(_memory_database_path())
+
+
+@lru_cache(maxsize=1)
+def get_memory_context_service() -> DefaultMemoryContextService:
+    return DefaultMemoryContextService(get_memory_store())
+
+
+@lru_cache(maxsize=1)
 def get_approval_store() -> DurableApprovalStore:
     return DurableApprovalStore(_state_database_path())
 
@@ -210,8 +228,8 @@ def get_security_telemetry_recorder() -> SecurityTelemetryRecorder:
 
 
 @lru_cache(maxsize=1)
-def get_agent_runner() -> DefaultBudgetedAgentRunner:
-    return DefaultBudgetedAgentRunner(
+def get_agent_runner() -> DefaultMemoryAwareAgentRunner:
+    return DefaultMemoryAwareAgentRunner(
         model=DeterministicFakeModel(),
         gateway=get_tool_gateway(),
         approval_store=get_approval_store(),
@@ -219,6 +237,7 @@ def get_agent_runner() -> DefaultBudgetedAgentRunner:
         workflow_store=get_approval_workflow_store(),
         approved_effect_pipeline=get_approved_effect_pipeline(),
         limits=P2G_EXECUTION_LIMITS,
+        memory_context=get_memory_context_service(),
     )
 
 
