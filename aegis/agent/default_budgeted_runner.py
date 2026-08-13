@@ -54,4 +54,7 @@ class DefaultBudgetedAgentRunner(AgentRunner):
         budget = ExecutionBudget(limits=self._execution_limits, clock_ms=self._execution_clock_ms)
         budget.validate_input(message)
         token = _ACTIVE_BUDGET.set(budget)
-        return await super().run(principal=principal, message=message)
+        try:
+            return await super().run(principal=principal, message=message)
+        finally:
+            _ACTIVE_BUDGET.reset(token)
