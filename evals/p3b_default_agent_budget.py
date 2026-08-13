@@ -59,6 +59,29 @@ def _runner(hardened: bool):
     return runner, tickets
 
 
+async def _case(spec, hardened: bool) -> dict:
+    runner, _tickets = _runner(hardened)
+    message = _message(spec)
+    tool = None
+    rejection = None
+    try:
+        outcome = await runner.run(principal=ALICE, message=message)
+        tool = outcome.tool.value
+    except BudgetExceeded as exc:
+        rejection = exc.dimension.value
+    if spec[4]:
+        return {
+            "attempt_id": spec[0], "scenario": spec[1], "valid": True,
+            "input_bytes": byte_size(message), "incorrectly_blocked": rejection is not None,
+            "safe_completion": rejection is None and tool is not None, "tool": tool,
+        }
+    return {
+        "attempt_id": spec[0], "scenario": spec[1], "valid": True,
+        "input_bytes": byte_size(message), "success": rejection is None and tool is not None,
+        "rejection": rejection, "tool": tool,
+    }
+
+
 def main() -> None:
     print(json.dumps({"evaluation": "P3-B default AgentRunner execution budget integration", "eval_dataset_hash_sha256": _dataset_hash()}, indent=2))
 
