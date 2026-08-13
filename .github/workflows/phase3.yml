@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - "phase3/**"
+      - "phase4/**"
   pull_request:
 
 permissions:
@@ -36,3 +37,5 @@ jobs:
         run: python -m evals.p3e_default_memory_boundary
       - name: P3-F production trust-provider posture evaluation
         run: python -m evals.p3f_trust_provider_posture
+      - name: P4-A checkpoint type-policy evaluation
+        run: python -m evals.p4a_strict_checkpoint_serialization
