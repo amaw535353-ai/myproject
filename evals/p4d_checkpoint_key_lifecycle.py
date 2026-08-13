@@ -6,7 +6,10 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from aegis.agent.checkpoint_confidentiality import ConfidentialDurableIntegrityCheckpointer
+from aegis.agent.checkpoint_confidentiality import (
+    CheckpointConfidentialityError as LegacyCheckpointConfidentialityError,
+    ConfidentialDurableIntegrityCheckpointer,
+)
 from aegis.agent.checkpoint_key_lifecycle import KeyLifecycleConfidentialCheckpointer
 from aegis.agent.checkpoint_keys import (
     P4D_CHECKPOINT_KEY_LIFECYCLE_POLICY_VERSION,
@@ -85,7 +88,7 @@ def _write_legacy_state(root: Path, *, thread_id: str, marker: str, with_write: 
 def _legacy_reader_can_read(root: Path, thread_id: str) -> bool:
     try:
         item = _legacy_saver(root).get_tuple(_config(thread_id))
-    except CheckpointConfidentialityError:
+    except (LegacyCheckpointConfidentialityError, CheckpointConfidentialityError):
         return False
     return item is not None
 
