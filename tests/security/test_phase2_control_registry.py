@@ -1,7 +1,9 @@
 from importlib.metadata import version
 
 from apps.api.main import app
+from aegis.effects.trust_providers import LOCAL_SYNTHETIC_TRUST_MANIFEST
 from aegis.security.phase2_controls import PHASE2_CONTROLS, PHASE3_GAPS, DeploymentStatus, expected_phase2_milestones
+from evals.p3f_trust_provider_posture import build_report as build_p3f_report
 from evals.phase2_exit_gate import build_p3c_surface_posture_report, build_report
 
 
@@ -49,6 +51,20 @@ def test_p3a_through_p3f_closed_runtime_gaps() -> None:
         assert item.deployment_status is DeploymentStatus.LAB_ONLY
         assert not item.phase3_gaps
         assert "aegis/security/default_surfaces.py" in item.runtime_evidence
+
+
+def test_p3f_default_trust_provider_posture_is_explicitly_local() -> None:
+    report = build_p3f_report()
+    assert LOCAL_SYNTHETIC_TRUST_MANIFEST.production_trust_claim_allowed() is False
+    assert report["metrics"] == {
+        "implicit_baseline_asr": [4, 4],
+        "hardened_asr": [0, 4],
+        "hardened_fpr": [0, 2],
+        "hardened_safe_task_rate": [2, 2],
+    }
+    assert report["external_contract_implementation_included"] is False
+    assert report["real_external_trust_operations"] is False
+    assert report["passed"] is True
 
 
 def test_p3c_default_surface_posture_metrics_are_exact() -> None:
