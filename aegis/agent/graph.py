@@ -10,6 +10,12 @@ from langgraph.types import Command, interrupt
 
 from aegis.agent.fake_model import DeterministicFakeModel
 from aegis.agent.models import AgentRunResponse, AgentRunStatus
+from aegis.approvals.durable import (
+    ApprovalWorkflowContext,
+    DurableWorkflowStore,
+    bind_approval_workflow_context,
+    reset_approval_workflow_context,
+)
 from aegis.approvals.models import ApprovalAction, ApprovalDecision, ApprovalStatus
 from aegis.approvals.store import ApprovalStateError, ApprovalStore
 from aegis.identity.models import Principal
@@ -33,6 +39,7 @@ class AgentState(TypedDict, total=False):
     tool_calls: int
     approval_outcome: str
     trace_id: str
+    thread_id: str
 
 
 @dataclass(frozen=True)
@@ -51,11 +58,13 @@ class AgentRunner:
         gateway: ToolGateway,
         approval_store: ApprovalStore,
         telemetry: ToolTelemetryRecorder | None = None,
+        workflow_store: DurableWorkflowStore | None = None,
     ) -> None:
         self._model = model
         self._gateway = gateway
         self._approval_store = approval_store
         self._telemetry = telemetry
+        self._workflow_store = workflow_store
         self._pending_runs: dict[str, PendingRun] = {}
         self._pending_lock = RLock()
 
@@ -85,11 +94,25 @@ class AgentRunner:
             raise RuntimeError("tool call budget exhausted")
 
         normalized = self._gateway.normalize_proposal(state["proposal"])
+        workflow_token = None
+        if normalized.name in _HIGH_IMPACT_TOOLS and self._workflow_store is not None:
+            workflow_token = bind_approval_workflow_context(
+                ApprovalWorkflowContext(
+                    thread_id=state["thread_id"],
+                    trace_id=state["trace_id"],
+                    tool_calls=calls + 1,
+                )
+            )
+
         started_ns = time.monotonic_ns()
-        result = await self._gateway.dispatch(
-            principal=state["principal"],
-            proposal=normalized,
-        )
+        try:
+            result = await self._gateway.dispatch(
+                principal=state["principal"],
+                proposal=normalized,
+            )
+        finally:
+            if workflow_token is not None:
+                reset_approval_workflow_context(workflow_token)
         duration_ms = max(0, (time.monotonic_ns() - started_ns) // 1_000_000)
 
         if self._telemetry is not None:
@@ -114,6 +137,12 @@ class AgentRunner:
         return "done"
 
     def _await_approval(self, state: AgentState) -> dict[str, Any]:
+        # Durable mode uses the SQLite workflow journal as the pause/resume source of
+        # truth. The in-memory interrupt path is retained for isolated tests and old
+        # vulnerable comparisons that intentionally do not configure persistence.
+        if self._workflow_store is not None:
+            return {}
+
         approval_id = str(state["tool_result"]["approval_id"])
         interrupt(
             {
@@ -154,6 +183,7 @@ class AgentRunner:
                 "message": message,
                 "tool_calls": 0,
                 "trace_id": trace_id,
+                "thread_id": thread_id,
             },
             config=config,
         )
@@ -161,13 +191,14 @@ class AgentRunner:
 
         if proposal.name in _HIGH_IMPACT_TOOLS:
             approval_id = str(state["tool_result"]["approval_id"])
-            with self._pending_lock:
-                self._pending_runs[approval_id] = PendingRun(
-                    thread_id=thread_id,
-                    trace_id=trace_id,
-                    requester=principal,
-                    proposal=proposal,
-                )
+            if self._workflow_store is None:
+                with self._pending_lock:
+                    self._pending_runs[approval_id] = PendingRun(
+                        thread_id=thread_id,
+                        trace_id=trace_id,
+                        requester=principal,
+                        proposal=proposal,
+                    )
             return AgentRunResponse(
                 tool=proposal.name,
                 result=state["tool_result"],
@@ -189,6 +220,13 @@ class AgentRunner:
         approver: Principal,
         decision: ApprovalDecision,
     ) -> AgentRunResponse:
+        if self._workflow_store is not None:
+            return await self._review_and_resume_durable(
+                approval_id=approval_id,
+                approver=approver,
+                decision=decision,
+            )
+
         with self._pending_lock:
             pending = self._pending_runs.get(approval_id)
         if pending is None:
@@ -233,6 +271,73 @@ class AgentRunner:
             tool=pending.proposal.name,
             result=state["tool_result"],
             tool_calls=state["tool_calls"],
+            status=status,
+            approval_id=approval_id,
+        )
+
+    async def _review_and_resume_durable(
+        self,
+        *,
+        approval_id: str,
+        approver: Principal,
+        decision: ApprovalDecision,
+    ) -> AgentRunResponse:
+        assert self._workflow_store is not None
+        pending = self._workflow_store.require_pending(approval_id)
+        proposal = ToolCallProposal(
+            name=ToolName(pending.action.value),
+            arguments=pending.arguments,
+        )
+        requester = pending.requester
+
+        # DurableApprovalStore treats the same already-recorded reviewer decision as a
+        # crash-recovery continuation while the workflow is still pending. Conflicting
+        # reviewers/decisions remain rejected. Once the workflow is marked completed,
+        # require_pending() above blocks all replay attempts.
+        self._approval_store.decide(
+            approval_id=approval_id,
+            approver=approver,
+            decision=decision,
+        )
+        record = self._approval_store.resolve_after_review(
+            approval_id=approval_id,
+            requester=requester,
+            action=pending.action,
+            arguments=pending.arguments,
+        )
+
+        if record.status is ApprovalStatus.REJECTED:
+            outcome = "rejected"
+            status = AgentRunStatus.REJECTED
+        elif record.status is ApprovalStatus.CONSUMED:
+            outcome = "approved"
+            status = AgentRunStatus.APPROVED
+        else:
+            raise ApprovalStateError("unexpected durable approval state after review")
+
+        self._workflow_store.complete(approval_id=approval_id, outcome=outcome)
+
+        if self._telemetry is not None:
+            self._telemetry.record_approval_decision(
+                trace_id=pending.trace_id,
+                requester=requester,
+                approver=approver,
+                approval_id=approval_id,
+                proposal=proposal,
+                decision=decision,
+                final_status=record.status,
+            )
+
+        result = {
+            "approval_id": record.approval_id,
+            "action": record.action.value,
+            "status": record.status.value,
+            "expires_at": record.expires_at.isoformat(),
+        }
+        return AgentRunResponse(
+            tool=proposal.name,
+            result=result,
+            tool_calls=pending.tool_calls,
             status=status,
             approval_id=approval_id,
         )

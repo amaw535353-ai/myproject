@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
@@ -7,7 +8,7 @@ from fastapi import Header, HTTPException, status
 from aegis.agent.fake_model import DeterministicFakeModel
 from aegis.agent.graph import AgentRunner
 from aegis.agent.rag_model import DeterministicRagSecurityModel
-from aegis.approvals.store import ApprovalStore
+from aegis.approvals.durable import DurableApprovalStore, DurableWorkflowStore
 from aegis.helpdesk.stores import AssetStore, TicketStore
 from aegis.identity.models import Principal
 from aegis.identity.synthetic_auth import resolve_synthetic_principal
@@ -32,6 +33,13 @@ _ASSETS_PATH = _REPOSITORY_ROOT / "synthetic_data" / "assets.json"
 _SYNTHETIC_TELEMETRY_HMAC_KEY = (
     b"aegisdesk-local-synthetic-telemetry-hmac-key-v1-2026"
 )
+
+
+def _state_database_path() -> Path:
+    configured = os.getenv("AEGISDESK_STATE_DB")
+    if configured:
+        return Path(configured)
+    return _REPOSITORY_ROOT / ".aegisdesk" / "state.sqlite3"
 
 
 async def get_current_principal(
@@ -68,8 +76,13 @@ def get_ticket_store() -> TicketStore:
 
 
 @lru_cache(maxsize=1)
-def get_approval_store() -> ApprovalStore:
-    return ApprovalStore()
+def get_approval_store() -> DurableApprovalStore:
+    return DurableApprovalStore(_state_database_path())
+
+
+@lru_cache(maxsize=1)
+def get_approval_workflow_store() -> DurableWorkflowStore:
+    return DurableWorkflowStore(_state_database_path())
 
 
 @lru_cache(maxsize=1)
@@ -105,6 +118,7 @@ def get_agent_runner() -> AgentRunner:
         gateway=get_tool_gateway(),
         approval_store=get_approval_store(),
         telemetry=get_security_telemetry_recorder(),
+        workflow_store=get_approval_workflow_store(),
     )
 
 
