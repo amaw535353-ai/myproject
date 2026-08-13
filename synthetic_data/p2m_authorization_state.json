@@ -1,0 +1,76 @@
+{
+  "subjects": [
+    {
+      "user_id": "usr_dyn_alice",
+      "tenant_id": "tenant_northstar_dynamics",
+      "active": true,
+      "roles": [
+        "employee"
+      ]
+    },
+    {
+      "user_id": "usr_dyn_carol",
+      "tenant_id": "tenant_northstar_dynamics",
+      "active": true,
+      "roles": [
+        "admin_approver"
+      ]
+    },
+    {
+      "user_id": "usr_dig_bob",
+      "tenant_id": "tenant_northstar_digital",
+      "active": true,
+      "roles": [
+        "employee"
+      ]
+    },
+    {
+      "user_id": "usr_dig_dave",
+      "tenant_id": "tenant_northstar_digital",
+      "active": true,
+      "roles": [
+        "admin_approver"
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "tenant_id": "tenant_northstar_dynamics",
+      "resource": "finance-read",
+      "enabled": true,
+      "owner_user_id": null,
+      "required_role": "employee"
+    },
+    {
+      "tenant_id": "tenant_northstar_dynamics",
+      "resource": "synthetic-vpn",
+      "enabled": true,
+      "owner_user_id": "usr_dyn_alice",
+      "required_role": "employee"
+    },
+    {
+      "tenant_id": "tenant_northstar_dynamics",
+      "resource": "synthetic-reports",
+      "enabled": true,
+      "owner_user_id": "usr_dyn_alice",
+      "required_role": "employee"
+    },
+    {
+      "tenant_id": "tenant_northstar_digital",
+      "resource": "finance-read",
+      "enabled": true,
+      "owner_user_id": null,
+      "required_role": "employee"
+    }
+  ],
+  "tenant_policies": [
+    {
+      "tenant_id": "tenant_northstar_dynamics",
+      "password_reset_enabled": true
+    },
+    {
+      "tenant_id": "tenant_northstar_digital",
+      "password_reset_enabled": true
+    }
+  ]
+}

@@ -51,3 +51,5 @@ jobs:
         run: python -m evals.p2k_durable_approval_workflow
       - name: P2-L transactional-outbox evaluation
         run: python -m evals.p2l_transactional_outbox
+      - name: P2-M execution-time-authorization evaluation
+        run: python -m evals.p2m_execution_time_authorization
