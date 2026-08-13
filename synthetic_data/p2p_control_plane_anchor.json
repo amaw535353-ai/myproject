@@ -1,0 +1,5 @@
+{
+  "authority_id": "aegisdesk-synthetic-authorization-control-plane",
+  "initial_generation": 1,
+  "description": "Synthetic independent monotonic generation for P2-P rollback detection."
+}
