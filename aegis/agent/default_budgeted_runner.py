@@ -31,3 +31,10 @@ class DefaultBudgetedAgentRunner(AgentRunner):
         self._execution_limits = limits
         self._execution_clock_ms = clock_ms
         super().__init__(**kwargs)
+
+    @staticmethod
+    def _budget() -> ExecutionBudget:
+        budget = _ACTIVE_BUDGET.get()
+        if budget is None:
+            raise RuntimeError("execution budget unavailable")
+        return budget
