@@ -13,9 +13,9 @@ def test_phase2_registry_is_complete_and_ordered() -> None:
 def test_phase2_registry_classifies_runtime_posture() -> None:
     counts = {status: sum(item.deployment_status is status for item in PHASE2_CONTROLS) for status in DeploymentStatus}
     assert counts == {
-        DeploymentStatus.DEFAULT_API: 15,
+        DeploymentStatus.DEFAULT_API: 16,
         DeploymentStatus.PARTIAL_DEFAULT_API: 0,
-        DeploymentStatus.LAB_ONLY: 4,
+        DeploymentStatus.LAB_ONLY: 3,
     }
 
 
@@ -27,17 +27,21 @@ def test_non_default_controls_have_gap_or_explicit_runtime_posture() -> None:
         assert set(item.phase3_gaps) <= set(PHASE3_GAPS)
 
 
-def test_p3a_p3b_p3c_and_p3d_closed_runtime_gaps() -> None:
-    assert "P3-G01" not in PHASE3_GAPS
-    assert "P3-G02" not in PHASE3_GAPS
-    assert "P3-G03" not in PHASE3_GAPS
-    assert "P3-G04" not in PHASE3_GAPS
-    assert len(PHASE3_GAPS) == 2
+def test_p3a_through_p3e_closed_runtime_gaps() -> None:
+    for gap in ("P3-G01", "P3-G02", "P3-G03", "P3-G04", "P3-G05"):
+        assert gap not in PHASE3_GAPS
+    assert set(PHASE3_GAPS) == {"P3-G06"}
 
     p2d = PHASE2_CONTROLS[3]
     assert p2d.deployment_status is DeploymentStatus.DEFAULT_API
     assert "aegis/downstream/credential_broker.py" in p2d.runtime_evidence
     assert "aegis/mcp_gateway/gateway.py" in p2d.runtime_evidence
+
+    p2f = PHASE2_CONTROLS[5]
+    assert p2f.deployment_status is DeploymentStatus.DEFAULT_API
+    assert "aegis/memory/default_runtime.py" in p2f.runtime_evidence
+    assert "aegis/memory/store.py" in p2f.runtime_evidence
+    assert "apps/api/main.py" in p2f.runtime_evidence
 
     p2g = PHASE2_CONTROLS[6]
     assert p2g.deployment_status is DeploymentStatus.DEFAULT_API
