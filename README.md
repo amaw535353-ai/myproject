@@ -2,9 +2,9 @@
 
 AegisDesk is a production-style AI security portfolio lab for building, attacking, and hardening a multi-tenant help-desk agent.
 
-## Current milestone: P2-O
+## Current milestone: P2-P
 
-P2-O adds **authenticated authorization-decision provenance and signing-key anti-rollback**. P2-N already fenced stale policy/revocation versions; P2-O closes the remaining gap where a malicious cache or intermediary edits those fields to look current or replays a once-valid decision from an obsolete signing key.
+P2-P adds a **rollback-resistant authorization trust anchor**. P2-O authenticated authorization evidence, but its signing-key epoch, authorization versions, and trusted public-key state all lived in the same execution database. Restoring that whole database to an older internally consistent snapshot could therefore make obsolete signed evidence look current again. P2-P introduces an independently durable monotonic control-plane generation and cryptographically binds each authorization envelope to it.
 
 Verified security architecture carried forward:
 
@@ -27,6 +27,9 @@ Verified security architecture carried forward:
 - authorization evidence must carry a valid Ed25519 signature from the expected issuer for the exact effect-worker audience;
 - signed claims bind the tenant, exact outbox record, policy version, revocation epoch, decision validity window, signing key ID, and monotonic key epoch;
 - an obsolete signing key cannot become authoritative again through the normal rotation API;
+- an independent monotonic control-plane generation is signed into the P2-P authorization envelope;
+- the first new effect requires exact equality with that independent generation, so rolling back only the execution database cannot restore authority;
+- the independent generation lock is held from generation read through the first effect commit, giving the local lab a total order between generation advancement and effect execution;
 - provenance/freshness denial creates durable terminal state so old evidence cannot later revive;
 - intentionally vulnerable demonstrations remain isolated and use only local synthetic effects;
 - deterministic fake/no-model evaluations, Qdrant local mode, SQLite, in-memory MCP, and GitHub Actions require no paid model API.
@@ -43,9 +46,13 @@ P2-O makes those authorization claims cryptographically attributable. `Authoriza
 
 `TrustedAuthorizationKeyStore` keeps only trusted Ed25519 public keys and the authoritative current key epoch in the same SQLite execution boundary as the P2-N version counters and synthetic effect ledger. Key rotation is monotonic. Signature verification, current key-epoch checking, P2-N freshness checking, durable denial lookup, and first effect insertion are serialized by the same local `BEGIN IMMEDIATE` transaction.
 
-An already-recorded idempotent effect is checked before provenance/freshness validation. This preserves P2-L crash recovery: if an effect was validly authorized and committed before a worker crashed, a later key rotation or authorization change does not duplicate or strand that already-executed outcome.
+P2-P adds `ControlPlaneGenerationStore` in a **separate SQLite database**. `AnchoredAuthorizationSigner` wraps the complete P2-O signed decision in canonical `aegis.authz-envelope.v1` evidence carrying `control_plane_generation` and signs that envelope with the synthetic issuer key. `RollbackResistantSyntheticEffectService` refuses to use an anchor database that resolves to the execution-database path, requires the envelope generation to equal the independent current generation, verifies the envelope signature, and then runs the complete P2-O check before creating a new effect.
 
-The intentionally vulnerable P2-O comparison keeps issuer/audience strings, tenant/outbox binding, validity windows, current P2-N versions, the `allowed` requirement, and the P2-L idempotent effect ledger. Its intended defects are only that it never verifies the Ed25519 signature and never requires the decision's signing-key epoch to equal the authoritative current key epoch.
+The generation store's `locked_current()` holds a local `BEGIN IMMEDIATE` lock while the P2-P service validates the signed generation envelope and the inner P2-O service commits the effect. Thus a local generation advance is ordered either before the effect (which causes old evidence to fail) or after it (meaning the effect completed under the prior current generation). This is deliberately a local lab guarantee, not a claim of distributed consensus.
+
+An already-recorded idempotent effect is checked by the inner P2-O service before provenance/freshness validation. This preserves P2-L crash recovery: if an effect was validly authorized and committed before a worker crashed, later key/version/generation changes do not duplicate the already-executed outcome.
+
+The intentionally vulnerable P2-P comparison inherits the full P2-O signed-provenance service. It still verifies the inner Ed25519 decision, current local signing-key epoch, current local policy/revocation versions, tenant/outbox binding, validity window, and the `allowed` result. Its intended defect is only that it ignores the independent control-plane generation and the outer envelope signature, so an old but internally self-consistent execution-database snapshot can restore authorization authority.
 
 ## Run in Codespaces
 
@@ -55,7 +62,7 @@ pytest
 uvicorn apps.api.main:app --host 127.0.0.1 --port 8000
 ```
 
-The hardened API stores local synthetic approval/workflow/outbox state at `.aegisdesk/state.sqlite3` and its separate synthetic downstream effect/authorization state at `.aegisdesk/synthetic-effects.sqlite3` by default. Override them with `AEGISDESK_STATE_DB` and `AEGISDESK_EFFECT_DB` when needed.
+The hardened API stores local synthetic approval/workflow/outbox state at `.aegisdesk/state.sqlite3` and its separate synthetic downstream effect/authorization state at `.aegisdesk/synthetic-effects.sqlite3` by default. P2-P's independent control-plane generation is currently an evaluation/control-plane primitive rather than a new default API runtime file. Override the existing state/effect paths with `AEGISDESK_STATE_DB` and `AEGISDESK_EFFECT_DB` when needed.
 
 The separate intentionally vulnerable HTTP lab from earlier Phase 2 exercises is launched only through its explicit factory:
 
@@ -84,11 +91,12 @@ python -m evals.p2l_transactional_outbox
 python -m evals.p2m_execution_time_authorization
 python -m evals.p2n_authorization_freshness
 python -m evals.p2o_authorization_provenance
+python -m evals.p2p_rollback_resistant_anchor
 ```
 
-P2-O uses two fixed adversarial attempts and two benign attempts per variant. A1 changes a signed stale revocation epoch to the current value while reusing the old signature; hardened execution rejects the forged claims. A2 rotates the trusted signing key from epoch 1 to epoch 2 and then replays the still-cryptographically-valid epoch-1 decision; hardened execution rejects the obsolete provenance. The benign set verifies current epoch-1 and post-rotation epoch-2 signed decisions still complete exactly once.
+P2-P uses two fixed adversarial attempts and two benign attempts per variant. A1 snapshots generation-1 execution state, revokes the synthetic subject and advances the independent anchor to generation 2, then restores only the execution database and replays the generation-1 envelope. A2 repeats the pattern around signing-key rotation from epoch 1 to epoch 2. In both cases the vulnerable P2-O-only service sees locally self-consistent old state and executes, while the hardened P2-P service rejects `control_plane_generation_mismatch`. The benign set verifies current generation-1/key-epoch-1 and generation-2/key-epoch-2 effects still complete exactly once.
 
-Reports include raw ASR/FPR/SafeTaskRate numerators and denominators plus code/dependency/model/prompt/policy/dataset evidence. P2-O reports only non-sensitive key/version epochs and rejection reason codes. Signatures, private-key bytes, deterministic seed labels, approval IDs, idempotency keys, authorization binding hashes, raw authorization rows, raw effect arguments, effect references, credentials, and real external side effects are excluded.
+Reports include raw ASR/FPR/SafeTaskRate numerators and denominators plus code/dependency/model/prompt/policy/dataset evidence. P2-P reports only non-sensitive generations, key/version epochs, effect counts, outbox status, and rejection reason codes. Signatures, private-key bytes, deterministic seed labels, approval IDs, idempotency keys, authorization binding hashes, database contents, raw effect arguments, effect references, credentials, and real external side effects are excluded.
 
 Threat-model evidence:
 
@@ -107,14 +115,19 @@ Threat-model evidence:
 - `docs/threat-model/p2m-execution-time-authorization.md`
 - `docs/threat-model/p2n-authorization-freshness.md`
 - `docs/threat-model/p2o-authorization-provenance.md`
+- `docs/threat-model/p2p-rollback-resistant-trust-anchor.md`
 
 ### Prototype limitations
 
-P2-O is a local signed-evidence proof, not a production PKI or distributed authorization platform. Production still needs protected issuer private-key custody, authenticated trust-root/public-key distribution, compromise recovery, secure rotation and revocation procedures, clock guarantees, algorithm agility, multi-region authoritative version allocation, and point-of-use enforcement at the real side-effecting service.
+P2-P is a local rollback-detection proof, not a production rollback-resistant control plane. The independent anchor is another SQLite file on the same host. If an attacker can atomically restore **both** the execution database and the anchor database, this prototype has no external fact with which to detect that rollback. Production needs an independently protected, authenticated, rollback-resistant generation authority appropriate to the deployment.
 
-The P2-O key epoch and P2-N authorization counters currently live inside the same authoritative local SQLite execution database. If an attacker can restore that **entire database** to an older internally consistent snapshot, the local service has no external monotonic fact with which to detect the rollback. Production anti-rollback therefore needs a trust anchor or control-plane generation whose durability/authority is independent of the rolled-back effect database.
+The local P2-P anchor lock orders local generation advancement and effect commits only when every participant uses `ControlPlaneGenerationStore`; it is not distributed consensus and does not cover multi-host split brain, bypassing the store, compromised host administration, or storage snapshots that include the anchor.
 
-P2-L's exactly-once limitation still applies: a transactional outbox and signed freshness fence cannot guarantee exactly-once business outcomes. The real side-effecting system must provide a durable idempotency contract whose retention exceeds all plausible replay windows.
+P2-P also does not make execution-database security-state mutation and independent generation advancement one atomic cross-database commit. Production needs a control-plane commit/recovery protocol that prevents or safely recovers from partial state/generation updates.
+
+P2-O remains a local signed-evidence proof, not a production PKI or distributed authorization platform. Production still needs protected issuer private-key custody, authenticated trust-root/public-key distribution, compromise recovery, secure rotation and revocation procedures, clock guarantees, algorithm agility, multi-region authoritative version allocation, and point-of-use enforcement at the real side-effecting service.
+
+P2-L's exactly-once limitation still applies: a transactional outbox, signed freshness fence, and rollback anchor cannot guarantee exactly-once business outcomes. The real side-effecting system must provide a durable idempotency contract whose retention exceeds all plausible replay windows.
 
 The downstream effect service intentionally records only a synthetic local ledger entry. AegisDesk does not grant real access or reset real credentials.
 
@@ -135,4 +148,4 @@ P2-G remains an in-process resource-control proof. A production agent still need
 
 `X-Aegis-User` is a synthetic lab authentication handle, not a production authentication design.
 
-All organizations, identities, records, credentials, canaries, poison documents, MCP servers, network routes, browser pages, memory records, resource-exhaustion workloads, telemetry records, artifacts, archives, approval workflows, outbox messages, authorization replicas, policy/revocation version counters, authorization-signing key labels, trusted public keys, signing-key epochs, current authorization-state rows, policy changes, downstream effect ledger rows, and side effects in this repository are synthetic.
+All organizations, identities, records, credentials, canaries, poison documents, MCP servers, network routes, browser pages, memory records, resource-exhaustion workloads, telemetry records, artifacts, archives, approval workflows, outbox messages, authorization replicas, policy/revocation version counters, authorization-signing key labels, trusted public keys, signing-key epochs, control-plane generations, current authorization-state rows, policy changes, downstream effect ledger rows, database snapshots, and side effects in this repository are synthetic.
