@@ -49,3 +49,5 @@ jobs:
         run: python -m evals.p2j_browser_prompt_injection
       - name: P2-K durable-approval-workflow evaluation
         run: python -m evals.p2k_durable_approval_workflow
+      - name: P2-L transactional-outbox evaluation
+        run: python -m evals.p2l_transactional_outbox

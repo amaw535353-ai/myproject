@@ -9,6 +9,13 @@ from aegis.agent.fake_model import DeterministicFakeModel
 from aegis.agent.graph import AgentRunner
 from aegis.agent.rag_model import DeterministicRagSecurityModel
 from aegis.approvals.durable import DurableApprovalStore, DurableWorkflowStore
+from aegis.effects.durable import (
+    DurableApprovedEffectPipeline,
+    DurableEffectOutboxStore,
+    DurableEffectWorker,
+    SyntheticIdempotentEffectService,
+    TransactionalEffectCoordinator,
+)
 from aegis.helpdesk.stores import AssetStore, TicketStore
 from aegis.identity.models import Principal
 from aegis.identity.synthetic_auth import resolve_synthetic_principal
@@ -28,8 +35,6 @@ _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 _KNOWLEDGE_PATH = _REPOSITORY_ROOT / "synthetic_data" / "knowledge.json"
 _ASSETS_PATH = _REPOSITORY_ROOT / "synthetic_data" / "assets.json"
 
-# Local synthetic lab key only. Production must load telemetry pseudonymization
-# material from a secret manager or equivalent protected configuration.
 _SYNTHETIC_TELEMETRY_HMAC_KEY = (
     b"aegisdesk-local-synthetic-telemetry-hmac-key-v1-2026"
 )
@@ -40,6 +45,13 @@ def _state_database_path() -> Path:
     if configured:
         return Path(configured)
     return _REPOSITORY_ROOT / ".aegisdesk" / "state.sqlite3"
+
+
+def _effect_database_path() -> Path:
+    configured = os.getenv("AEGISDESK_EFFECT_DB")
+    if configured:
+        return Path(configured)
+    return _REPOSITORY_ROOT / ".aegisdesk" / "synthetic-effects.sqlite3"
 
 
 async def get_current_principal(
@@ -86,6 +98,26 @@ def get_approval_workflow_store() -> DurableWorkflowStore:
 
 
 @lru_cache(maxsize=1)
+def get_effect_outbox_store() -> DurableEffectOutboxStore:
+    return DurableEffectOutboxStore(_state_database_path())
+
+
+@lru_cache(maxsize=1)
+def get_synthetic_effect_service() -> SyntheticIdempotentEffectService:
+    return SyntheticIdempotentEffectService(_effect_database_path())
+
+
+@lru_cache(maxsize=1)
+def get_approved_effect_pipeline() -> DurableApprovedEffectPipeline:
+    coordinator = TransactionalEffectCoordinator(get_approval_store())
+    worker = DurableEffectWorker(
+        outbox_store=get_effect_outbox_store(),
+        effect_service=get_synthetic_effect_service(),
+    )
+    return DurableApprovedEffectPipeline(coordinator=coordinator, worker=worker)
+
+
+@lru_cache(maxsize=1)
 def get_tool_gateway() -> ToolGateway:
     return ToolGateway(
         knowledge_store=get_knowledge_store(),
@@ -119,6 +151,7 @@ def get_agent_runner() -> AgentRunner:
         approval_store=get_approval_store(),
         telemetry=get_security_telemetry_recorder(),
         workflow_store=get_approval_workflow_store(),
+        approved_effect_pipeline=get_approved_effect_pipeline(),
     )
 
 
