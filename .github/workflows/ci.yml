@@ -57,3 +57,5 @@ jobs:
         run: python -m evals.p2n_authorization_freshness
       - name: P2-O authorization-provenance evaluation
         run: python -m evals.p2o_authorization_provenance
+      - name: P2-P rollback-resistant trust-anchor evaluation
+        run: python -m evals.p2p_rollback_resistant_anchor
