@@ -39,3 +39,5 @@ jobs:
         run: python -m evals.p3f_trust_provider_posture
       - name: P4-A checkpoint type-policy evaluation
         run: python -m evals.p4a_strict_checkpoint_serialization
+      - name: P4-B durable checkpoint integrity evaluation
+        run: python -m evals.p4b_durable_checkpoint_integrity

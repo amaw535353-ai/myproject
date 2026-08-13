@@ -6,6 +6,7 @@ from typing import Annotated
 
 from fastapi import Header, HTTPException, status
 
+from aegis.agent.checkpoint_durability import DurableIntegrityCheckpointer
 from aegis.agent.execution_budget import P2G_EXECUTION_LIMITS
 from aegis.agent.fake_model import DeterministicFakeModel
 from aegis.agent.rag_model import DeterministicRagSecurityModel
@@ -61,6 +62,20 @@ def _memory_database_path() -> Path:
     if configured:
         return Path(configured)
     return _state_database_path().with_name("memory.sqlite3")
+
+
+def _agent_checkpoint_database_path() -> Path:
+    configured = os.getenv("AEGISDESK_AGENT_CHECKPOINT_DB")
+    if configured:
+        return Path(configured)
+    return _state_database_path().with_name("agent-checkpoints.sqlite3")
+
+
+def _agent_checkpoint_anchor_database_path() -> Path:
+    configured = os.getenv("AEGISDESK_AGENT_CHECKPOINT_ANCHOR_DB")
+    if configured:
+        return Path(configured)
+    return _state_database_path().with_name("agent-checkpoint-anchor.sqlite3")
 
 
 def _effect_database_path() -> Path:
@@ -166,6 +181,14 @@ def get_memory_context_service() -> DefaultMemoryContextService:
 
 
 @lru_cache(maxsize=1)
+def get_agent_checkpointer() -> DurableIntegrityCheckpointer:
+    return DurableIntegrityCheckpointer(
+        database_path=_agent_checkpoint_database_path(),
+        anchor_database_path=_agent_checkpoint_anchor_database_path(),
+    )
+
+
+@lru_cache(maxsize=1)
 def get_approval_store() -> DurableApprovalStore:
     return DurableApprovalStore(_state_database_path())
 
@@ -248,6 +271,7 @@ def get_agent_runner() -> DefaultMemoryAwareAgentRunner:
         approved_effect_pipeline=get_approved_effect_pipeline(),
         limits=P2G_EXECUTION_LIMITS,
         memory_context=get_memory_context_service(),
+        checkpointer=get_agent_checkpointer(),
     )
 
 
