@@ -25,7 +25,6 @@ class Phase2Control:
 
 
 PHASE3_GAPS = {
-    "P3-G04": "Use the P2-D credential broker for any future downstream asset adapter.",
     "P3-G05": "If durable memory is added to the API, preserve the P2-F data-not-authority rule.",
     "P3-G06": "Replace local checkpoint, witness, and signing-key abstractions before production trust claims.",
 }
@@ -37,13 +36,20 @@ _P3C_NON_DEFAULT_RUNTIME = (
     "apps/api/dependencies.py",
     "apps/api/main.py",
 )
+_P3D_RUNTIME = (
+    "aegis/downstream/credential_broker.py",
+    "aegis/downstream/inventory.py",
+    "aegis/mcp_gateway/gateway.py",
+    "aegis/mcp_gateway/server.py",
+    "apps/api/dependencies.py",
+)
 
 
 PHASE2_CONTROLS: tuple[Phase2Control, ...] = (
     Phase2Control("P2-A", "docs/threat-model/p2a-tenant-boundary.md", "evals.p2a_tenant_boundary", DeploymentStatus.DEFAULT_API, ("apps/api/main.py", "aegis/rag/store.py")),
     Phase2Control("P2-B", "docs/threat-model/p2b-indirect-prompt-injection.md", "evals.p2b_indirect_prompt_injection", DeploymentStatus.DEFAULT_API, ("aegis/rag/answering.py", "aegis/policy/tool_capabilities.py")),
     Phase2Control("P2-C", "docs/threat-model/p2c-mcp-tool-poisoning.md", "evals.p2c_mcp_tool_poisoning", DeploymentStatus.DEFAULT_API, ("aegis/mcp_gateway/gateway.py", "aegis/mcp_gateway/server.py")),
-    Phase2Control("P2-D", "docs/threat-model/p2d-token-passthrough.md", "evals.p2d_token_passthrough", DeploymentStatus.LAB_ONLY, phase3_gaps=("P3-G04",)),
+    Phase2Control("P2-D", "docs/threat-model/p2d-token-passthrough.md", "evals.p2d_token_passthrough", DeploymentStatus.DEFAULT_API, _P3D_RUNTIME),
     Phase2Control("P2-E", "docs/threat-model/p2e-ssrf-redirects.md", "evals.p2e_ssrf_redirects", DeploymentStatus.LAB_ONLY, _P3C_NON_DEFAULT_RUNTIME),
     Phase2Control("P2-F", "docs/threat-model/p2f-durable-memory-poisoning.md", "evals.p2f_durable_memory_poisoning", DeploymentStatus.LAB_ONLY, phase3_gaps=("P3-G05",)),
     Phase2Control("P2-G", "docs/threat-model/p2g-resource-exhaustion.md", "evals.p2g_resource_exhaustion", DeploymentStatus.DEFAULT_API, ("aegis/agent/default_budgeted_runner.py", "apps/api/dependencies.py", "apps/api/main.py")),

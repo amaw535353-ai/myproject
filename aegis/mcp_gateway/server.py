@@ -1,10 +1,13 @@
-from typing import Annotated
+from typing import Annotated, Protocol
 
 from mcp.server import MCPServer
 from mcp.server.mcpserver import Resolve
 
 from aegis.approvals.models import ApprovalAction
 from aegis.approvals.store import ApprovalStore
+from aegis.downstream.credential_broker import InventoryCredentialBroker
+from aegis.downstream.inventory import SyntheticInventoryService
+from aegis.helpdesk.models import AssetView
 from aegis.helpdesk.stores import AssetStore, TicketStore
 from aegis.identity.models import Principal
 from aegis.mcp_gateway.models import (
@@ -21,13 +24,32 @@ from aegis.rag.store import KnowledgeStore
 PrincipalDependency = Annotated[Principal, Resolve(require_bound_principal)]
 
 
+class AssetReader(Protocol):
+    """Trusted server-side asset lookup boundary.
+
+    Implementations receive only the resolved Principal. Bearer/token material is not
+    part of this contract, so a future downstream adapter must source its own service
+    authority behind the boundary.
+    """
+
+    def get_my_assets(self, *, principal: Principal) -> list[AssetView]: ...
+
+
 def build_mcp_server(
     *,
     knowledge_store: KnowledgeStore,
-    asset_store: AssetStore,
     ticket_store: TicketStore,
     approval_store: ApprovalStore,
+    asset_store: AssetStore | None = None,
+    asset_reader: AssetReader | None = None,
 ) -> MCPServer:
+    if (asset_store is None) == (asset_reader is None):
+        raise ValueError("provide exactly one of asset_store or asset_reader")
+
+    if asset_reader is None:
+        assert asset_store is not None
+        asset_reader = InventoryCredentialBroker(SyntheticInventoryService(asset_store))
+
     mcp = MCPServer("AegisDesk Tools")
 
     @mcp.tool()
@@ -52,7 +74,7 @@ def build_mcp_server(
     @mcp.tool()
     def get_my_assets(principal: PrincipalDependency) -> GetMyAssetsOutput:
         """Return assets assigned to the authenticated principal only."""
-        return GetMyAssetsOutput(assets=asset_store.get_my_assets(principal))
+        return GetMyAssetsOutput(assets=asset_reader.get_my_assets(principal=principal))
 
     @mcp.tool()
     def create_ticket(
