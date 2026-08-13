@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import Header, HTTPException, status
 
-from aegis.agent.checkpoint_durability import DurableIntegrityCheckpointer
+from aegis.agent.checkpoint_confidentiality import ConfidentialDurableIntegrityCheckpointer
 from aegis.agent.execution_budget import P2G_EXECUTION_LIMITS
 from aegis.agent.fake_model import DeterministicFakeModel
 from aegis.agent.rag_model import DeterministicRagSecurityModel
@@ -181,8 +181,8 @@ def get_memory_context_service() -> DefaultMemoryContextService:
 
 
 @lru_cache(maxsize=1)
-def get_agent_checkpointer() -> DurableIntegrityCheckpointer:
-    return DurableIntegrityCheckpointer(
+def get_agent_checkpointer() -> ConfidentialDurableIntegrityCheckpointer:
+    return ConfidentialDurableIntegrityCheckpointer(
         database_path=_agent_checkpoint_database_path(),
         anchor_database_path=_agent_checkpoint_anchor_database_path(),
     )
