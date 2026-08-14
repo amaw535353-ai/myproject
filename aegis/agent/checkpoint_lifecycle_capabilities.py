@@ -102,7 +102,12 @@ def require_lifecycle_capability(
             capability=capability,
         )
     capabilities = frozenset(getattr(provider, "capabilities", frozenset()))
-    if capability not in capabilities:
+    operation_name = {
+        CheckpointLifecycleCapability.MIGRATION: "migrate_to_active_encryption_key",
+        CheckpointLifecycleCapability.SNAPSHOT: "snapshot_pair",
+        CheckpointLifecycleCapability.RESTORE: "restore_pair",
+    }[capability]
+    if capability not in capabilities or not callable(getattr(provider, operation_name, None)):
         raise CheckpointLifecycleCapabilityError(
             CheckpointLifecycleReason.CAPABILITY_UNSUPPORTED,
             capability=capability,
