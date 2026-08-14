@@ -1,12 +1,12 @@
 [build-system]
-requires = ["setuptools>=75"]
+requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "aegisdesk"
-version = "0.42.0"
-description = "Zero-Trust Agentic RAG Security Lab"
-requires-python = ">=3.12,<3.14"
+version = "0.43.0"
+description = "Zero-trust agentic RAG security lab"
+requires-python = ">=3.11"
 dependencies = [
   "cryptography==50.0.0",
   "fastapi==0.141.1",
@@ -17,12 +17,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["httpx==0.28.1", "pytest==9.1.1"]
+dev = [
+  "httpx==0.28.1",
+  "pytest==9.1.1",
+]
 
 [tool.setuptools.packages.find]
-include = ["aegis*", "apps*"]
+include = ["aegis*", "apps*", "evals*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
-pythonpath = ["."]
