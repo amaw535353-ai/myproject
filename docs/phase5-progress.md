@@ -1,6 +1,6 @@
 # Phase 5 progress — model and AI supply-chain security
 
-Phase 5 broadens AegisDesk beyond checkpoint and agent-runtime hardening into model artifacts, provenance, dependency trust, registry acquisition, signing-key lifecycle, model runtime/execution boundaries, and model-content risk indicators.
+Phase 5 broadens AegisDesk beyond checkpoint and agent-runtime hardening into model artifacts, provenance, dependency trust, registry acquisition, signing-key lifecycle, model runtime/execution boundaries, model-content risk indicators, and inference privacy controls.
 
 ## P5-A — model artifact provenance and safe loading
 
@@ -8,111 +8,88 @@ Status: **implemented and deterministically evaluated**.
 
 P5-A adds caller-bound artifact/model/revision identity, SHA-256 payload binding, Ed25519 manifests, trusted publishers and source prefixes, data-format allowlisting, and a non-deserializing verified artifact handle.
 
-Evidence:
-
-- vulnerable ASR: 4/4;
-- hardened ASR: 0/4;
-- hardened FPR: 0/2;
-- hardened SafeTaskRate: 2/2.
-
-P5-A does not claim safe real ONNX/safetensors parsing or model execution.
+Evidence: vulnerable ASR 4/4; hardened ASR 0/4; hardened FPR 0/2; SafeTaskRate 2/2.
 
 ## P5-B — transitive model-package and adapter provenance
 
 Status: **implemented and deterministically evaluated**.
 
-P5-B extends trust to the exact signed model-package closure: primary model, config, tokenizer, adapters, quantization metadata, and external-data roles. It enforces exact component membership, package-pinned publisher/digest/size metadata, role-specific publisher authorization, dependency validation, remote-code rejection, and nested P5-A provenance for every component.
+P5-B extends trust to the exact signed model-package closure and enforces exact component membership, package-pinned publisher/digest/size metadata, role-specific publisher authorization, dependency validation, remote-code rejection, and nested P5-A provenance for every component.
 
-Evidence:
-
-- vulnerable ASR: 9/9;
-- hardened ASR: 0/9;
-- hardened FPR: 0/3;
-- hardened SafeTaskRate: 3/3.
+Evidence: vulnerable ASR 9/9; hardened ASR 0/9; hardened FPR 0/3; SafeTaskRate 3/3.
 
 ## P5-C — immutable model-registry acquisition and release pinning
 
 Status: **implemented and deterministically evaluated**.
 
-P5-C separates mutable registry discovery aliases from immutable release identity. Deployment policy pins a registry/channel/tag tuple to an exact release SHA-256, constrains source/redirect origins, re-hashes fetched and cached content, binds release/package identity, and hands accepted content through P5-B.
+P5-C separates mutable registry discovery aliases from immutable release identity, requires exact deployment release SHA-256 pins, constrains registry sources/redirects, re-hashes fetched and cached releases, binds package identity, and hands accepted content through P5-B.
 
-Evidence:
+Evidence: vulnerable ASR 8/8; hardened ASR 0/8; hardened FPR 0/3; SafeTaskRate 3/3.
 
-- vulnerable ASR: 8/8;
-- hardened ASR: 0/8;
-- hardened FPR: 0/3;
-- hardened SafeTaskRate: 3/3;
-- dataset SHA-256: `758aff515e6566ca80bffb5e4fae61e2b24c87832da2fcc72e406fd47608af5d`;
-- fixture SHA-256: `dc553db5d14e11b65c6822b2d31265498a0551b597359e5ca63417d66469b695`.
+- dataset SHA-256: `758aff515e6566ca80bffb5e4fae61e2b24c87832da2fcc72e406fd47608af5d`
+- fixture SHA-256: `dc553db5d14e11b65c6822b2d31265498a0551b597359e5ca63417d66469b695`
 
 ## P5-D — provenance signing-key lifecycle and revocation
 
 Status: **implemented and deterministically evaluated**.
 
-P5-D adds signer key IDs, trusted issuers, exact issuer/publisher/key binding, artifact/package usage separation, signing-time and subject binding, validity windows, active/retired/revoked states, successor rotation metadata, and current-state strict rejection of expired/revoked/retired keys. Lifecycle-approved keys are composed with the existing P5-B verifier.
+P5-D adds signer key IDs, trusted issuers, exact issuer/publisher/key binding, artifact/package usage separation, signing-time and subject binding, validity windows, active/retired/revoked states, successor rotation metadata, and current-state strict rejection of expired/revoked/retired keys.
 
-Evidence:
+Evidence: vulnerable ASR 12/12; hardened ASR 0/12; hardened FPR 0/3; SafeTaskRate 3/3.
 
-- vulnerable ASR: 12/12;
-- hardened ASR: 0/12;
-- hardened FPR: 0/3;
-- hardened SafeTaskRate: 3/3;
-- dataset SHA-256: `3cb29e261f27df97b468e2878752d33104dc475d237c7481e8c72e42890772f9`;
-- fixture SHA-256: `d263c288db5c83789eaa7898f78a819873e0c4fa36f2bc7d638e8526f47b8726`.
+- dataset SHA-256: `3cb29e261f27df97b468e2878752d33104dc475d237c7481e8c72e42890772f9`
+- fixture SHA-256: `d263c288db5c83789eaa7898f78a819873e0c4fa36f2bc7d638e8526f47b8726`
 
 ## P5-E — model parser/runtime isolation and execution-boundary remote-code denial
 
 Status: **implemented and deterministically evaluated**.
 
-P5-E separates provenance validity from execution authority. A verified package must still pass an explicit runtime-admission policy before any future parser/runtime integration may consume it:
+P5-E separates provenance validity from execution authority. A verified package must pass exact runtime closure/role checks, role-specific parser allowlists, sandbox-backend policy, remote/dynamic/native/custom-code denial, host-capability denial, required isolation mode, and bounded resource requests.
 
-- intact non-executing P5-B verified-package handle required;
-- caller/package/runtime identity binding;
-- exact runtime component set equal to the verified package closure;
-- exact component-role preservation;
-- role-specific parser allowlists for model/config/tokenizer/adapter/quantization/external-data roles;
-- sandbox-backend allowlist;
-- unconditional denial of remote/repository-supplied code;
-- denial of dynamic modules, native extensions, and custom operators;
-- denial of network, subprocess, host filesystem writes, environment passthrough, host IPC, and ptrace;
-- required deny-by-default isolation profile;
-- bounded memory, CPU-time, and thread requests;
-- non-parsing, non-executing verified runtime-plan handoff.
+Evidence: vulnerable ASR 15/15; hardened ASR 0/15; hardened FPR 0/3; SafeTaskRate 3/3.
 
-The fifteen attacks cover pickle parser substitution, dynamic modules, remote code, native extensions, custom operators, network/subprocess/host-write/environment capabilities, unsandboxed execution, backend injection, component-role confusion, runtime component injection, resource-limit escape, and a degraded package handle.
+- dataset SHA-256: `34d4b0e9f7884fcb545217a0d72afc890ec4dd698e5901b5ed4f20cf1d204b44`
+- fixture SHA-256: `8b16c23c7f7f864ff1cd24d0b078400dd766e6a26a905ee5a4822397d191c32d`
 
-Evidence:
-
-- vulnerable ASR: 15/15;
-- hardened ASR: 0/15;
-- hardened FPR: 0/3;
-- hardened SafeTaskRate: 3/3;
-- dataset SHA-256: `34d4b0e9f7884fcb545217a0d72afc890ec4dd698e5901b5ed4f20cf1d204b44`;
-- fixture SHA-256: `8b16c23c7f7f864ff1cd24d0b078400dd766e6a26a905ee5a4822397d191c32d`.
-
-P5-E is deliberately an admission-policy lab, not a production sandbox. It does not claim memory-safe real model parsing, kernel/container/microVM enforcement, real inference isolation, secure GPU isolation, syscall mediation, cgroup enforcement, or protection from vulnerabilities inside future parser/runtime implementations.
+P5-E is an admission-policy lab, not a production kernel/container/microVM sandbox.
 
 ## P5-F — model poisoning and backdoor indicators
 
 Status: **implemented and deterministically evaluated**.
 
-P5-F adds a release-scoped model-content evidence gate after provenance and runtime admission. It treats a signed, runtime-admissible model as potentially malicious until deterministic scan evidence satisfies policy:
+P5-F adds a release-scoped model-content evidence gate after provenance and runtime admission. It requires exact scanner/profile/baseline and subject-digest binding, exact package/probe coverage, bounded synthetic tensor statistics, trigger-like tokenizer/config checks, and deterministic synthetic backdoor-probe thresholds.
 
-- intact non-executing P5-B verified-package and P5-E verified-runtime handles;
+Evidence: vulnerable ASR 16/16; hardened ASR 0/16; hardened FPR 0/3; SafeTaskRate 3/3.
+
+- dataset SHA-256: `a69d318ed7a674e272b40bade12a1099aecdffdcce3275e500292715be25b719`
+- fixture SHA-256: `117a2473d2df1f5825ba6040aada6b92a363be612520b57b05ebbddc37ada580`
+
+P5-F consumes synthetic statistics/probe outcomes and does not prove a model is backdoor-free or behaviorally safe.
+
+## P5-G — model privacy, extraction, and membership-inference controls
+
+Status: **implemented and deterministically evaluated**.
+
+P5-G treats inference access as a scoped privacy capability even after a model has passed P5-E and P5-F. The hardened `ModelPrivacyGateway` adds:
+
+- intact P5-E runtime and clear P5-F scan handle requirements;
 - exact package/model/revision/runtime identity binding;
-- exact scanner/profile/baseline binding;
-- deployment policy SHA-256 pins for every scan subject;
-- exact scan-evidence coverage of the verified package closure;
-- exact component-role preservation;
-- non-finite tensor indicator rejection;
-- bounded maximum-absolute statistic, outlier density, and sparse-spike density;
-- trigger-like tokenizer token fragment rejection;
-- forbidden config trigger/routing marker rejection;
-- exact synthetic backdoor-probe coverage with minimum reproducibility;
-- targeted trigger-response and clean-utility-degradation thresholds;
-- canonical evidence SHA-256 in the accepted non-executing scan handle.
+- exact deployment binding to the approved P5-F evidence SHA-256;
+- principal/session/query/query-fingerprint identity;
+- output-mode allowlisting;
+- bounded top-k and confidence precision;
+- denial of raw logits, per-token probabilities, embeddings, and hidden states;
+- bounded response length and output-mode consistency;
+- training-canary fragment rejection;
+- synthetic memorization-overlap thresholding;
+- synthetic membership-inference advantage thresholding;
+- synthetic model-extraction similarity thresholding;
+- per-session query budgets;
+- repeated-query-fingerprint budgets;
+- query-ID replay rejection;
+- an in-memory deterministic budget ledger with explicit non-production claims.
 
-The sixteen attacks cover non-finite values, extreme magnitudes, dense outliers, sparse spikes, tokenizer/config trigger indicators, targeted trigger response, clean-utility collapse, missing artifact/probe coverage, subject-digest substitution, role confusion, scanner/profile substitution, degraded runtime/package handles, and scan identity substitution.
+The sixteen attacks cover raw logits, token probabilities, embeddings, hidden states, excessive top-k, high-precision confidence, an unapproved full-distribution mode, training-canary leakage, memorization overlap, membership signal, extraction signal, session budget exhaustion, repeated-fingerprint probing, P5-F scan-digest substitution, a degraded scan handle, and a degraded runtime handle.
 
 Evidence:
 
@@ -120,13 +97,13 @@ Evidence:
 - hardened ASR: 0/16;
 - hardened FPR: 0/3;
 - hardened SafeTaskRate: 3/3;
-- dataset SHA-256: `a69d318ed7a674e272b40bade12a1099aecdffdcce3275e500292715be25b719`;
-- fixture SHA-256: `117a2473d2df1f5825ba6040aada6b92a363be612520b57b05ebbddc37ada580`.
+- dataset SHA-256: `77d70ca43f0098919df126da4b892e1ea530d2adf8fb062362f4acd99c37eca4`;
+- fixture SHA-256: `243cefb858ba25324418373d7ec81c2d3c936f1fbdc8c0b7019fceac5a802489`.
 
-P5-F deliberately consumes **synthetic statistics and synthetic probe outcomes** rather than raw model tensors or real inference. Passing the gate proves only that these modeled indicators were absent from the supplied release-bound evidence. It does not prove that a model is backdoor-free, poisoning-free, semantically safe, or robust to adaptive attackers.
+P5-G uses deterministic synthetic response evidence. It does **not** claim a differential-privacy guarantee, real resistance to adaptive membership inference/model extraction, production distributed rate limiting, side-channel protection, secure multi-tenant accounting, or real training-corpus memorization measurement.
 
 ## Remaining Phase 5 direction
 
-The next breadth milestone is **P5-G — model privacy/extraction and membership-inference controls**. It should move beyond supply-chain/content integrity into abuse-resistant inference policy: query/rate budgets, response minimization, confidence/logit exposure controls, canary leakage detection, deterministic extraction/membership attack fixtures, and explicit privacy claim boundaries.
+The next breadth milestone is **P5-H — deployment provenance and attestation**: bind the approved release, runtime policy, scan evidence, privacy policy, and deployment environment into deterministic deployment evidence while clearly separating synthetic attestation from production hardware-backed attestation or transparency infrastructure.
 
-Later Phase 5 work can add transparency/attestation evidence, deployment provenance, real runtime isolation integrations, and production model-scanning integrations.
+Later work can add real runtime-isolation integrations, production scanning integrations, privacy-budget backends, transparency-log evidence, and hardware-backed deployment attestation.
