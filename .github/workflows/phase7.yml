@@ -28,3 +28,5 @@ jobs:
         run: pytest
       - name: P7-A trust-boundary attack-path evaluation
         run: python -m evals.p7a_attack_paths
+      - name: P7-B identity privilege capability escalation evaluation
+        run: python -m evals.p7b_privilege_paths
