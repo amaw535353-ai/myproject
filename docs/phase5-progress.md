@@ -1,6 +1,6 @@
 # Phase 5 progress — model and AI supply-chain security
 
-Phase 5 broadens AegisDesk beyond checkpoint and agent-runtime hardening into model artifacts, provenance, dependency trust, registry acquisition, signing-key lifecycle, and model runtime/execution boundaries.
+Phase 5 broadens AegisDesk beyond checkpoint and agent-runtime hardening into model artifacts, provenance, dependency trust, registry acquisition, signing-key lifecycle, model runtime/execution boundaries, and model-content risk indicators.
 
 ## P5-A — model artifact provenance and safe loading
 
@@ -92,8 +92,41 @@ Evidence:
 
 P5-E is deliberately an admission-policy lab, not a production sandbox. It does not claim memory-safe real model parsing, kernel/container/microVM enforcement, real inference isolation, secure GPU isolation, syscall mediation, cgroup enforcement, or protection from vulnerabilities inside future parser/runtime implementations.
 
+## P5-F — model poisoning and backdoor indicators
+
+Status: **implemented and deterministically evaluated**.
+
+P5-F adds a release-scoped model-content evidence gate after provenance and runtime admission. It treats a signed, runtime-admissible model as potentially malicious until deterministic scan evidence satisfies policy:
+
+- intact non-executing P5-B verified-package and P5-E verified-runtime handles;
+- exact package/model/revision/runtime identity binding;
+- exact scanner/profile/baseline binding;
+- deployment policy SHA-256 pins for every scan subject;
+- exact scan-evidence coverage of the verified package closure;
+- exact component-role preservation;
+- non-finite tensor indicator rejection;
+- bounded maximum-absolute statistic, outlier density, and sparse-spike density;
+- trigger-like tokenizer token fragment rejection;
+- forbidden config trigger/routing marker rejection;
+- exact synthetic backdoor-probe coverage with minimum reproducibility;
+- targeted trigger-response and clean-utility-degradation thresholds;
+- canonical evidence SHA-256 in the accepted non-executing scan handle.
+
+The sixteen attacks cover non-finite values, extreme magnitudes, dense outliers, sparse spikes, tokenizer/config trigger indicators, targeted trigger response, clean-utility collapse, missing artifact/probe coverage, subject-digest substitution, role confusion, scanner/profile substitution, degraded runtime/package handles, and scan identity substitution.
+
+Evidence:
+
+- vulnerable ASR: 16/16;
+- hardened ASR: 0/16;
+- hardened FPR: 0/3;
+- hardened SafeTaskRate: 3/3;
+- dataset SHA-256: `a69d318ed7a674e272b40bade12a1099aecdffdcce3275e500292715be25b719`;
+- fixture SHA-256: `117a2473d2df1f5825ba6040aada6b92a363be612520b57b05ebbddc37ada580`.
+
+P5-F deliberately consumes **synthetic statistics and synthetic probe outcomes** rather than raw model tensors or real inference. Passing the gate proves only that these modeled indicators were absent from the supplied release-bound evidence. It does not prove that a model is backdoor-free, poisoning-free, semantically safe, or robust to adaptive attackers.
+
 ## Remaining Phase 5 direction
 
-The next breadth milestone is **P5-F — model scanning and poisoning/backdoor indicators**. It should add deterministic synthetic evidence for suspicious tensor/config metadata, anomalous weight statistics, unexpected trigger-like artifacts, and policy-gated scan findings while explicitly avoiding a claim that static scanning proves behavioral safety.
+The next breadth milestone is **P5-G — model privacy/extraction and membership-inference controls**. It should move beyond supply-chain/content integrity into abuse-resistant inference policy: query/rate budgets, response minimization, confidence/logit exposure controls, canary leakage detection, deterministic extraction/membership attack fixtures, and explicit privacy claim boundaries.
 
-Later Phase 5 work can add transparency/attestation evidence, model privacy/extraction controls, deployment provenance, and real runtime isolation integrations.
+Later Phase 5 work can add transparency/attestation evidence, deployment provenance, real runtime isolation integrations, and production model-scanning integrations.
