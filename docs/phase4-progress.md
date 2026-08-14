@@ -74,10 +74,14 @@ P4-E still requires backup checkpoint and pending-write ciphertext to use the ac
 
 ## Evidence and claims
 
-P4-J deterministic dataset hash: `040eec8d91bb733c04f04188ad968c3f8e37744` is not a dataset identifier and must not be used as one. The verified P4-J evaluation dataset hash remains `040eec8d91bb733c04f04188b6b364e8cbddb3229de3330a8dc1f965895dd5e8`, with implicit local-anchor-path baseline ASR 3/3, hardened ASR 0/3, FPR 0/3, and SafeTaskRate 3/3.
+The verified P4-J evaluation dataset hash is `040eec8d91bb733c04f04188b6b364e8cbddb3229de3330a8dc1f965895dd5e8`, with implicit local-anchor-path baseline ASR 3/3, hardened ASR 0/3, FPR 0/3, and SafeTaskRate 3/3.
 
-P4-K deterministic dataset hash is `5800f33a2c80076dd55e265f0c9f6573a78ca5948e38e0993f6fbb44615dc9fa`. Its intended deterministic posture is implicit lifecycle-trust baseline ASR 5/5, hardened ASR 0/5, hardened FPR 0/2, and hardened SafeTaskRate 2/2; final CI evidence must confirm these values before they are treated as verified.
+The verified P4-K deterministic dataset hash is `5800f33a2c80076dd55e265f0c9f6573a78ca5948e38e0993f6fbb44615dc9fa`. Exact branch CI observed implicit lifecycle-trust baseline ASR 5/5, hardened ASR 0/5, hardened FPR 0/2, and hardened SafeTaskRate 2/2. It also observed the P4-F surface count unchanged at five, accepted the complete external descriptor contract shape, rejected the P4-J synthetic provider for production trust, reported zero network operations, and reported no real external trust operations or production external lifecycle provider.
 
 Real external operations introduced by P4-K: none. Network operations: 0. Production external checkpoint adapter implementation: none. Production external lifecycle-provider implementation: none. Production confidentiality, durability, key-management, backup, recovery, disaster-recovery, lifecycle-atomicity, or external-trust claim: none.
 
 The P3-F high-impact execution-control-plane trust boundary remains separate. It covers authorization signing, protected execution checkpoints, signed checkpoint receipts, and receipt witnesses. P4-F through P4-K cover LangGraph agent checkpoint storage, recovery, and lifecycle coordination. Both use the same deployment-profile vocabulary but one domain's provider does not satisfy the other domain's trust requirements.
+
+## Next target
+
+P4-L should add a deterministic lifecycle failure-and-fencing semantics harness for the synthetic external-style coordinator: ambiguous commit outcomes, provider unavailability, stale or replayed lifecycle commands, concurrent-writer fencing mismatches, and recovery after partial provider/state progression. The target remains synthetic and in-process, with no real credentials, network calls, external services, distributed-transaction claim, or production claim.
