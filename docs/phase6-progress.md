@@ -72,7 +72,7 @@ Deterministic evaluation evidence:
 - dataset SHA-256: `623e5eaf40beaab1f0af141652319cab35cd1344d9526109605716a8360ff2c3`;
 - fixture SHA-256: `6b1ff5de5ab5bd07d83de010509a08ae531cf5e8ee633fddff83c84124a838a3`.
 
-An isolated local harness compiled the exact P6-C implementation/evaluation/test files, passed **29 P6-C security-test outcomes**, and completed the deterministic evaluation with the metrics above against an API-compatible P6-A corpus interface. This is not a claim that full-repository pytest ran locally.
+An isolated local harness exercised the standalone P6-C implementation/evaluation/test logic, passed **29 P6-C security-test outcomes**, and completed the deterministic evaluation with the metrics above against an API-compatible P6-A corpus interface. This is not a claim that full-repository pytest ran locally or that the GitHub-hosted branch files were executed by that harness byte-for-byte.
 
 P6-C does not claim exhaustive attack coverage, proof that its coverage floors are sufficient, formal verification, production change-management integration, cryptographic human approval, rollback-resistant corpus history, or protection against a compromised policy administrator.
 
