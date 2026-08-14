@@ -30,3 +30,5 @@ jobs:
         run: python -m evals.p5a_model_artifact_provenance
       - name: P5-B transitive model-package and adapter provenance evaluation
         run: python -m evals.p5b_model_package_provenance
+      - name: P5-C immutable model-registry acquisition and release-pinning evaluation
+        run: python -m evals.p5c_registry_release_pinning
