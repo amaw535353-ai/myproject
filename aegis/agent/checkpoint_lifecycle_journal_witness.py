@@ -18,7 +18,10 @@ from aegis.agent.checkpoint_lifecycle_fencing import (
     CheckpointLifecycleCommandReceipt,
 )
 from aegis.agent.checkpoint_lifecycle_journal import (
+    P4M_DURABLE_LIFECYCLE_JOURNAL_POLICY_VERSION,
     P4M_DURABLE_LIFECYCLE_JOURNAL_SCHEMA_VERSION,
+    CheckpointLifecycleJournalFaultMode,
+    CheckpointLifecycleJournalState,
     DurableSyntheticCheckpointLifecycleCoordinator,
 )
 
@@ -64,7 +67,9 @@ class CheckpointLifecycleJournalWitnessError(RuntimeError):
 class LifecycleJournalCommandSummary:
     fence_token: int
     command_digest: str
+    stable_identity_digest: str
     state: str
+    anchor_fingerprint_after: str | None
 
 
 @dataclass(frozen=True)
@@ -84,27 +89,26 @@ class LifecycleJournalWitnessRecord:
 
 
 _STATE_RANK = {
-    "prepared": 0,
-    "provider_started": 1,
-    "reconciliation_required": 2,
-    "committed": 3,
+    CheckpointLifecycleJournalState.PREPARED.value: 0,
+    CheckpointLifecycleJournalState.PROVIDER_STARTED.value: 1,
+    CheckpointLifecycleJournalState.RECONCILIATION_REQUIRED.value: 2,
+    CheckpointLifecycleJournalState.COMMITTED.value: 3,
 }
 
 
 class WitnessedDurableSyntheticCheckpointLifecycleCoordinator:
-    """P4-M coordinator guarded by a separate local synthetic witness.
+    """P4-M coordinator guarded by a separate local synthetic rollback witness.
 
-    The witness is a separate file with separate local HMAC material. It records a
-    structural digest and monotonic command-state summary of the P4-M journal. A
-    journal-only rollback or rollback of the P4-M journal together with its own
-    integrity key is detected while the witness remains newer. If the journal is
-    provably monotonic-forward from an older witness, the witness is safely advanced
-    on reopen; this covers a crash after a durable journal mutation but before the
-    witness write.
+    The witness is stored separately from the P4-M journal and authenticated by
+    separate local HMAC material. It detects a journal rollback, same-fence state
+    regression, or alternate authenticated journal history while the witness
+    remains newer. A current journal that is *provably* monotonic-forward from a
+    stale witness can advance the witness after reopen, covering a crash between a
+    durable journal mutation and the witness write.
 
-    This remains same-host synthetic evidence. Rolling back the journal, its P4-M
-    integrity key, the witness, and the witness key together is outside the guarantee
-    and is intentionally not called production rollback resistance.
+    Both artifacts still live on the same host. Rolling back the journal, journal
+    HMAC key, witness, and witness HMAC key together is outside this boundary and
+    is intentionally not described as production rollback resistance.
     """
 
     synthetic_in_process = True
@@ -152,6 +156,9 @@ class WitnessedDurableSyntheticCheckpointLifecycleCoordinator:
     def arm_fault(self, mode: CheckpointLifecycleJournalWitnessFaultMode) -> None:
         self._fault_mode = CheckpointLifecycleJournalWitnessFaultMode(mode)
 
+    def arm_journal_fault(self, mode: CheckpointLifecycleJournalFaultMode) -> None:
+        self.journal.arm_fault(mode)
+
     def _consume_fault(self) -> CheckpointLifecycleJournalWitnessFaultMode:
         mode = self._fault_mode
         self._fault_mode = CheckpointLifecycleJournalWitnessFaultMode.NONE
@@ -161,37 +168,51 @@ class WitnessedDurableSyntheticCheckpointLifecycleCoordinator:
     def _canonical_json(payload: object) -> bytes:
         return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
-    def _journal_attestation(self) -> LifecycleJournalAttestation:
-        # P4-M owns authentication of the journal. Verify every row before deriving
-        # the independent witness digest.
-        self.journal._verify_store()
-        connection = sqlite3.connect(self.journal_path, timeout=5.0)
-        connection.row_factory = sqlite3.Row
+    @staticmethod
+    def _state_rank(state: str) -> int:
         try:
-            meta = connection.execute(
-                """
-                SELECT schema_version, highest_issued_fence, highest_committed_fence
-                FROM journal_meta WHERE singleton = 1
-                """
-            ).fetchone()
-            if (
-                meta is None
-                or str(meta["schema_version"])
-                != P4M_DURABLE_LIFECYCLE_JOURNAL_SCHEMA_VERSION
-            ):
-                raise CheckpointLifecycleJournalWitnessError(
-                    CheckpointLifecycleJournalWitnessReason.WITNESS_STATE_INVALID
-                )
+            return _STATE_RANK[state]
+        except KeyError as exc:
+            raise CheckpointLifecycleJournalWitnessError(
+                CheckpointLifecycleJournalWitnessReason.WITNESS_STATE_INVALID
+            ) from exc
+
+    @classmethod
+    def _stable_identity_digest(cls, record: Any) -> str:
+        pre_observation_digest = hashlib.sha256(
+            cls._canonical_json(record.pre_observation)
+        ).hexdigest()
+        payload = {
+            "command_id": record.command.command_id,
+            "command_digest": record.command.digest(),
+            "operation": record.command.operation.value,
+            "fence_token": record.command.fence_token,
+            "expected_anchor_fingerprint": record.command.expected_anchor_fingerprint,
+            "resource_id": record.command.resource_id,
+            "provider_id": record.provider_id,
+            "pre_observation_digest": pre_observation_digest,
+        }
+        return hashlib.sha256(cls._canonical_json(payload)).hexdigest()
+
+    def _journal_attestation(self) -> LifecycleJournalAttestation:
+        # P4-M remains the source of truth for journal authentication. P4-N uses
+        # P4-M's authenticated row readers and then independently attests only
+        # structural digests and monotonic lifecycle state.
+        self.journal._verify_store()
+        connection = self.journal._connect()
+        try:
+            meta = self.journal._read_meta(connection)
             rows = connection.execute(
                 """
                 SELECT command_id, operation, fence_token,
                        expected_anchor_fingerprint, resource_id, command_digest,
                        state, pre_observation_json, anchor_fingerprint_after,
-                       provider_id
+                       provider_id, integrity_tag
                 FROM lifecycle_commands
                 ORDER BY fence_token
                 """
             ).fetchall()
+            records = [self.journal._row_to_record(row) for row in rows]
         except sqlite3.DatabaseError as exc:
             raise CheckpointLifecycleJournalWitnessError(
                 CheckpointLifecycleJournalWitnessReason.WITNESS_STATE_INVALID
@@ -202,47 +223,36 @@ class WitnessedDurableSyntheticCheckpointLifecycleCoordinator:
         commands: list[LifecycleJournalCommandSummary] = []
         digest_rows: list[dict[str, object]] = []
         committed_count = 0
-        for row in rows:
-            state = str(row["state"])
-            if state not in _STATE_RANK:
-                raise CheckpointLifecycleJournalWitnessError(
-                    CheckpointLifecycleJournalWitnessReason.WITNESS_STATE_INVALID
-                )
-            if state == "committed":
+        for record in records:
+            state = record.state.value
+            self._state_rank(state)
+            if record.state is CheckpointLifecycleJournalState.COMMITTED:
                 committed_count += 1
-            command_digest = str(row["command_digest"])
-            commands.append(
-                LifecycleJournalCommandSummary(
-                    fence_token=int(row["fence_token"]),
-                    command_digest=command_digest,
-                    state=state,
-                )
+            stable_identity_digest = self._stable_identity_digest(record)
+            summary = LifecycleJournalCommandSummary(
+                fence_token=record.command.fence_token,
+                command_digest=record.command.digest(),
+                stable_identity_digest=stable_identity_digest,
+                state=state,
+                anchor_fingerprint_after=record.anchor_fingerprint_after,
             )
+            commands.append(summary)
             digest_rows.append(
                 {
-                    "command_id": str(row["command_id"]),
-                    "operation": str(row["operation"]),
-                    "fence_token": int(row["fence_token"]),
-                    "expected_anchor_fingerprint": str(row["expected_anchor_fingerprint"]),
-                    "resource_id": str(row["resource_id"]),
-                    "command_digest": command_digest,
-                    "state": state,
-                    "pre_observation_digest": hashlib.sha256(
-                        str(row["pre_observation_json"]).encode("utf-8")
-                    ).hexdigest(),
-                    "anchor_fingerprint_after": (
-                        None
-                        if row["anchor_fingerprint_after"] is None
-                        else str(row["anchor_fingerprint_after"])
-                    ),
-                    "provider_id": str(row["provider_id"]),
+                    "fence_token": summary.fence_token,
+                    "command_digest": summary.command_digest,
+                    "stable_identity_digest": summary.stable_identity_digest,
+                    "state": summary.state,
+                    "anchor_fingerprint_after": summary.anchor_fingerprint_after,
                 }
             )
 
         issued = int(meta["highest_issued_fence"])
         committed = int(meta["highest_committed_fence"])
         digest_payload = {
+            "p4m_policy_version": P4M_DURABLE_LIFECYCLE_JOURNAL_POLICY_VERSION,
             "p4m_schema_version": P4M_DURABLE_LIFECYCLE_JOURNAL_SCHEMA_VERSION,
+            "provider_id": self.provider_id,
             "highest_issued_fence": issued,
             "highest_committed_fence": committed,
             "commands": digest_rows,
@@ -252,9 +262,7 @@ class WitnessedDurableSyntheticCheckpointLifecycleCoordinator:
             highest_committed_fence=committed,
             command_count=len(commands),
             committed_count=committed_count,
-            journal_state_digest=hashlib.sha256(
-                self._canonical_json(digest_payload)
-            ).hexdigest(),
+            journal_state_digest=hashlib.sha256(self._canonical_json(digest_payload)).hexdigest(),
             commands=tuple(commands),
         )
 
@@ -270,7 +278,9 @@ class WitnessedDurableSyntheticCheckpointLifecycleCoordinator:
                 {
                     "fence_token": item.fence_token,
                     "command_digest": item.command_digest,
+                    "stable_identity_digest": item.stable_identity_digest,
                     "state": item.state,
+                    "anchor_fingerprint_after": item.anchor_fingerprint_after,
                 }
                 for item in attestation.commands
             ],
@@ -342,14 +352,13 @@ class WitnessedDurableSyntheticCheckpointLifecycleCoordinator:
         }
         payload["integrity_tag"] = self._witness_tag(payload)
         temporary = self.witness_path.with_suffix(self.witness_path.suffix + ".tmp")
-        encoded = self._canonical_json(payload)
         descriptor = os.open(
             temporary,
             os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
             0o600,
         )
         try:
-            os.write(descriptor, encoded)
+            os.write(descriptor, self._canonical_json(payload))
             os.fsync(descriptor)
         finally:
             os.close(descriptor)
@@ -361,7 +370,6 @@ class WitnessedDurableSyntheticCheckpointLifecycleCoordinator:
             finally:
                 os.close(directory_descriptor)
         except OSError:
-            # Directory fsync portability does not change the local-synthetic claim.
             pass
 
     def _read_witness(self) -> LifecycleJournalWitnessRecord:
@@ -399,7 +407,13 @@ class WitnessedDurableSyntheticCheckpointLifecycleCoordinator:
                 LifecycleJournalCommandSummary(
                     fence_token=int(item["fence_token"]),
                     command_digest=str(item["command_digest"]),
+                    stable_identity_digest=str(item["stable_identity_digest"]),
                     state=str(item["state"]),
+                    anchor_fingerprint_after=(
+                        None
+                        if item.get("anchor_fingerprint_after") is None
+                        else str(item["anchor_fingerprint_after"])
+                    ),
                 )
                 for item in raw_commands
             )
@@ -417,7 +431,10 @@ class WitnessedDurableSyntheticCheckpointLifecycleCoordinator:
             raise CheckpointLifecycleJournalWitnessError(
                 CheckpointLifecycleJournalWitnessReason.WITNESS_STATE_INVALID
             ) from exc
-        if attestation.command_count != len(attestation.commands):
+        if (
+            attestation.command_count != len(attestation.commands)
+            or attestation.highest_committed_fence > attestation.highest_issued_fence
+        ):
             raise CheckpointLifecycleJournalWitnessError(
                 CheckpointLifecycleJournalWitnessReason.WITNESS_STATE_INVALID
             )
@@ -426,32 +443,11 @@ class WitnessedDurableSyntheticCheckpointLifecycleCoordinator:
             attestation=attestation,
         )
 
-    @staticmethod
-    def _is_monotonic_forward(
-        witnessed: LifecycleJournalAttestation,
-        current: LifecycleJournalAttestation,
-    ) -> bool:
-        if (
-            current.highest_issued_fence < witnessed.highest_issued_fence
-            or current.highest_committed_fence < witnessed.highest_committed_fence
-            or current.command_count < witnessed.command_count
-            or current.committed_count < witnessed.committed_count
-        ):
-            return False
-        current_by_fence = {item.fence_token: item for item in current.commands}
-        for previous in witnessed.commands:
-            now = current_by_fence.get(previous.fence_token)
-            if now is None or now.command_digest != previous.command_digest:
-                return False
-            if _STATE_RANK[now.state] < _STATE_RANK[previous.state]:
-                return False
-        return True
-
-    def _classify_mismatch(
+    def _classify_current_against_witness(
         self,
         witnessed: LifecycleJournalAttestation,
         current: LifecycleJournalAttestation,
-    ) -> CheckpointLifecycleJournalWitnessReason:
+    ) -> CheckpointLifecycleJournalWitnessReason | None:
         if (
             current.highest_issued_fence < witnessed.highest_issued_fence
             or current.highest_committed_fence < witnessed.highest_committed_fence
@@ -459,15 +455,45 @@ class WitnessedDurableSyntheticCheckpointLifecycleCoordinator:
             or current.committed_count < witnessed.committed_count
         ):
             return CheckpointLifecycleJournalWitnessReason.JOURNAL_ROLLBACK_DETECTED
+
         current_by_fence = {item.fence_token: item for item in current.commands}
+        strict_progress = bool(
+            current.highest_issued_fence > witnessed.highest_issued_fence
+            or current.highest_committed_fence > witnessed.highest_committed_fence
+            or current.command_count > witnessed.command_count
+            or current.committed_count > witnessed.committed_count
+        )
         for previous in witnessed.commands:
             now = current_by_fence.get(previous.fence_token)
             if now is None:
                 return CheckpointLifecycleJournalWitnessReason.JOURNAL_ROLLBACK_DETECTED
-            if now.command_digest != previous.command_digest:
+            if (
+                now.command_digest != previous.command_digest
+                or now.stable_identity_digest != previous.stable_identity_digest
+            ):
                 return CheckpointLifecycleJournalWitnessReason.JOURNAL_WITNESS_DIVERGENCE
-            if _STATE_RANK[now.state] < _STATE_RANK[previous.state]:
+            previous_rank = self._state_rank(previous.state)
+            current_rank = self._state_rank(now.state)
+            if current_rank < previous_rank:
                 return CheckpointLifecycleJournalWitnessReason.JOURNAL_ROLLBACK_DETECTED
+            if current_rank > previous_rank:
+                strict_progress = True
+            if previous.state == CheckpointLifecycleJournalState.COMMITTED.value:
+                if (
+                    now.state != CheckpointLifecycleJournalState.COMMITTED.value
+                    or now.anchor_fingerprint_after != previous.anchor_fingerprint_after
+                ):
+                    return CheckpointLifecycleJournalWitnessReason.JOURNAL_WITNESS_DIVERGENCE
+
+        witnessed_fences = {item.fence_token for item in witnessed.commands}
+        for item in current.commands:
+            if item.fence_token not in witnessed_fences and item.fence_token <= witnessed.highest_issued_fence:
+                return CheckpointLifecycleJournalWitnessReason.JOURNAL_WITNESS_DIVERGENCE
+
+        if current.journal_state_digest == witnessed.journal_state_digest:
+            return None
+        if strict_progress:
+            return None
         return CheckpointLifecycleJournalWitnessReason.JOURNAL_WITNESS_DIVERGENCE
 
     def _verify_or_advance_witness(self) -> None:
@@ -475,7 +501,8 @@ class WitnessedDurableSyntheticCheckpointLifecycleCoordinator:
         current = self._journal_attestation()
         if current.journal_state_digest == record.attestation.journal_state_digest:
             return
-        if self._is_monotonic_forward(record.attestation, current):
+        reason = self._classify_current_against_witness(record.attestation, current)
+        if reason is None:
             self._write_witness(
                 LifecycleJournalWitnessRecord(
                     witness_generation=record.witness_generation + 1,
@@ -484,7 +511,6 @@ class WitnessedDurableSyntheticCheckpointLifecycleCoordinator:
             )
             self.witness_forward_advances += 1
             return
-        reason = self._classify_mismatch(record.attestation, current)
         if reason is CheckpointLifecycleJournalWitnessReason.JOURNAL_ROLLBACK_DETECTED:
             self.rollback_rejections += 1
         raise CheckpointLifecycleJournalWitnessError(reason)
@@ -527,18 +553,14 @@ class WitnessedDurableSyntheticCheckpointLifecycleCoordinator:
         backup_anchor_path: Path | None = None,
     ) -> CheckpointLifecycleCommandReceipt:
         self._verify_or_advance_witness()
-        try:
-            receipt = self.journal.execute(
-                command,
-                saver,
-                checkpoint_destination=checkpoint_destination,
-                anchor_destination=anchor_destination,
-                backup_database_path=backup_database_path,
-                backup_anchor_path=backup_anchor_path,
-            )
-        except BaseException:
-            self._verify_or_advance_witness()
-            raise
+        receipt = self.journal.execute(
+            command,
+            saver,
+            checkpoint_destination=checkpoint_destination,
+            anchor_destination=anchor_destination,
+            backup_database_path=backup_database_path,
+            backup_anchor_path=backup_anchor_path,
+        )
         self._sync_after_journal_mutation()
         return receipt
 
@@ -548,11 +570,7 @@ class WitnessedDurableSyntheticCheckpointLifecycleCoordinator:
         saver: KeyLifecycleConfidentialCheckpointer,
     ) -> CheckpointLifecycleCommandReceipt:
         self._verify_or_advance_witness()
-        try:
-            receipt = self.journal.reconcile(command, saver)
-        except BaseException:
-            self._verify_or_advance_witness()
-            raise
+        receipt = self.journal.reconcile(command, saver)
         self._sync_after_journal_mutation()
         return receipt
 
@@ -580,6 +598,7 @@ class WitnessedDurableSyntheticCheckpointLifecycleCoordinator:
         return {
             "provider_id": self.provider_id,
             "policy_version": P4N_LIFECYCLE_JOURNAL_WITNESS_POLICY_VERSION,
+            "journal_policy_version": P4M_DURABLE_LIFECYCLE_JOURNAL_POLICY_VERSION,
             "synthetic_in_process": self.synthetic_in_process,
             "durable_local_witness": self.durable_local_witness,
             "independent_local_artifact": self.independent_local_artifact,
