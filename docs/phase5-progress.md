@@ -1,80 +1,42 @@
 # Phase 5 progress — model and AI supply-chain security
 
-Phase 5 broadens AegisDesk beyond checkpoint and agent-runtime hardening into model artifacts, provenance, dependency trust, registry acquisition, signing-key lifecycle, and model-runtime supply-chain boundaries.
+Phase 5 broadens AegisDesk beyond checkpoint and agent-runtime hardening into model artifacts, provenance, dependency trust, registry acquisition, signing-key lifecycle, and model runtime/execution boundaries.
 
 ## P5-A — model artifact provenance and safe loading
 
 Status: **implemented and deterministically evaluated**.
 
-P5-A adds an inert pre-runtime model-artifact gate with:
+P5-A adds caller-bound artifact/model/revision identity, SHA-256 payload binding, Ed25519 manifests, trusted publishers and source prefixes, data-format allowlisting, and a non-deserializing verified artifact handle.
 
-- caller-bound artifact/model/revision identity;
-- SHA-256 payload binding;
-- Ed25519 signed manifests;
-- pinned trusted publishers;
-- publisher-specific trusted source prefixes;
-- explicit data-format allowlisting;
-- rejection of signed-but-unsafe serialization formats;
-- a non-deserializing verified artifact handle;
-- no model downloads, no real registry credentials, no arbitrary payload execution, and no network operations.
-
-Deterministic evaluation:
+Evidence:
 
 - vulnerable ASR: 4/4;
 - hardened ASR: 0/4;
 - hardened FPR: 0/2;
 - hardened SafeTaskRate: 2/2.
 
-P5-A deliberately does not claim that real ONNX or safetensors parsing/execution is safe. Those format labels are accepted only for a verified opaque handoff.
+P5-A does not claim safe real ONNX/safetensors parsing or model execution.
 
 ## P5-B — transitive model-package and adapter provenance
 
 Status: **implemented and deterministically evaluated**.
 
-P5-B extends trust from one primary model blob to the exact signed dependency closure that may accompany it:
+P5-B extends trust to the exact signed model-package closure: primary model, config, tokenizer, adapters, quantization metadata, and external-data roles. It enforces exact component membership, package-pinned publisher/digest/size metadata, role-specific publisher authorization, dependency validation, remote-code rejection, and nested P5-A provenance for every component.
 
-- one caller-bound signed package manifest;
-- exactly one primary model;
-- config and tokenizer components;
-- LoRA/PEFT-style adapter role policy represented by inert adapter fixtures;
-- quantization metadata and external-data shard roles;
-- exact missing/extra component closure checks;
-- package-signed component publisher/digest/size pins that reject later same-ID substitutions even from an otherwise trusted publisher;
-- role-specific publisher authorization;
-- dependency-reference and cycle validation;
-- explicit remote-code requirement rejection;
-- nested P5-A provenance validation for every transitive component;
-- opaque non-deserializing package handoff with zero network operations.
-
-Deterministic evaluation:
+Evidence:
 
 - vulnerable ASR: 9/9;
 - hardened ASR: 0/9;
 - hardened FPR: 0/3;
 - hardened SafeTaskRate: 3/3.
 
-The attacks cover missing and injected components, a globally trusted but role-disallowed adapter publisher, remote-code requirements, transitive payload tampering, cyclic dependencies, forged package signatures, package-identity substitution, and same-publisher component substitution outside the package-signed digest pin.
-
-P5-B still does not claim semantic safety of model/config/tokenizer/adapter content, safe execution of real model formats, production registry integrity, production signing-key custody, or model-behavior safety.
-
 ## P5-C — immutable model-registry acquisition and release pinning
 
 Status: **implemented and deterministically evaluated**.
 
-P5-C protects the boundary between an approved deployment release reference and the P5-B package verifier:
+P5-C separates mutable registry discovery aliases from immutable release identity. Deployment policy pins a registry/channel/tag tuple to an exact release SHA-256, constrains source/redirect origins, re-hashes fetched and cached content, binds release/package identity, and hands accepted content through P5-B.
 
-- trusted registry IDs are separated from trusted registry source prefixes;
-- deployment channel/tag combinations require explicit immutable SHA-256 release pins;
-- mutable-tag resolution must still equal the approved release digest;
-- release acquisition is digest-addressed rather than tag-trusting;
-- redirects are disabled by default and every enabled redirect/final source is allowlisted;
-- the release digest binds package manifest/signature evidence and every transitive artifact manifest/signature/payload digest and size;
-- cached releases are re-hashed before use, detecting same-key cache substitution;
-- release registry/channel/tag and package/model/revision identity are caller-bound;
-- accepted releases are handed through the full P5-B package verifier before an opaque handle is returned;
-- all registry operations remain fixed local synthetic fixtures with no network or model execution.
-
-Deterministic evaluation:
+Evidence:
 
 - vulnerable ASR: 8/8;
 - hardened ASR: 0/8;
@@ -83,30 +45,13 @@ Deterministic evaluation:
 - dataset SHA-256: `758aff515e6566ca80bffb5e4fae61e2b24c87832da2fcc72e406fd47608af5d`;
 - fixture SHA-256: `dc553db5d14e11b65c6822b2d31265498a0551b597359e5ca63417d66469b695`.
 
-The eight attacks cover mutable-tag drift, an unpinned channel, an untrusted registry, an untrusted resolved source, an untrusted redirect, content served under the wrong release digest, cache substitution, and release package-identity substitution.
-
-P5-C still does not claim a production registry transport, secure real-world HTTP/TLS/DNS behavior, production cache integrity, production registry credentials, production release-signing-key custody, semantic model safety, or safe real model execution.
-
 ## P5-D — provenance signing-key lifecycle and revocation
 
 Status: **implemented and deterministically evaluated**.
 
-P5-D replaces static publisher-key trust with an explicit deployment key lifecycle in front of P5-B:
+P5-D adds signer key IDs, trusted issuers, exact issuer/publisher/key binding, artifact/package usage separation, signing-time and subject binding, validity windows, active/retired/revoked states, successor rotation metadata, and current-state strict rejection of expired/revoked/retired keys. Lifecycle-approved keys are composed with the existing P5-B verifier.
 
-- signer key IDs and trusted issuer policy;
-- exact issuer/publisher/key binding;
-- artifact-versus-package key usage separation;
-- cryptographically bound signing time and subject digest metadata;
-- validity-window checks both at signing time and current deployment evaluation time;
-- explicit revoked and retired states;
-- current-state strict rejection of expired, revoked, and retired signer keys;
-- successor-key metadata and an overlap model where multiple key generations may remain active during controlled rotation;
-- fail-closed key-ID and subject-digest substitution detection;
-- ephemeral P5-B trust policies built only from lifecycle-approved public keys;
-- nested P5-B package/artifact provenance verification under those selected keys;
-- inert fixtures with no model execution, network operations, KMS/HSM calls, or transparency-log queries.
-
-Deterministic evaluation:
+Evidence:
 
 - vulnerable ASR: 12/12;
 - hardened ASR: 0/12;
@@ -115,12 +60,40 @@ Deterministic evaluation:
 - dataset SHA-256: `3cb29e261f27df97b468e2878752d33104dc475d237c7481e8c72e42890772f9`;
 - fixture SHA-256: `d263c288db5c83789eaa7898f78a819873e0c4fa36f2bc7d638e8526f47b8726`.
 
-The twelve attacks cover expired, revoked, retired, future, unknown, and untrusted-issuer keys; package-versus-artifact usage confusion; publisher binding mismatch; key-ID substitution; and subject-binding substitution. Benign cases show active predecessor and successor key generations during a rotation overlap plus successor-signed release content.
+## P5-E — model parser/runtime isolation and execution-boundary remote-code denial
 
-P5-D deliberately models deployment trust rather than archival signature semantics: a currently revoked or expired signer is rejected even if the signature was once valid. It still does not claim production key custody, certificate-chain validation, online revocation distribution, transparency logs, trusted timestamp services, or rollback-resistant key-policy distribution.
+Status: **implemented and deterministically evaluated**.
+
+P5-E separates provenance validity from execution authority. A verified package must still pass an explicit runtime-admission policy before any future parser/runtime integration may consume it:
+
+- intact non-executing P5-B verified-package handle required;
+- caller/package/runtime identity binding;
+- exact runtime component set equal to the verified package closure;
+- exact component-role preservation;
+- role-specific parser allowlists for model/config/tokenizer/adapter/quantization/external-data roles;
+- sandbox-backend allowlist;
+- unconditional denial of remote/repository-supplied code;
+- denial of dynamic modules, native extensions, and custom operators;
+- denial of network, subprocess, host filesystem writes, environment passthrough, host IPC, and ptrace;
+- required deny-by-default isolation profile;
+- bounded memory, CPU-time, and thread requests;
+- non-parsing, non-executing verified runtime-plan handoff.
+
+The fifteen attacks cover pickle parser substitution, dynamic modules, remote code, native extensions, custom operators, network/subprocess/host-write/environment capabilities, unsandboxed execution, backend injection, component-role confusion, runtime component injection, resource-limit escape, and a degraded package handle.
+
+Evidence:
+
+- vulnerable ASR: 15/15;
+- hardened ASR: 0/15;
+- hardened FPR: 0/3;
+- hardened SafeTaskRate: 3/3;
+- dataset SHA-256: `34d4b0e9f7884fcb545217a0d72afc890ec4dd698e5901b5ed4f20cf1d204b44`;
+- fixture SHA-256: `8b16c23c7f7f864ff1cd24d0b078400dd766e6a26a905ee5a4822397d191c32d`.
+
+P5-E is deliberately an admission-policy lab, not a production sandbox. It does not claim memory-safe real model parsing, kernel/container/microVM enforcement, real inference isolation, secure GPU isolation, syscall mediation, cgroup enforcement, or protection from vulnerabilities inside future parser/runtime implementations.
 
 ## Remaining Phase 5 direction
 
-The next breadth milestone is **P5-E — model parser/runtime isolation and execution-boundary remote-code denial**. It should demonstrate that even a fully provenance-verified model package is not automatically allowed arbitrary host execution: parsing and loading remain constrained to an inert/sandboxed execution contract, remote-code hooks are denied, resource budgets are explicit, and unsafe execution requests fail closed.
+The next breadth milestone is **P5-F — model scanning and poisoning/backdoor indicators**. It should add deterministic synthetic evidence for suspicious tensor/config metadata, anomalous weight statistics, unexpected trigger-like artifacts, and policy-gated scan findings while explicitly avoiding a claim that static scanning proves behavioral safety.
 
-Later Phase 5 work can add transparency/attestation evidence, model scanning and poisoning indicators, model privacy/extraction controls, and deployment provenance.
+Later Phase 5 work can add transparency/attestation evidence, model privacy/extraction controls, deployment provenance, and real runtime isolation integrations.

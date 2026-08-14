@@ -34,3 +34,5 @@ jobs:
         run: python -m evals.p5c_registry_release_pinning
       - name: P5-D provenance signing-key lifecycle and revocation evaluation
         run: python -m evals.p5d_key_lifecycle_revocation
+      - name: P5-E model parser/runtime isolation and remote-code denial evaluation
+        run: python -m evals.p5e_runtime_isolation
