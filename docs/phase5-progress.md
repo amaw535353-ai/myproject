@@ -1,6 +1,6 @@
 # Phase 5 progress — model and AI supply-chain security
 
-Phase 5 broadens AegisDesk beyond checkpoint and agent-runtime hardening into model artifacts, provenance, dependency trust, registry acquisition, signing-key lifecycle, model runtime/execution boundaries, model-content risk indicators, inference privacy controls, and deployment provenance/attestation.
+Phase 5 broadens AegisDesk beyond checkpoint and agent-runtime hardening into model artifacts, provenance, dependency trust, registry acquisition, signing-key lifecycle, model runtime/execution boundaries, model-content risk indicators, inference privacy controls, deployment provenance/attestation, and post-deployment serving-abuse response.
 
 ## P5-A — model artifact provenance and safe loading
 
@@ -117,8 +117,46 @@ Evidence:
 
 P5-H is a **synthetic signed-attestation evidence gate**. It does not claim TPM/TEE/confidential-VM attestation, measured boot, production Kubernetes admission enforcement, transparency-log verification, secure GPU attestation, or protection against a compromised host fabricating synthetic measurements.
 
-## Remaining Phase 5 direction
+## P5-I — model-serving abuse telemetry and incident response
 
-The next breadth milestone should move away from another provenance-only layer. A useful P5-I direction is **model-serving abuse telemetry and incident response**: aggregate privacy-budget exhaustion and suspicious-query signals, bind incident evidence to the deployed model identity, support deterministic quarantine/revocation decisions, and preserve explicit non-claims about production SIEM/SOAR and distributed enforcement.
+Status: **implemented and deterministically evaluated**.
 
-Later work can add real runtime-isolation integrations, production scanning integrations, privacy-budget backends, transparency-log evidence, and hardware-backed deployment attestation.
+P5-I adds a post-deployment response boundary in the new `aegis.model_serving` package. `ServingAbuseResponseEngine` consumes an intact P5-H deployment-attestation handle and signed synthetic serving telemetry. The hardened path requires:
+
+- exact binding to the P5-H deployment/package/model/revision/runtime identity;
+- exact policy pinning to the P5-H attestation statement SHA-256;
+- trusted Ed25519 telemetry collectors;
+- canonical batch-signature verification;
+- complete telemetry-window evidence;
+- stale/future-window rejection;
+- batch-ID replay rejection;
+- exact per-deployment sequence continuity;
+- previous-batch SHA-256 chain continuity;
+- unique/unreplayed event IDs;
+- allowlisted telemetry sources;
+- bounded event timestamps, occurrence counts, and scaled signal scores;
+- signal-specific score floors for memorization, membership-inference, and extraction indicators;
+- policy-owned signal weights rather than caller-declared severity;
+- distributed-attack amplification across multiple principals;
+- deterministic `observe`, `throttle`, `quarantine`, and `revoke_deployment` decisions.
+
+The seventeen adversarial cases cover degraded P5-H evidence, untrusted collectors, signature substitution, deployment/attestation-digest substitution, incomplete/stale/future batches, untrusted sources, duplicate events, batch replay, sequence gaps, chain forks, privacy-budget exhaustion, repeated sensitive-channel probing, distributed membership-inference probing, and canary-leakage evidence.
+
+Evidence:
+
+- vulnerable ASR: 17/17;
+- hardened ASR: 0/17;
+- hardened FPR: 0/3;
+- hardened SafeTaskRate: 3/3;
+- dataset SHA-256: `e78d6a78214882f03177ef97b6e84ddca025def47ccd1abb62d2258ada352887`;
+- fixture SHA-256: `8c9b09c8576829f1bd7998aaa5fb22eb69aa958745e966a2224981599cb0193d`.
+
+P5-I verifies synthetic signed telemetry and derives incident-response **decision evidence**. It does not claim real model-serving traffic capture, production anomaly-detection accuracy, proof that a trusted collector reported every event, production SIEM/SOAR execution, rollback-resistant distributed telemetry state, or actual endpoint throttling/quarantine/revocation.
+
+## Phase 5 status
+
+The current Phase 5 breadth arc is **complete for the synthetic lab scope**: model artifact and package provenance, immutable acquisition, signing-key lifecycle, runtime admission, poisoning/backdoor evidence, inference privacy, deployment attestation, and post-deployment abuse response are all represented with matched vulnerable/hardened paths and deterministic evaluation.
+
+A sensible next phase is **Phase 6 — continuous AI security assurance and adversarial regression operations**. P6-A should orchestrate a versioned attack corpus across the existing security boundaries, detect security regressions between releases, produce deterministic assurance evidence, and preserve explicit non-claims about production red-team coverage or formal verification.
+
+Production integrations remain future work: real runtime isolation, production model scanning, durable privacy-budget services, hardware-backed attestation, append-only telemetry storage, SIEM/SOAR connectors, and real quarantine/revocation enforcement.

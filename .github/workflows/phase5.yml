@@ -42,3 +42,5 @@ jobs:
         run: python -m evals.p5g_model_privacy
       - name: P5-H deployment provenance and attestation evaluation
         run: python -m evals.p5h_deployment_attestation
+      - name: P5-I model-serving abuse telemetry and incident-response evaluation
+        run: python -m evals.p5i_serving_abuse_response
