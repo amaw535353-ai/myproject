@@ -34,40 +34,40 @@ def test_p5g_deterministic_metrics() -> None:
     assert len(P5G_FIXTURE_SHA256) == 64
 
 
-def test_all_attack_cases_fail_closed() -> None:
-    for case in attack_cases():
-        gateway = ModelPrivacyGateway(privacy_policy())
-        for prefill_request in case["prefill"]:
-            gateway.release(
-                request=prefill_request,
-                runtime=verified_runtime(),
-                scan=verified_scan(),
-                evidence=safe_evidence(),
-            )
-        with pytest.raises(PrivacyControlRejected):
-            gateway.release(
-                request=case["request"],
-                runtime=case["runtime"],
-                scan=case["scan"],
-                evidence=case["evidence"],
-            )
-
-
-def test_benign_cases_are_minimized_and_inert() -> None:
-    for case in benign_cases():
-        handle = ModelPrivacyGateway(privacy_policy()).release(
+@pytest.mark.parametrize("case", attack_cases(), ids=lambda case: case["attempt"].attempt_id)
+def test_attack_case_fails_closed(case) -> None:
+    gateway = ModelPrivacyGateway(privacy_policy())
+    for prefill_request in case["prefill"]:
+        gateway.release(
+            request=prefill_request,
+            runtime=verified_runtime(),
+            scan=verified_scan(),
+            evidence=safe_evidence(),
+        )
+    with pytest.raises(PrivacyControlRejected):
+        gateway.release(
             request=case["request"],
             runtime=case["runtime"],
             scan=case["scan"],
             evidence=case["evidence"],
         )
-        assert handle.output_minimized
-        assert handle.sensitive_channels_denied
-        assert not handle.real_model_inference
-        assert not handle.raw_logits_exposed
-        assert not handle.embeddings_exposed
-        assert not handle.hidden_states_exposed
-        assert handle.network_operations == 0
+
+
+@pytest.mark.parametrize("case", benign_cases(), ids=lambda case: case["attempt"].attempt_id)
+def test_benign_case_is_minimized_and_inert(case) -> None:
+    handle = ModelPrivacyGateway(privacy_policy()).release(
+        request=case["request"],
+        runtime=case["runtime"],
+        scan=case["scan"],
+        evidence=case["evidence"],
+    )
+    assert handle.output_minimized
+    assert handle.sensitive_channels_denied
+    assert not handle.real_model_inference
+    assert not handle.raw_logits_exposed
+    assert not handle.embeddings_exposed
+    assert not handle.hidden_states_exposed
+    assert handle.network_operations == 0
 
 
 def test_query_id_replay_is_rejected() -> None:
