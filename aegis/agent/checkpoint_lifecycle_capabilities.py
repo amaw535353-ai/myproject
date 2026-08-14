@@ -138,6 +138,9 @@ class LocalSqliteCheckpointLifecycleProvider:
     def __init__(self, *, anchor_provider: LocalSqliteCheckpointAnchorProvider) -> None:
         self._anchor_provider = anchor_provider
         self.anchor_provider_id = str(anchor_provider.provider_id)
+        self.migration_calls = 0
+        self.snapshot_calls = 0
+        self.restore_calls = 0
 
     @property
     def bound_anchor_provider(self) -> LocalSqliteCheckpointAnchorProvider:
@@ -163,6 +166,7 @@ class LocalSqliteCheckpointLifecycleProvider:
     ) -> CheckpointKeyMigrationReport:
         require_lifecycle_capability(self, CheckpointLifecycleCapability.MIGRATION)
         self._assert_bound_saver(saver)
+        self.migration_calls += 1
         with saver._lock:
             with self._anchor_provider._lock:
                 return KeyLifecycleConfidentialCheckpointer.migrate_to_active_encryption_key(
@@ -178,6 +182,7 @@ class LocalSqliteCheckpointLifecycleProvider:
     ) -> None:
         require_lifecycle_capability(self, CheckpointLifecycleCapability.SNAPSHOT)
         self._assert_bound_saver(saver)
+        self.snapshot_calls += 1
         with saver._lock:
             with self._anchor_provider._lock:
                 _snapshot_sqlite(saver.database_path, checkpoint_destination)
@@ -195,6 +200,7 @@ class LocalSqliteCheckpointLifecycleProvider:
     ) -> None:
         require_lifecycle_capability(self, CheckpointLifecycleCapability.RESTORE)
         self._assert_bound_saver(saver)
+        self.restore_calls += 1
         with saver._lock:
             with self._anchor_provider._lock:
                 connection = saver._connect(saver.database_path)
