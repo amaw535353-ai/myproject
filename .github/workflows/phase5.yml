@@ -32,3 +32,5 @@ jobs:
         run: python -m evals.p5b_model_package_provenance
       - name: P5-C immutable model-registry acquisition and release-pinning evaluation
         run: python -m evals.p5c_registry_release_pinning
+      - name: P5-D provenance signing-key lifecycle and revocation evaluation
+        run: python -m evals.p5d_key_lifecycle_revocation

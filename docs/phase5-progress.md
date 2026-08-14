@@ -1,6 +1,6 @@
 # Phase 5 progress — model and AI supply-chain security
 
-Phase 5 broadens AegisDesk beyond checkpoint and agent-runtime hardening into model artifacts, provenance, dependency trust, registry acquisition, and model-runtime supply-chain boundaries.
+Phase 5 broadens AegisDesk beyond checkpoint and agent-runtime hardening into model artifacts, provenance, dependency trust, registry acquisition, signing-key lifecycle, and model-runtime supply-chain boundaries.
 
 ## P5-A — model artifact provenance and safe loading
 
@@ -87,8 +87,40 @@ The eight attacks cover mutable-tag drift, an unpinned channel, an untrusted reg
 
 P5-C still does not claim a production registry transport, secure real-world HTTP/TLS/DNS behavior, production cache integrity, production registry credentials, production release-signing-key custody, semantic model safety, or safe real model execution.
 
+## P5-D — provenance signing-key lifecycle and revocation
+
+Status: **implemented and deterministically evaluated**.
+
+P5-D replaces static publisher-key trust with an explicit deployment key lifecycle in front of P5-B:
+
+- signer key IDs and trusted issuer policy;
+- exact issuer/publisher/key binding;
+- artifact-versus-package key usage separation;
+- cryptographically bound signing time and subject digest metadata;
+- validity-window checks both at signing time and current deployment evaluation time;
+- explicit revoked and retired states;
+- current-state strict rejection of expired, revoked, and retired signer keys;
+- successor-key metadata and an overlap model where multiple key generations may remain active during controlled rotation;
+- fail-closed key-ID and subject-digest substitution detection;
+- ephemeral P5-B trust policies built only from lifecycle-approved public keys;
+- nested P5-B package/artifact provenance verification under those selected keys;
+- inert fixtures with no model execution, network operations, KMS/HSM calls, or transparency-log queries.
+
+Deterministic evaluation:
+
+- vulnerable ASR: 12/12;
+- hardened ASR: 0/12;
+- hardened FPR: 0/3;
+- hardened SafeTaskRate: 3/3;
+- dataset SHA-256: `3cb29e261f27df97b468e2878752d33104dc475d237c7481e8c72e42890772f9`;
+- fixture SHA-256: `d263c288db5c83789eaa7898f78a819873e0c4fa36f2bc7d638e8526f47b8726`.
+
+The twelve attacks cover expired, revoked, retired, future, unknown, and untrusted-issuer keys; package-versus-artifact usage confusion; publisher binding mismatch; key-ID substitution; and subject-binding substitution. Benign cases show active predecessor and successor key generations during a rotation overlap plus successor-signed release content.
+
+P5-D deliberately models deployment trust rather than archival signature semantics: a currently revoked or expired signer is rejected even if the signature was once valid. It still does not claim production key custody, certificate-chain validation, online revocation distribution, transparency logs, trusted timestamp services, or rollback-resistant key-policy distribution.
+
 ## Remaining Phase 5 direction
 
-The next breadth milestone is **P5-D — provenance signing-key lifecycle and revocation**. It should add issuer key IDs, validity windows, explicit revocation, controlled rotation, stale-signature rejection, and deterministic evidence that a cryptographically valid artifact or package signed by a revoked/expired key no longer satisfies deployment trust policy.
+The next breadth milestone is **P5-E — model parser/runtime isolation and execution-boundary remote-code denial**. It should demonstrate that even a fully provenance-verified model package is not automatically allowed arbitrary host execution: parsing and loading remain constrained to an inert/sandboxed execution contract, remote-code hooks are denied, resource budgets are explicit, and unsafe execution requests fail closed.
 
-Later Phase 5 work can add transparency/attestation evidence, parser/runtime isolation, model scanning and poisoning indicators, model privacy/extraction controls, and deployment provenance.
+Later Phase 5 work can add transparency/attestation evidence, model scanning and poisoning indicators, model privacy/extraction controls, and deployment provenance.
