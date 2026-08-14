@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, runtime_checkable
@@ -8,6 +9,28 @@ from typing import Protocol, runtime_checkable
 P4H_CHECKPOINT_RUNTIME_PROVIDER_POLICY_VERSION = (
     "checkpoint-runtime-operation-provider-seam-v1"
 )
+
+
+def encode_checkpoint_scope(thread_id: str, checkpoint_ns: str) -> str:
+    return json.dumps(
+        [str(thread_id), str(checkpoint_ns)],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+
+def decode_checkpoint_scope(scope: str) -> tuple[str, str]:
+    try:
+        parsed = json.loads(str(scope))
+    except Exception as exc:
+        raise ValueError("invalid checkpoint anchor scope") from exc
+    if (
+        not isinstance(parsed, list)
+        or len(parsed) != 2
+        or not all(isinstance(item, str) for item in parsed)
+    ):
+        raise ValueError("invalid checkpoint anchor scope")
+    return parsed[0], parsed[1]
 
 
 @dataclass(frozen=True)
