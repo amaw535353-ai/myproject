@@ -37,8 +37,19 @@ def read_heads(anchor_path: Path) -> list[dict[str, Any]]:
     return [dict(row) for row in rows]
 
 
+def current_heads(saver: KeyLifecycleConfidentialCheckpointer) -> list[dict[str, Any]]:
+    provider = getattr(saver, "anchor_provider", None)
+    export = getattr(provider, "export_heads", None)
+    if callable(export):
+        try:
+            return [dict(item) for item in export()]
+        except Exception as exc:
+            raise CheckpointBackupError(CheckpointBackupReason.VALIDATION_FAILED) from exc
+    return read_heads(saver.anchor_database_path)
+
+
 def validate_heads(saver: KeyLifecycleConfidentialCheckpointer) -> list[dict[str, Any]]:
-    heads = read_heads(saver.anchor_database_path)
+    heads = current_heads(saver)
     for head in heads:
         item = saver.get_tuple(
             {
@@ -102,7 +113,7 @@ def check_restore_boundary(
     connection = sqlite3.connect(backup_database_path, timeout=5.0)
     connection.row_factory = sqlite3.Row
     try:
-        for current in read_heads(saver.anchor_database_path):
+        for current in current_heads(saver):
             namespace = (str(current["thread_id"]), str(current["checkpoint_ns"]))
             candidate = candidates.get(namespace)
             if candidate is None or int(candidate["generation"]) < int(current["generation"]):
@@ -130,10 +141,19 @@ def apply_restore(
     backup_database_path: Path,
     backup_anchor_path: Path,
 ) -> None:
+    provider = getattr(saver, "anchor_provider", None)
+    if provider is not None:
+        target_anchor_path = getattr(provider, "database_path", None)
+        if target_anchor_path is None:
+            raise CheckpointBackupError(CheckpointBackupReason.VALIDATION_FAILED)
+        target_anchor_path = Path(target_anchor_path)
+    else:
+        target_anchor_path = saver.anchor_database_path
+
     connection = saver._connect(saver.database_path)
     try:
         connection.execute(
-            "ATTACH DATABASE ? AS target_anchor", (str(saver.anchor_database_path),)
+            "ATTACH DATABASE ? AS target_anchor", (str(target_anchor_path),)
         )
         connection.execute("ATTACH DATABASE ? AS source_db", (str(backup_database_path),))
         connection.execute(

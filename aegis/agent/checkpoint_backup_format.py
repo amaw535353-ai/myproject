@@ -6,6 +6,10 @@ import json
 from enum import StrEnum
 from typing import Any
 
+from aegis.agent.checkpoint_runtime_contracts import (
+    CheckpointBackupAuthenticationOperationProvider,
+)
+
 
 P4E_CHECKPOINT_BACKUP_POLICY_VERSION = "authenticated-checkpoint-backup-restore-v1"
 P4E_BACKUP_SCHEMA = "aegis.agent-checkpoint-backup.v1"
@@ -23,6 +27,7 @@ class CheckpointBackupReason(StrEnum):
     NON_ACTIVE_CIPHERTEXT = "checkpoint_backup_non_active_ciphertext"
     ROLLBACK_DETECTED = "checkpoint_backup_rollback_detected"
     FORK_DETECTED = "checkpoint_backup_fork_detected"
+    RECOVERY_AUTHORIZATION_DENIED = "checkpoint_backup_recovery_authorization_denied"
     VALIDATION_FAILED = "checkpoint_backup_validation_failed"
 
 
@@ -40,15 +45,31 @@ def sha256_hex(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
-def sign_package(body: dict[str, Any], *, key: bytes) -> bytes:
-    tag = hmac.new(key, canonical_json(body), hashlib.sha256).hexdigest()
+def sign_package(
+    body: dict[str, Any],
+    *,
+    key: bytes | None = None,
+    provider: CheckpointBackupAuthenticationOperationProvider | None = None,
+) -> bytes:
+    payload = canonical_json(body)
+    if provider is not None:
+        tag = provider.authenticate(payload)
+    elif key is not None:
+        tag = hmac.new(bytes(key), payload, hashlib.sha256).hexdigest()
+    else:
+        raise ValueError("checkpoint backup authentication provider or key is required")
     package = canonical_json({**body, "authentication_tag": tag})
     if len(package) > P4E_MAX_PACKAGE_BYTES:
         raise CheckpointBackupError(CheckpointBackupReason.PACKAGE_INVALID)
     return package
 
 
-def open_package(package: bytes, *, key: bytes) -> dict[str, Any]:
+def open_package(
+    package: bytes,
+    *,
+    key: bytes | None = None,
+    provider: CheckpointBackupAuthenticationOperationProvider | None = None,
+) -> dict[str, Any]:
     if len(package) > P4E_MAX_PACKAGE_BYTES:
         raise CheckpointBackupError(CheckpointBackupReason.PACKAGE_INVALID)
     try:
@@ -58,7 +79,20 @@ def open_package(package: bytes, *, key: bytes) -> dict[str, Any]:
     if not isinstance(parsed, dict):
         raise CheckpointBackupError(CheckpointBackupReason.PACKAGE_INVALID)
     observed = parsed.pop("authentication_tag", None)
-    expected = hmac.new(key, canonical_json(parsed), hashlib.sha256).hexdigest()
-    if not isinstance(observed, str) or not hmac.compare_digest(observed, expected):
+    payload = canonical_json(parsed)
+    if not isinstance(observed, str):
         raise CheckpointBackupError(CheckpointBackupReason.AUTHENTICATION_FAILED)
+    if provider is not None:
+        try:
+            provider.verify_or_raise(payload, observed)
+        except Exception as exc:
+            raise CheckpointBackupError(
+                CheckpointBackupReason.AUTHENTICATION_FAILED
+            ) from exc
+    elif key is not None:
+        expected = hmac.new(bytes(key), payload, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(observed, expected):
+            raise CheckpointBackupError(CheckpointBackupReason.AUTHENTICATION_FAILED)
+    else:
+        raise ValueError("checkpoint backup authentication provider or key is required")
     return parsed
