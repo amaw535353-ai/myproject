@@ -36,3 +36,5 @@ jobs:
         run: python -m evals.p5d_key_lifecycle_revocation
       - name: P5-E model parser/runtime isolation and remote-code denial evaluation
         run: python -m evals.p5e_runtime_isolation
+      - name: P5-F model poisoning and backdoor indicator evaluation
+        run: python -m evals.p5f_model_scanning
