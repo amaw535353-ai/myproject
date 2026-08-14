@@ -16,7 +16,7 @@ Before a release is handed to P5-B, the hardened acquisition path requires all o
 - the mutable tag still resolves to the exact pinned immutable digest;
 - the registry source is within the trusted source prefixes for that registry;
 - redirects are disabled by default and, when enabled, every redirect and final source must remain inside an explicit trusted redirect prefix;
-- the fetched release envelope re-hashes to the exact immutable release digest;
+- the fetched release content re-hashes to the exact immutable release digest;
 - a cached release is re-hashed before reuse, so same-key cache substitution fails closed;
 - the release envelope registry/channel/tag identity matches the caller pin;
 - the package ID, model ID, and revision inside the release match the approved deployment identity;
@@ -24,9 +24,9 @@ Before a release is handed to P5-B, the hardened acquisition path requires all o
 
 ## Release digest
 
-P5-C computes a deterministic SHA-256 digest over canonical release metadata that binds:
+P5-C computes a deterministic SHA-256 content digest over canonical immutable release evidence that binds:
 
-- registry ID, channel, tag, and release schema;
+- the release schema version;
 - the canonical P5-B package manifest digest;
 - the package-signature digest;
 - each artifact ID;
@@ -34,7 +34,9 @@ P5-C computes a deterministic SHA-256 digest over canonical release metadata tha
 - each artifact-signature digest;
 - each actual artifact payload digest and byte length.
 
-The digest is therefore a release-level content address. A mutable tag is only a discovery pointer; it is not accepted as the security identity of a deployment.
+The mutable registry alias — registry ID, channel, and tag — is deliberately **not** part of that content digest. Those fields are verified separately against caller and deployment policy. This keeps immutable release content identity distinct from mutable discovery and promotion metadata, so the same exact release content can retain one digest while aliases change or the release is promoted between channels.
+
+A mutable tag is therefore only a discovery pointer; it is never accepted as the security identity of a deployment.
 
 ## Modeled attacks
 
@@ -45,11 +47,11 @@ The deterministic evaluation covers eight inert registry and release attacks:
 3. **Untrusted registry** — a registry outside the explicit trust map supplies an otherwise plausible release.
 4. **Untrusted resolved source** — a trusted registry identifier resolves the release from an attacker-controlled source prefix.
 5. **Untrusted redirect** — registry resolution redirects through or terminates at a source outside the allowed mirror set.
-6. **Release digest mismatch** — a response is served under the approved digest but contains different release content.
+6. **Release digest mismatch** — a response is served under the approved digest but contains different immutable release content.
 7. **Cache substitution** — a local cache entry is stored under the approved digest key but contains a different release envelope.
 8. **Release package identity substitution** — the immutable release is internally consistent but names a different package/model/revision than the approved deployment.
 
-The matched vulnerable baseline deliberately follows the mutable registry pointer and accepts the returned release declarations without checking deployment pins, release content digests, source trust, redirects, cache integrity, or package identity. It remains inert and does not execute supplied bytes.
+The matched vulnerable baseline deliberately follows the mutable registry pointer and trusts cache keys and returned release declarations without checking deployment pins, release content digests, source trust, redirects, or package identity. It remains inert and does not execute supplied bytes.
 
 ## Trust and redirect policy
 
