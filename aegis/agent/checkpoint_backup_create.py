@@ -16,6 +16,7 @@ from aegis.agent.checkpoint_backup_storage import (
     validate_heads,
 )
 from aegis.agent.checkpoint_key_lifecycle import KeyLifecycleConfidentialCheckpointer
+from aegis.agent.checkpoint_lifecycle_capabilities import CheckpointLifecycleCapability
 from aegis.agent.checkpoint_operation_runtime import (
     OperationProviderKeyLifecycleCheckpointer,
 )
@@ -84,13 +85,26 @@ def create_checkpoint_backup(
         CheckpointBackupAuthenticationOperationProvider | None
     ) = None,
 ) -> CheckpointBackupArtifact:
+    lifecycle_provider = None
+    if isinstance(saver, OperationProviderKeyLifecycleCheckpointer):
+        lifecycle_provider = saver.require_lifecycle_capability(
+            CheckpointLifecycleCapability.SNAPSHOT
+        )
+
     root = Path(backup_directory)
     root.mkdir(parents=True, exist_ok=True)
     checkpoint_path = root / "checkpoints.sqlite3"
     anchor_path = root / "anchors.sqlite3"
     with saver._lock:
-        snapshot_sqlite(saver.database_path, checkpoint_path)
-        _snapshot_anchor(saver, anchor_path)
+        if lifecycle_provider is not None:
+            lifecycle_provider.snapshot_pair(
+                saver,
+                checkpoint_destination=checkpoint_path,
+                anchor_destination=anchor_path,
+            )
+        else:
+            snapshot_sqlite(saver.database_path, checkpoint_path)
+            _snapshot_anchor(saver, anchor_path)
     candidate = _candidate_from_snapshot(
         saver,
         checkpoint_path=checkpoint_path,

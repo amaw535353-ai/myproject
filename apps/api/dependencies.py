@@ -203,12 +203,14 @@ def get_checkpoint_key_provider() -> LocalSyntheticCheckpointKeyProvider:
 def get_agent_checkpointer() -> OperationProviderKeyLifecycleCheckpointer:
     factory = get_checkpoint_trust_provider_factory()
     anchor_path = _agent_checkpoint_anchor_database_path()
+    anchor_provider = factory.anchor_provider(anchor_path)
     return OperationProviderKeyLifecycleCheckpointer(
         database_path=_agent_checkpoint_database_path(),
         anchor_database_path=anchor_path,
         key_provider=get_checkpoint_key_provider(),
         integrity_provider=factory.integrity_provider(),
-        anchor_provider=factory.anchor_provider(anchor_path),
+        anchor_provider=anchor_provider,
+        lifecycle_provider=factory.lifecycle_provider(anchor_provider),
     )
 
 

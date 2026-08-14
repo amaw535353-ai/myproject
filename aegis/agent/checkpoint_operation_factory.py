@@ -10,6 +10,9 @@ from aegis.agent.checkpoint_durability import (
     P4B_LOCAL_SYNTHETIC_HMAC_KEY,
     P4B_LOCAL_SYNTHETIC_KEY_ID,
 )
+from aegis.agent.checkpoint_lifecycle_capabilities import (
+    LocalSqliteCheckpointLifecycleProvider,
+)
 from aegis.agent.checkpoint_runtime_providers import (
     LocalSqliteCheckpointAnchorProvider,
     LocalSyntheticCheckpointBackupAuthenticationProvider,
@@ -32,6 +35,12 @@ class LocalSyntheticCheckpointOperationProviderFactory(
 
     def anchor_provider(self, database_path: Path) -> LocalSqliteCheckpointAnchorProvider:
         return LocalSqliteCheckpointAnchorProvider(database_path=database_path)
+
+    def lifecycle_provider(
+        self,
+        anchor_provider: LocalSqliteCheckpointAnchorProvider,
+    ) -> LocalSqliteCheckpointLifecycleProvider:
+        return LocalSqliteCheckpointLifecycleProvider(anchor_provider=anchor_provider)
 
     def backup_authentication_provider(
         self,

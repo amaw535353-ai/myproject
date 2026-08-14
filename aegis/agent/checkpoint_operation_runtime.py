@@ -26,7 +26,16 @@ from aegis.agent.checkpoint_durability import (
 from aegis.agent.checkpoint_key_lifecycle import KeyLifecycleConfidentialCheckpointer
 from aegis.agent.checkpoint_keys import (
     CheckpointEncryptionKeyProvider,
+    CheckpointKeyMigrationReport,
     build_default_local_synthetic_checkpoint_key_provider,
+)
+from aegis.agent.checkpoint_lifecycle_capabilities import (
+    P4I_CHECKPOINT_LIFECYCLE_CAPABILITY_POLICY_VERSION,
+    CheckpointLifecycleCapability,
+    CheckpointLifecycleOperationProvider,
+    LocalSqliteCheckpointLifecycleProvider,
+    assert_lifecycle_provider_compatible,
+    require_lifecycle_capability,
 )
 from aegis.agent.checkpoint_runtime_contracts import (
     P4H_CHECKPOINT_RUNTIME_PROVIDER_POLICY_VERSION,
@@ -34,6 +43,7 @@ from aegis.agent.checkpoint_runtime_contracts import (
     CheckpointIntegrityOperationProvider,
     encode_checkpoint_scope,
 )
+from aegis.agent.checkpoint_runtime_providers import LocalSqliteCheckpointAnchorProvider
 
 
 _P4H_COMPATIBILITY_BOOTSTRAP_HMAC_KEY = b"\x00" * 32
@@ -41,17 +51,22 @@ _ZERO_DIGEST = "0" * 64
 
 
 class OperationProviderKeyLifecycleCheckpointer(KeyLifecycleConfidentialCheckpointer):
-    """Checkpoint runtime whose integrity and anchor trust are operation providers.
+    """Checkpoint runtime whose integrity, anchor, and lifecycle trust are providers.
 
     The inherited local HMAC/SQLite implementation remains available for backward
     compatibility elsewhere in the lab, but this class routes checkpoint/write
     authentication and current-head operations through injected provider
-    contracts. The zero-valued constructor key is only a superclass bootstrap
-    value and is discarded after initialization; it is never used to authenticate
-    runtime state.
+    contracts. P4-I additionally routes migration, pair snapshot, and restore
+    through an explicit lifecycle provider when those operations are requested.
+    The zero-valued constructor key is only a superclass bootstrap value and is
+    discarded after initialization; it is never used to authenticate runtime
+    state.
     """
 
     runtime_provider_policy_version = P4H_CHECKPOINT_RUNTIME_PROVIDER_POLICY_VERSION
+    lifecycle_capability_policy_version = (
+        P4I_CHECKPOINT_LIFECYCLE_CAPABILITY_POLICY_VERSION
+    )
 
     def __init__(
         self,
@@ -61,9 +76,25 @@ class OperationProviderKeyLifecycleCheckpointer(KeyLifecycleConfidentialCheckpoi
         integrity_provider: CheckpointIntegrityOperationProvider,
         anchor_provider: CheckpointAnchorOperationProvider,
         key_provider: CheckpointEncryptionKeyProvider | None = None,
+        lifecycle_provider: CheckpointLifecycleOperationProvider | None = None,
     ) -> None:
+        resolved_lifecycle_provider = lifecycle_provider
+        if (
+            resolved_lifecycle_provider is None
+            and isinstance(anchor_provider, LocalSqliteCheckpointAnchorProvider)
+        ):
+            resolved_lifecycle_provider = LocalSqliteCheckpointLifecycleProvider(
+                anchor_provider=anchor_provider
+            )
+        if resolved_lifecycle_provider is not None:
+            assert_lifecycle_provider_compatible(
+                anchor_provider,
+                resolved_lifecycle_provider,
+            )
+
         self._integrity_provider = integrity_provider
         self._anchor_provider = anchor_provider
+        self._lifecycle_provider = resolved_lifecycle_provider
         super().__init__(
             database_path=database_path,
             anchor_database_path=anchor_database_path,
@@ -85,6 +116,24 @@ class OperationProviderKeyLifecycleCheckpointer(KeyLifecycleConfidentialCheckpoi
     @property
     def anchor_provider(self) -> CheckpointAnchorOperationProvider:
         return self._anchor_provider
+
+    @property
+    def lifecycle_provider(self) -> CheckpointLifecycleOperationProvider | None:
+        return self._lifecycle_provider
+
+    def require_lifecycle_capability(
+        self,
+        capability: CheckpointLifecycleCapability,
+    ) -> CheckpointLifecycleOperationProvider:
+        provider = require_lifecycle_capability(self._lifecycle_provider, capability)
+        assert_lifecycle_provider_compatible(self._anchor_provider, provider)
+        return provider
+
+    def migrate_to_active_encryption_key(self) -> CheckpointKeyMigrationReport:
+        provider = self.require_lifecycle_capability(
+            CheckpointLifecycleCapability.MIGRATION
+        )
+        return provider.migrate_to_active_encryption_key(self)
 
     @staticmethod
     def _scope(thread_id: str, checkpoint_ns: str) -> str:
