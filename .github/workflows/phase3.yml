@@ -53,3 +53,5 @@ jobs:
         run: python -m evals.p4g_checkpoint_external_contract_harness
       - name: P4-H checkpoint runtime provider seam evaluation
         run: python -m evals.p4h_checkpoint_runtime_provider_seam
+      - name: P4-I checkpoint lifecycle capability evaluation
+        run: python -m evals.p4i_checkpoint_lifecycle_capabilities
