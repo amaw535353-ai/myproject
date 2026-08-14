@@ -7,9 +7,13 @@ from typing import Annotated
 from fastapi import Header, HTTPException, status
 
 from aegis.agent.checkpoint_backup import AuthenticatedCheckpointBackupManager
-from aegis.agent.checkpoint_key_lifecycle import KeyLifecycleConfidentialCheckpointer
 from aegis.agent.checkpoint_keys import LocalSyntheticCheckpointKeyProvider
-from aegis.agent.checkpoint_trust import LocalSyntheticCheckpointTrustProviderFactory
+from aegis.agent.checkpoint_operation_factory import (
+    LocalSyntheticCheckpointOperationProviderFactory,
+)
+from aegis.agent.checkpoint_operation_runtime import (
+    OperationProviderKeyLifecycleCheckpointer,
+)
 from aegis.agent.execution_budget import P2G_EXECUTION_LIMITS
 from aegis.agent.fake_model import DeterministicFakeModel
 from aegis.agent.rag_model import DeterministicRagSecurityModel
@@ -184,8 +188,8 @@ def get_memory_context_service() -> DefaultMemoryContextService:
 
 
 @lru_cache(maxsize=1)
-def get_checkpoint_trust_provider_factory() -> LocalSyntheticCheckpointTrustProviderFactory:
-    factory = LocalSyntheticCheckpointTrustProviderFactory()
+def get_checkpoint_trust_provider_factory() -> LocalSyntheticCheckpointOperationProviderFactory:
+    factory = LocalSyntheticCheckpointOperationProviderFactory()
     factory.manifest.assert_allowed(_trust_deployment_profile())
     return factory
 
@@ -196,26 +200,25 @@ def get_checkpoint_key_provider() -> LocalSyntheticCheckpointKeyProvider:
 
 
 @lru_cache(maxsize=1)
-def get_agent_checkpointer() -> KeyLifecycleConfidentialCheckpointer:
+def get_agent_checkpointer() -> OperationProviderKeyLifecycleCheckpointer:
     factory = get_checkpoint_trust_provider_factory()
-    integrity = factory.integrity_key_material()
-    return KeyLifecycleConfidentialCheckpointer(
+    anchor_path = _agent_checkpoint_anchor_database_path()
+    return OperationProviderKeyLifecycleCheckpointer(
         database_path=_agent_checkpoint_database_path(),
-        anchor_database_path=_agent_checkpoint_anchor_database_path(),
+        anchor_database_path=anchor_path,
         key_provider=get_checkpoint_key_provider(),
-        hmac_key=integrity.key,
-        key_id=integrity.key_id,
+        integrity_provider=factory.integrity_provider(),
+        anchor_provider=factory.anchor_provider(anchor_path),
     )
 
 
 @lru_cache(maxsize=1)
 def get_checkpoint_backup_manager() -> AuthenticatedCheckpointBackupManager:
     factory = get_checkpoint_trust_provider_factory()
-    authentication = factory.backup_authentication_material()
     return AuthenticatedCheckpointBackupManager(
         saver=get_agent_checkpointer(),
-        backup_key=authentication.key,
-        backup_key_id=authentication.key_id,
+        backup_authentication_provider=factory.backup_authentication_provider(),
+        recovery_authority_provider=factory.recovery_authority_provider(),
     )
 
 
