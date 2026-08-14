@@ -51,3 +51,5 @@ jobs:
         run: python -m evals.p4f_checkpoint_trust_provider_posture
       - name: P4-G checkpoint external adapter contract evaluation
         run: python -m evals.p4g_checkpoint_external_contract_harness
+      - name: P4-H checkpoint runtime provider seam evaluation
+        run: python -m evals.p4h_checkpoint_runtime_provider_seam
