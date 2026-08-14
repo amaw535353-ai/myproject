@@ -1,8 +1,8 @@
 # Phase 4 hardening progress
 
-Phase 4 hardens the default LangGraph checkpoint path after the Phase 3 integration gaps were closed. P4-A through P4-E established strict checkpoint deserialization, local durable integrity, local authenticated encryption, key lifecycle/migration, and authenticated local backup/restore. P4-F made five checkpoint deployment trust dependencies explicit. P4-G through P4-J moved the runtime toward operation-bearing providers, explicit lifecycle capabilities, and a synthetic external-style lifecycle harness. P4-K extended deployment trust to the lifecycle coordinator itself while preserving the original five-surface P4-F v1 policy. P4-L added deterministic failure and in-process fencing semantics. P4-M added a local authenticated SQLite command journal so command identity, fence generations, lifecycle state, and committed receipts survive process restart. P4-N adds a separate local synthetic witness that can detect rollback of the P4-M journal, including rollback of the journal together with its own P4-M HMAC key, while the witness remains newer.
+Phase 4 hardens the default LangGraph checkpoint path after the Phase 3 integration gaps were closed. P4-A through P4-E established strict checkpoint deserialization, local durable integrity, local authenticated encryption, key lifecycle/migration, and authenticated local backup/restore. P4-F made five checkpoint deployment trust dependencies explicit. P4-G through P4-J moved the runtime toward operation-bearing providers, explicit lifecycle capabilities, and a synthetic external-style lifecycle harness. P4-K extended deployment trust to the lifecycle coordinator itself while preserving the original five-surface P4-F v1 policy. P4-L added deterministic failure and in-process fencing semantics. P4-M added a local authenticated SQLite command journal so command identity, fence generations, lifecycle state, and committed receipts survive process restart. P4-N added a separate local synthetic witness that detects rollback of the P4-M journal while the witness remains newer. P4-O now adds a provider-owned synthetic durable idempotency ledger and authenticated outcome receipts so ambiguous local lifecycle state can consult provider-owned result evidence without blindly replaying an already-applied operation.
 
-Current posture after P4-N:
+Current posture after P4-O:
 
 - Phase 3 integration gaps: 0 open.
 - P4-A checkpoint type policy: implemented and evaluated.
@@ -19,6 +19,7 @@ Current posture after P4-N:
 - P4-L synthetic lifecycle failure and fencing semantics harness: implemented and evaluated.
 - P4-M durable local lifecycle command journal and restart reconciliation harness: implemented and evaluated.
 - P4-N independent local synthetic lifecycle-journal witness/rollback-detection harness: implemented and evaluated.
+- P4-O synthetic provider-owned lifecycle idempotency/outcome-receipt contract: implemented and evaluated.
 
 ## Default checkpoint runtime
 
@@ -26,7 +27,7 @@ The default API still injects `OperationProviderKeyLifecycleCheckpointer`. P4-A 
 
 Checkpoint and pending-write integrity is produced and verified through an injected operation provider. The default provider remains local synthetic HMAC material hidden behind an operation interface. Monotonic checkpoint and pending-write heads are routed through an injected anchor operation provider; the default provider still owns a local SQLite anchor file. These are lab abstractions, not external custody or production durability.
 
-P4-M and P4-N do not replace the default local runtime. `DurableSyntheticCheckpointLifecycleCoordinator` and `WitnessedDurableSyntheticCheckpointLifecycleCoordinator` are explicit lab harnesses layered around a P4-I/P4-J lifecycle provider. Their journal, witness, and HMAC key files are supplied to the harness and are not part of the default API request path.
+P4-M through P4-O do not replace the default local runtime. Their coordinators, journals, witnesses, provider ledgers, and local HMAC key files are explicit lab harnesses and are not part of the default API request path.
 
 ## Lifecycle capabilities and external-style coordination
 
@@ -34,7 +35,7 @@ P4-I makes `checkpoint_encryption_migration`, `checkpoint_backup_snapshot`, and 
 
 P4-J adds `synthetic-external-contract-checkpoint-lifecycle`, bound to the synthetic P4-G/P4-H external-style anchor bridge. It exercises migration, pair snapshot, and pair restore without consulting the inherited compatibility anchor SQLite path after construction. The backup anchor artifact is generated from exported provider state for P4-E package compatibility; it is not copied from a live local anchor database.
 
-P4-J remains synthetic in-process and not production-runtime eligible. Its migration exercise still uses local synthetic P4-D key custody. The bridge keeps provider head state in process, and checkpoint/provider coordination uses compensating one-process logic rather than distributed atomicity or crash-consistent cross-service recovery.
+P4-J remains synthetic in-process and not production-runtime eligible. Its migration exercise still uses local synthetic key custody. The bridge keeps provider head state in process, and checkpoint/provider coordination uses compensating one-process logic rather than distributed atomicity or crash-consistent cross-service recovery.
 
 ## P4-L failure and fencing semantics
 
@@ -50,40 +51,50 @@ The durable state machine distinguishes `prepared`, `provider_started`, `reconci
 
 P4-M exercises crashes after `prepared` but before provider invocation, after provider return but before durable `committed`, and after durable `committed` but before the caller receives the response. A pre-provider crash can be safely retried when the fence and anchor precondition remain valid. A post-commit crash replays the durable receipt without provider reinvocation. The ambiguous middle window remains blocked until reconciliation.
 
-For the synthetic migration operation only, P4-M can reconcile a provider-completed/local-commit-missing window when local observations prove one safe committed outcome: legacy ciphertext existed before invocation, row counts are unchanged, all observed ciphertext now uses the same active key, and the anchor fingerprint changed. Snapshot and restore ambiguity remain fail closed.
+For the synthetic migration operation only, P4-M can reconcile a provider-completed/local-commit-missing window when local observations prove one safe committed outcome. Snapshot and restore ambiguity remain fail closed in the P4-M local-observation path.
 
 ## P4-N independent local journal witness
 
-`WitnessedDurableSyntheticCheckpointLifecycleCoordinator` wraps P4-M with a second local artifact and separate 32-byte HMAC key. The witness records a monotonic witness generation, highest issued and committed fences, command and committed counts, a digest of the authenticated P4-M journal structure, and per-fence command-digest/lifecycle-state summaries. It does not duplicate checkpoint payloads, lifecycle arguments, encryption keys, or raw P4-M pre-operation observations.
+`WitnessedDurableSyntheticCheckpointLifecycleCoordinator` wraps P4-M with a second local artifact and separate 32-byte HMAC key. The witness records a monotonic witness generation, highest issued and committed fences, command and committed counts, a digest of authenticated P4-M journal structure, and per-fence command identity/lifecycle-state summaries.
 
-P4-N first relies on P4-M to authenticate every journal row and metadata record. It then derives the witness attestation from that authenticated state. On reopen it rejects lower fence generations, fewer commands or receipts, disappearance of a witnessed command, lifecycle-state regression, reuse of a witnessed fence with another command digest, witness HMAC tampering, and a missing witness when lifecycle history already exists.
+P4-N first relies on P4-M to authenticate every journal row and metadata record. It then derives the witness attestation from that authenticated state. On reopen it rejects lower fence generations, fewer commands or receipts, disappearance of a witnessed command, lifecycle-state regression, authenticated command-identity divergence, committed-anchor divergence, witness HMAC tampering, and a missing witness when lifecycle history already exists.
 
-This detects an authentic journal-generation rollback while the witness remains newer. It also detects rollback of the P4-M journal together with the P4-M journal HMAC key, provided the P4-N witness and its key were not rolled back too.
+The journal and witness are separate files and cannot be updated atomically. P4-N therefore accepts a stale witness only when the authenticated journal is provably monotonic-forward from every previously witnessed command. P4-N still cannot detect a coherent rollback of the P4-M journal, P4-M key, P4-N witness, and P4-N key together.
 
-The journal and witness are separate files and cannot be updated atomically. P4-N therefore models a crash after a P4-M journal mutation but before witness update. A fresh coordinator may advance a stale witness only when the authenticated journal is provably monotonic-forward from every previously witnessed command: counters do not decrease, witnessed command digests remain identical, no witnessed command disappears, and lifecycle states only advance. This allows a durable committed receipt to survive that crash window without provider reinvocation.
+## P4-O provider-owned idempotency and outcome receipts
 
-P4-N preserves P4-M's fail-closed ambiguous-outcome reconciliation. It witnesses the `provider_started -> reconciliation_required -> committed` transitions but does not invent a new proof for snapshot or restore.
+`SyntheticProviderIdempotentCheckpointLifecycleProvider` wraps the P4-J lifecycle provider with a separate local SQLite provider ledger and separate local HMAC key. Provider requests bind command ID/digest, lifecycle operation, fence token, resource ID, expected anchor fingerprint, provider ID, and an operation-request digest covering snapshot/restore path arguments.
+
+The provider ledger distinguishes `accepted`, `started`, and `applied`. `accepted` means identity and fence are durably reserved before any lifecycle side effect. `started` means the provider may have applied an effect and therefore cannot safely replay from local knowledge. `applied` contains a durable result digest, post-operation anchor fingerprint, and authenticated provider outcome receipt.
+
+An exact duplicate `applied` command returns the same authenticated outcome receipt without invoking P4-J again. Reusing a command ID with a different command or operation-request digest fails closed. A new stale provider fence fails closed. A provider ledger row or metadata HMAC mismatch fails closed on reopen. Provider receipts are bound to the provider, command, operation, fence, resource, request digest, post-operation anchor fingerprint, and result digest; tampered or command-spliced receipts are rejected.
+
+P4-O models three provider crash windows. A crash after `accepted` but before the side effect is safe to retry while no later fence supersedes it. A crash after the lifecycle side effect but before durable `applied` leaves provider outcome unknown and blocks blind reexecution. A crash after durable `applied` but before response is recovered by reopening/querying the provider ledger and returning the existing receipt.
+
+`ProviderOutcomeAwareDurableCheckpointLifecycleCoordinator` extends the P4-M harness to use the command-aware provider API. When local state is `reconciliation_required`, an authenticated provider `applied` receipt can commit the local result only when the current anchor fingerprint matches the provider receipt. An unknown provider outcome or anchor mismatch remains fail closed. This is provider-outcome reconciliation, not an exactly-once guarantee.
+
+P4-O exercises migration, pair snapshot, and pair restore through the unchanged P4-J operation-bearing provider. The inherited compatibility anchor path remains unused. P4-K production trust remains unchanged and the P4-O provider is still synthetic, in-process, without an independent failure domain, operationally non-external, and not production-runtime eligible.
 
 ## Deployment trust
 
 P4-F v1 retains exactly five checkpoint trust surfaces: encryption-key custody, integrity-key custody, monotonic anchor state, backup authentication, and recovery authority. P4-K deliberately does not mutate the P4-F surface enum or P4-F policy version; it adds a separate lifecycle-provider descriptor and policy boundary.
 
-The default lifecycle descriptor remains local synthetic, synthetic in process, operationally non-external, and not production-runtime eligible. A complete external descriptor fixture can pass policy shape only. The included P4-J provider and P4-L through P4-N coordinators cannot satisfy P4-K production trust because they remain synthetic and operationally non-external.
+The default lifecycle descriptor remains local synthetic. A complete external descriptor fixture can pass policy shape only. The included P4-J provider and P4-L through P4-O harnesses cannot satisfy P4-K production trust.
 
 ## Backup and restore properties
 
 P4-E backup packages remain a checkpoint SQLite snapshot, a structural anchor-state SQLite snapshot, and an authenticated manifest binding their SHA-256 digests, checkpoint heads, serialization policy, integrity provider id, key-lifecycle policy, and active encryption key id. Dynamic checkpoint and pending-write payloads remain ciphertext in the snapshot; structural SQLite identifiers/type tags, minimized LangGraph control metadata, the P4-E manifest, and structural head rows remain plaintext by design.
 
-Restore accepts a fresh target or a backup extending the target's current authenticated history. Older rollback candidates and forked histories are rejected. P4-I requires restore capability before installation; P4-J changes the provider used to install synthetic external-style anchor state, not P4-E acceptance rules. P4-L through P4-N do not weaken those rules.
+Restore accepts a fresh target or a backup extending the target's current authenticated history. Older rollback candidates and forked histories are rejected. P4-I requires restore capability before installation; P4-J changes the provider used to install synthetic external-style anchor state, not P4-E acceptance rules. P4-L through P4-O do not weaken those rules.
 
 ## Evidence and claims
 
-The P4-N deterministic dataset hash is `d9b50e2524950aa6e253df58600e2823960434a0a87e14543743457b5f655f6b`. Its fixed acceptance criteria require journal-only authenticated baseline ASR 5/5, hardened ASR 0/5, hardened FPR 0/3, and hardened SafeTaskRate 3/3. The evaluation additionally requires detection of authentic journal rollback, same-fence state regression, rollback of the journal together with its P4-M HMAC key, witness-tamper rejection, missing-witness rejection for existing history, monotonic-forward witness recovery after a journal-before-witness crash, preservation of P4-M fail-closed migration reconciliation, zero network operations, and no production lifecycle claim.
+The P4-O deterministic dataset hash is `ae1a623525cae1d99c69de2c6317c943a63ec76b4bafa23f2935fd6be44df045`. Its fixed acceptance criteria require local-only outcome-tracking baseline ASR 5/5, hardened ASR 0/5, hardened FPR 0/3, and hardened SafeTaskRate 3/3. The evaluation additionally requires an authenticated provider-owned durable ledger, exact-duplicate non-reapplication, durable provider receipt replay after reopen, provider-outcome reconciliation after an ambiguous response, fail-closed unknown provider outcome, exercised snapshot and restore operations, zero network operations, and no exactly-once, distributed-transaction, production-provider, or production-lifecycle claim.
 
-P4-N introduces no real external operation, credential, provider SDK, or network call. Production external checkpoint adapter implementation: none. Production external lifecycle-provider implementation: none. Durable same-filesystem lifecycle journal: true. Separate local synthetic journal witness: true. Journal-only rollback detection while witness remains newer: true. Joint journal-and-witness rollback detection: false. Independent failure domain: false. Production rollback-resistance claim: false. Distributed fencing: false. Exactly-once execution: not claimed. Distributed transaction or consensus: not claimed. Production confidentiality, durability, key-management, backup, recovery, disaster-recovery, lifecycle-atomicity, or external-trust claim: none.
+P4-O introduces no real external operation, credential, provider SDK, or network call. Production external checkpoint adapter implementation: none. Production external lifecycle-provider implementation: none. Provider-owned synthetic durable idempotency ledger: true. Authenticated provider outcome receipt: true. Provider ledger rollback resistance: false. Provider independent failure domain: false. Distributed fencing: false. Exactly-once execution: not claimed. Distributed transaction or consensus: not claimed. Production confidentiality, durability, key-management, backup, recovery, disaster-recovery, lifecycle-atomicity, or external-trust claim: none.
 
-The P3-F high-impact execution-control-plane trust boundary remains separate. It covers authorization signing, protected execution checkpoints, signed checkpoint receipts, and receipt witnesses. P4-F through P4-N cover LangGraph agent checkpoint storage, recovery, lifecycle coordination, deployment trust, failure semantics, restart-verifiable lifecycle state, and local rollback detection. One domain's provider does not satisfy the other domain's trust requirements.
+The P3-F high-impact execution-control-plane trust boundary remains separate. It covers authorization signing, protected execution checkpoints, signed checkpoint receipts, and receipt witnesses. P4-F through P4-O cover LangGraph agent checkpoint storage, recovery, lifecycle coordination, deployment trust, failure semantics, restart-verifiable lifecycle state, local rollback detection, and provider-side idempotency/outcome evidence. One domain's provider does not satisfy the other domain's trust requirements.
 
 ## Next target
 
-P4-O should add a provider-side idempotency/outcome-receipt contract harness for lifecycle operations so ambiguous provider outcomes can be resolved from provider-owned command identity and durable result evidence rather than only local inference. It should remain synthetic, deterministic, credential-free, and network-free, preserve P4-K production rejection, and make no exactly-once or production-provider claim.
+P4-P should be a Phase 4 composition/exit-gate milestone: verify the complete P4-A through P4-O checkpoint and lifecycle chain as one fail-closed synthetic security posture, explicitly enumerate the remaining production-only gaps, and freeze Phase 4 without inventing more local substitutes for external trust. This keeps the next project phase available for broader AI-security domains such as model/supply-chain security rather than indefinitely deepening the same checkpoint subsystem.
