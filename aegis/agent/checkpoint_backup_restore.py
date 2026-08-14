@@ -24,6 +24,10 @@ from aegis.agent.checkpoint_backup_storage import (
     validate_heads,
 )
 from aegis.agent.checkpoint_key_lifecycle import KeyLifecycleConfidentialCheckpointer
+from aegis.agent.checkpoint_lifecycle_capabilities import CheckpointLifecycleCapability
+from aegis.agent.checkpoint_operation_runtime import (
+    OperationProviderKeyLifecycleCheckpointer,
+)
 from aegis.agent.checkpoint_runtime_contracts import (
     CheckpointBackupAuthenticationOperationProvider,
     CheckpointRecoveryAuthorityOperationProvider,
@@ -55,6 +59,12 @@ def restore_checkpoint_backup(
     ) = None,
     operator_id: str = "local-synthetic-recovery-operator",
 ) -> CheckpointRestoreReport:
+    lifecycle_provider = None
+    if isinstance(saver, OperationProviderKeyLifecycleCheckpointer):
+        lifecycle_provider = saver.require_lifecycle_capability(
+            CheckpointLifecycleCapability.RESTORE
+        )
+
     root = Path(backup_directory)
     checkpoint_path = root / "checkpoints.sqlite3"
     anchor_path = root / "anchors.sqlite3"
@@ -127,11 +137,18 @@ def restore_checkpoint_backup(
                 raise CheckpointBackupError(
                     CheckpointBackupReason.RECOVERY_AUTHORIZATION_DENIED
                 ) from exc
-        apply_restore(
-            saver,
-            backup_database_path=checkpoint_path,
-            backup_anchor_path=anchor_path,
-        )
+        if lifecycle_provider is not None:
+            lifecycle_provider.restore_pair(
+                saver,
+                backup_database_path=checkpoint_path,
+                backup_anchor_path=anchor_path,
+            )
+        else:
+            apply_restore(
+                saver,
+                backup_database_path=checkpoint_path,
+                backup_anchor_path=anchor_path,
+            )
         restored_heads = validate_heads(saver)
         require_active_ciphertext(saver)
     if canonical_json({"heads": restored_heads}) != canonical_json({"heads": backup_heads}):
