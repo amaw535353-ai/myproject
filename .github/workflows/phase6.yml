@@ -32,3 +32,5 @@ jobs:
         run: python -m evals.p6b_waiver_governance
       - name: P6-C assurance corpus evolution and coverage drift evaluation
         run: python -m evals.p6c_corpus_evolution
+      - name: P6-D AI security posture and control coverage evaluation
+        run: python -m evals.p6d_posture_reporting

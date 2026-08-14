@@ -1,6 +1,6 @@
 # Phase 6 progress — continuous AI security assurance
 
-Phase 6 moves AegisDesk from adding individual security boundaries to continuously checking whether those boundaries remain effective across releases, whether exceptions remain explicit and temporary, and whether the assurance corpus itself can evolve without silently losing coverage.
+Phase 6 moves AegisDesk from adding individual security boundaries to continuously checking whether those boundaries remain effective across releases, whether exceptions remain explicit and temporary, whether the assurance corpus can evolve without silently losing coverage, and whether release security posture is derived from exact evidence instead of caller-supplied status labels.
 
 ## P6-A — versioned cross-boundary attack corpus and deterministic regression evidence
 
@@ -42,24 +42,7 @@ P6-B is deterministic synthetic governance evidence. It does not claim productio
 
 Status: **implemented and deterministically evaluated**.
 
-P6-C adds `AssuranceCorpusEvolutionGate` so a corpus upgrade cannot pass from aggregate self-reported coverage. The gate requires:
-
-- exact policy-pinned P6-A baseline corpus ID and SHA-256;
-- same-lineage candidate corpus identity with an advanced version;
-- exact request binding to candidate corpus and canonical change-manifest SHA-256 values;
-- one trusted-owner change record for every added, modified, or deprecated case and no record for unchanged cases;
-- exact old/new case-definition digest binding for every change operation;
-- rejection of in-place boundary or attack-class reclassification;
-- rejection of `BLOCK` to `ALLOW` weakening under the default policy;
-- rejection of attack-severity downgrades under the default policy;
-- exact one-to-one tombstones for removals;
-- newly added, same-boundary, equal-or-higher severity `BLOCK` replacement coverage for removed high/critical attack cases;
-- per-boundary attack-case and high/critical coverage floors;
-- global critical and high/critical coverage floors;
-- a benign safe-task coverage floor;
-- inert `VerifiedCorpusEvolution` evidence with explicit non-claims.
-
-The matched vulnerable baseline trusts only caller-declared `coverage_ok` and `untracked_changes` values.
+P6-C adds `AssuranceCorpusEvolutionGate` so a corpus upgrade cannot pass from aggregate self-reported coverage. The gate requires exact baseline/candidate corpus binding, explicit trusted-owner add/modify/deprecate records, non-weakening in-place changes, removal tombstones, equal-or-higher severity replacements for removed high/critical cases, per-boundary and global severity floors, and a benign safe-task coverage floor.
 
 Deterministic evaluation evidence:
 
@@ -76,6 +59,47 @@ An isolated local harness exercised the standalone P6-C implementation/evaluatio
 
 P6-C does not claim exhaustive attack coverage, proof that its coverage floors are sufficient, formal verification, production change-management integration, cryptographic human approval, rollback-resistant corpus history, or protection against a compromised policy administrator.
 
+## P6-D — AI security posture and control-coverage reporting
+
+Status: **implemented and deterministically evaluated**.
+
+P6-D adds `AISecurityPostureReporter`, a deterministic release-posture layer that maps the P6-A corpus into policy-pinned AI security control objectives and derives control status from exact P6-B/P6-C evidence instead of trusting caller-supplied posture labels.
+
+The hardened reporter requires:
+
+- a canonical, versioned control catalog with exact SHA-256 policy binding;
+- unique controls and unique case/boundary mappings;
+- all policy-required controls and risk domains;
+- exact release ID, commit SHA, package version, corpus digest, control-catalog digest, P6-B governance-evidence digest, and P6-C evolution-evidence digest binding;
+- intact P6-B invariant/ownership/scope/expiry/approval/severity-preservation verification flags;
+- exact and internally consistent P6-B regression/waiver scope;
+- intact P6-C change-coverage/tombstone/coverage-floor/non-weakening verification flags;
+- P6-C candidate case and severity counts that exactly match the current assurance corpus;
+- per-control evidence-derived status: `satisfied`, `exceptioned`, or `not_evaluated`;
+- `red` posture for critical/non-permitted exceptions or high/critical missing evaluation under policy;
+- `amber` posture for permitted non-critical exceptions or lower-severity missing evaluation;
+- `green` only when every mapped control is satisfied;
+- rejection when a caller-declared posture disagrees with the derived posture;
+- inert `VerifiedSecurityPosture` output with explicit certification/GRC non-claims.
+
+The matched vulnerable baseline accepts caller-declared posture and aggregate satisfied/exceptioned/not-evaluated counts without evidence binding.
+
+Deterministic evaluation evidence:
+
+- adversarial posture-layer cases: **26**;
+- vulnerable ASR: **26/26**;
+- hardened ASR: **0/26**;
+- hardened FPR: **0/3**;
+- SafeTaskRate: **3/3**;
+- control-catalog SHA-256: `33950f1ecbb2df0003007e7d3008cd1a8a182db9603f2ec5bc39a900a3511f50`;
+- corpus SHA-256: `7be8f8415e821b1aeeba149e3993caaa1f8cb5dda277af1d34d8dc1ca22f38c5`;
+- dataset SHA-256: `23704d729b7a22ad168e66ff81ad13d3d9923115c61430aa6242a588a81b5d0e`;
+- fixture SHA-256: `2562241e0eb8c4df32726416e248ed3b82cf7994cdf3ff4e24c3a429fed46fd8`.
+
+An isolated local harness compiled the standalone P6-D implementation/evaluation/test logic, passed **31 P6-D security-test outcomes**, and completed the deterministic evaluation with the metrics above. The harness used API-compatible P6-A corpus, P6-B waiver-governance, and P6-C corpus-evolution interfaces; this is not a claim that full-repository pytest ran locally or that GitHub-hosted branch files executed byte-for-byte in that harness.
+
+P6-D is deterministic synthetic posture evidence. It does **not** claim regulatory certification, SOC 2/ISO/NIST/EU-AI-Act compliance, production GRC integration, external auditor evidence, production IAM enforcement, exhaustive control coverage, rollback-resistant evidence storage, formal verification, or networked control-plane actions.
+
 ## Next direction
 
-P6-D should broaden Phase 6 into **AI security posture and control-coverage reporting**: deterministic mapping from P5/P6 security boundaries to risk/control objectives, release evidence showing which controls are satisfied or exceptioned, and explicit separation from claims of regulatory certification or production GRC integration.
+P6-E should add **adversarial finding lifecycle and closure evidence**: versioned red-team finding records, exact links from findings to assurance cases/invariants, owner and severity binding, fix-version scope, required re-test evidence, and fail-closed closure so a finding cannot be marked resolved without the corresponding regression evidence actually passing.
