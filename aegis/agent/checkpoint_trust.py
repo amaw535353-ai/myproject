@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Protocol
 
 from aegis.agent.checkpoint_backup_format import (
     P4E_LOCAL_BACKUP_KEY,
@@ -13,7 +12,6 @@ from aegis.agent.checkpoint_durability import (
     P4B_LOCAL_SYNTHETIC_KEY_ID,
 )
 from aegis.agent.checkpoint_keys import (
-    CheckpointEncryptionKeyProvider,
     LocalSyntheticCheckpointKeyProvider,
     build_default_local_synthetic_checkpoint_key_provider,
 )
@@ -162,32 +160,18 @@ class CheckpointTrustProviderManifest:
 
 @dataclass(frozen=True)
 class CheckpointIntegrityKeyMaterial:
+    """Local-only raw integrity material for the synthetic default runtime."""
+
     key_id: str
     key: bytes
 
 
 @dataclass(frozen=True)
 class CheckpointBackupAuthenticationMaterial:
+    """Local-only raw backup-authentication material for the synthetic default runtime."""
+
     key_id: str
     key: bytes
-
-
-class CheckpointRuntimeTrustProviderFactory(Protocol):
-    """Composition seam for checkpoint trust-bearing dependencies.
-
-    Production implementations are expected to keep checkpoint encryption keys,
-    integrity keys, monotonic state, backup authentication material, and recovery
-    authority outside the AegisDesk process/local failure domain. The repository
-    supplies only a local synthetic implementation.
-    """
-
-    manifest: CheckpointTrustProviderManifest
-
-    def encryption_key_provider(self) -> CheckpointEncryptionKeyProvider: ...
-
-    def integrity_key_material(self) -> CheckpointIntegrityKeyMaterial: ...
-
-    def backup_authentication_material(self) -> CheckpointBackupAuthenticationMaterial: ...
 
 
 LOCAL_SYNTHETIC_CHECKPOINT_TRUST_MANIFEST = CheckpointTrustProviderManifest(
@@ -232,7 +216,14 @@ LOCAL_SYNTHETIC_CHECKPOINT_TRUST_MANIFEST = CheckpointTrustProviderManifest(
 
 
 class LocalSyntheticCheckpointTrustProviderFactory:
-    """Local-only checkpoint trust bundle used by the default lab profile."""
+    """Local-only checkpoint trust bundle used by the default lab profile.
+
+    These helpers intentionally expose raw local fixture material because the
+    P4-B/P4-E implementations remain in-process lab abstractions. They are not an
+    external-provider interface. P4-F therefore rejects this factory's manifest
+    under the production-required deployment profile rather than treating these
+    helpers as a route to production key custody.
+    """
 
     manifest = LOCAL_SYNTHETIC_CHECKPOINT_TRUST_MANIFEST
 
