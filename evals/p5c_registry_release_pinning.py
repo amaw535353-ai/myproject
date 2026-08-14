@@ -494,7 +494,10 @@ def _run_variant(variant: Literal["vulnerable", "hardened"]) -> dict[str, Any]:
         rejection_reason = None
         try:
             if variant == "vulnerable":
-                VulnerableMutableRegistryAcquirer().acquire(pin=case["pin"], transport=case["transport"])
+                VulnerableMutableRegistryAcquirer(case["cache"]).acquire(
+                    pin=case["pin"],
+                    transport=case["transport"],
+                )
             else:
                 ImmutableModelRegistryAcquirer(
                     policy=case["policy"],
@@ -522,7 +525,10 @@ def _run_variant(variant: Literal["vulnerable", "hardened"]) -> dict[str, Any]:
         fetch_calls = None
         try:
             if variant == "vulnerable":
-                VulnerableMutableRegistryAcquirer().acquire(pin=case["pin"], transport=case["transport"])
+                VulnerableMutableRegistryAcquirer(case["cache"]).acquire(
+                    pin=case["pin"],
+                    transport=case["transport"],
+                )
                 safe_completion = True
             else:
                 result = ImmutableModelRegistryAcquirer(
