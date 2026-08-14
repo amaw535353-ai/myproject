@@ -20,5 +20,30 @@ from .attack_paths import (
     attack_path_identifier,
     canonical_architecture_manifest_bytes,
 )
+from .privilege_paths import (
+    P7B_ASSESSMENT_MODE,
+    P7B_ASSESSMENT_SCHEMA_VERSION,
+    P7B_IDENTITY_SCHEMA_VERSION,
+    P7B_PRIVILEGE_POLICY_VERSION,
+    Capability,
+    CapabilitySensitivity,
+    DelegationType,
+    IdentityCapabilityManifest,
+    IdentityPrincipal,
+    IdentityPrivilegeCapabilityAnalyzer,
+    PrincipalType,
+    PrivilegePathFact,
+    PrivilegePathPolicy,
+    PrivilegePathRejectReason,
+    PrivilegePathRejected,
+    PrivilegePathRequest,
+    PrivilegeScope,
+    PrivilegeTier,
+    PrivilegeTransition,
+    VerifiedPrivilegeEscalationAssessment,
+    canonical_identity_capability_manifest_bytes,
+    identity_capability_manifest_digest,
+    privilege_path_identifier,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
