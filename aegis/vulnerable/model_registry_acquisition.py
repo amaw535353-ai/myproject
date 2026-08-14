@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from aegis.model_supply_chain.registry_acquisition import (
     ModelRegistryTransport,
+    RegistryReleaseCache,
     RegistryReleasePin,
 )
 
@@ -25,7 +26,10 @@ class VulnerableRegistryRelease:
 
 
 class VulnerableMutableRegistryAcquirer:
-    """Intentionally trusts mutable registry resolution and returned release declarations."""
+    """Intentionally trusts mutable registry resolution, cache keys, and release declarations."""
+
+    def __init__(self, cache: RegistryReleaseCache | None = None) -> None:
+        self._cache = cache
 
     def acquire(
         self,
@@ -38,12 +42,17 @@ class VulnerableMutableRegistryAcquirer:
             channel=pin.channel,
             tag=pin.tag,
         )
-        fetched = transport.fetch_by_digest(
-            registry_id=pointer.registry_id,
-            source=pointer.source,
-            release_digest=pointer.release_digest,
-        )
-        manifest = fetched.envelope.package_manifest
+        cached = self._cache.get(pointer.release_digest) if self._cache is not None else None
+        if cached is not None:
+            envelope = cached
+        else:
+            fetched = transport.fetch_by_digest(
+                registry_id=pointer.registry_id,
+                source=pointer.source,
+                release_digest=pointer.release_digest,
+            )
+            envelope = fetched.envelope
+        manifest = envelope.package_manifest
         return VulnerableRegistryRelease(
             registry_id=pointer.registry_id,
             channel=pointer.channel,
