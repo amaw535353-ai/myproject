@@ -1,6 +1,6 @@
 # Phase 6 progress — continuous AI security assurance
 
-Phase 6 moves AegisDesk from adding individual security boundaries to continuously checking whether those boundaries remain effective across releases, whether exceptions remain explicit and temporary, whether the assurance corpus can evolve without silently losing coverage, and whether release security posture is derived from exact evidence instead of caller-supplied status labels.
+Phase 6 moves AegisDesk from adding individual security boundaries to continuously checking whether those boundaries remain effective across releases, whether exceptions remain explicit and temporary, whether the assurance corpus can evolve without silently losing coverage, whether release security posture is derived from exact evidence instead of caller-supplied status labels, and whether adversarial findings can close only after exact retest evidence passes.
 
 ## P6-A — versioned cross-boundary attack corpus and deterministic regression evidence
 
@@ -100,6 +100,51 @@ An isolated local harness compiled the standalone P6-D implementation/evaluation
 
 P6-D is deterministic synthetic posture evidence. It does **not** claim regulatory certification, SOC 2/ISO/NIST/EU-AI-Act compliance, production GRC integration, external auditor evidence, production IAM enforcement, exhaustive control coverage, rollback-resistant evidence storage, formal verification, or networked control-plane actions.
 
+## P6-E — adversarial finding lifecycle and closure evidence
+
+Status: **implemented and deterministically evaluated**.
+
+P6-E adds `AdversarialFindingLifecycleGate`, which turns adversarial/red-team findings into versioned, release-bound assurance records. A finding cannot become `closed` merely because a caller says remediation succeeded.
+
+The hardened lifecycle gate requires:
+
+- exact policy-pinned P6-A corpus and P6-B invariant-registry SHA-256 values;
+- exact one-to-one invariant-registry coverage with case-definition and severity preservation;
+- trusted finding owners;
+- finding links only to attack-blocking P6-A cases;
+- exact boundary scope and exact P6-B invariant-owner binding derived from those linked cases;
+- finding severity equal to the highest linked-case severity, preventing downgrade;
+- immutable finding identity, scope, discovery release, owner, title, tracking reference, and opening time;
+- version increments by exactly one;
+- only `open -> fix_in_progress -> ready_for_retest -> closed` transitions;
+- monotonic non-future lifecycle timestamps;
+- exact fix-target release/commit/package-version binding once remediation begins;
+- no closure evidence before `closed`;
+- exact retest binding to the finding ID, `ready_for_retest` record digest, target release, current corpus, and trusted runner;
+- exact one-to-one retest case coverage with immutable case-definition digests;
+- every finding-linked case passing its P6-A expectation on the target release;
+- retest freshness and non-future checks;
+- the closed finding record binding the exact retest SHA-256;
+- inert `VerifiedFindingTransition` evidence with explicit production-integration non-claims.
+
+The matched vulnerable baseline trusts caller-declared status and a caller-declared `retest_passed` flag.
+
+Deterministic evaluation evidence:
+
+- adversarial finding-lifecycle cases: **36**;
+- vulnerable ASR: **36/36**;
+- hardened ASR: **0/36**;
+- hardened FPR: **0/3**;
+- SafeTaskRate: **3/3**;
+- corpus SHA-256: `9a2dad3e8991d3d3fd8b20540949f4c8047a0ee2c89c58c7d393c8483528fb13`;
+- invariant-registry SHA-256: `ee45ee48a60ae7de869a83ddeeb2c84734a7692327c2b05478af467435d2abc4`;
+- dataset SHA-256: `246352b226efada96128546e7b99bb0a3ff1b60cf32e5ed4a5edcb9999508e77`;
+- fixture SHA-256: `df3d2e081423b56d694240be38df0d8eeba2c9c0db746d4d5a241b5b5bc5af91`.
+
+An isolated local harness compiled and exercised the standalone P6-E implementation/evaluation/test logic, passed **41 P6-E security-test outcomes**, and completed the deterministic evaluation with the metrics above. The harness used API-compatible P6-A corpus and P6-B invariant-registry interfaces; this is not a claim that full-repository pytest ran locally or that the GitHub-hosted branch files were executed byte-for-byte by that harness.
+
+P6-E is deterministic synthetic finding-lifecycle evidence. It does **not** claim production ticket/Jira/Linear integration, real patch deployment, cryptographic human remediation approval, rollback-resistant finding storage, exhaustive vulnerability discovery, official CVE/CVSS assignment, scanner-vendor integration, vulnerability-disclosure compliance, formal verification, or networked remediation actions.
+
 ## Next direction
 
-P6-E should add **adversarial finding lifecycle and closure evidence**: versioned red-team finding records, exact links from findings to assurance cases/invariants, owner and severity binding, fix-version scope, required re-test evidence, and fail-closed closure so a finding cannot be marked resolved without the corresponding regression evidence actually passing.
+P6-F should add **incident-to-assurance feedback and threat-informed regression coverage**: bind verified serving-incident evidence to new or strengthened assurance cases, require explicit corpus-evolution records for incident-derived tests, and prevent a known operational failure mode from disappearing from future release assurance without an auditable replacement or tombstone.

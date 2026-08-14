@@ -80,5 +80,24 @@ from .posture_reporting import (
     canonical_control_catalog_bytes,
     control_catalog_digest,
 )
+from .finding_lifecycle import (
+    P6E_FINDING_POLICY_VERSION,
+    P6E_FINDING_SCHEMA_VERSION,
+    P6E_LIFECYCLE_MODE,
+    P6E_RETEST_SCHEMA_VERSION,
+    AdversarialFinding,
+    AdversarialFindingLifecycleGate,
+    FindingLifecyclePolicy,
+    FindingLifecycleRejectReason,
+    FindingLifecycleRejected,
+    FindingLifecycleRequest,
+    FindingRetestEvidence,
+    FindingState,
+    VerifiedFindingTransition,
+    canonical_finding_bytes,
+    canonical_retest_bytes,
+    finding_digest,
+    retest_digest,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
