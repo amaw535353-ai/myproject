@@ -107,7 +107,12 @@ def require_lifecycle_capability(
         CheckpointLifecycleCapability.SNAPSHOT: "snapshot_pair",
         CheckpointLifecycleCapability.RESTORE: "restore_pair",
     }[capability]
-    if capability not in capabilities or not callable(getattr(provider, operation_name, None)):
+    direct_operation = callable(getattr(provider, operation_name, None))
+    command_aware_operation = bool(
+        getattr(provider, "provider_internal_crash_recovery", False)
+        and callable(getattr(provider, "execute_lifecycle_command", None))
+    )
+    if capability not in capabilities or not (direct_operation or command_aware_operation):
         raise CheckpointLifecycleCapabilityError(
             CheckpointLifecycleReason.CAPABILITY_UNSUPPORTED,
             capability=capability,
