@@ -194,3 +194,44 @@ def production_lifecycle_descriptor_allowed(
     except Exception:
         return False
     return True
+
+
+@dataclass(frozen=True)
+class LifecycleAwareCheckpointTrustManifest:
+    """Compatibility wrapper preserving the five-surface P4-F manifest contract.
+
+    Existing code continues to read ``providers`` and ``policy_version`` exactly as
+    before, while ``assert_allowed`` evaluates both P4-F and P4-K deployment trust.
+    This prevents the default dependency graph from silently constructing a lifecycle
+    coordinator that was never covered by deployment trust policy.
+    """
+
+    checkpoint_manifest: CheckpointTrustProviderManifest
+    lifecycle_descriptor: CheckpointLifecycleTrustProviderDescriptor
+
+    @property
+    def providers(self):
+        return self.checkpoint_manifest.providers
+
+    @property
+    def policy_version(self) -> str:
+        return self.checkpoint_manifest.policy_version
+
+    def assert_complete(self) -> None:
+        self.checkpoint_manifest.assert_complete()
+
+    def assert_allowed(self, profile: TrustDeploymentProfile) -> None:
+        assert_checkpoint_deployment_trust(
+            checkpoint_manifest=self.checkpoint_manifest,
+            lifecycle_descriptor=self.lifecycle_descriptor,
+            profile=profile,
+        )
+
+    def production_trust_claim_allowed(self) -> bool:
+        return production_lifecycle_descriptor_allowed(
+            checkpoint_manifest=self.checkpoint_manifest,
+            lifecycle_descriptor=self.lifecycle_descriptor,
+        )
+
+    def public_posture(self):
+        return self.checkpoint_manifest.public_posture()
