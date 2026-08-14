@@ -61,3 +61,5 @@ jobs:
         run: python -m evals.p4k_checkpoint_lifecycle_trust
       - name: P4-L lifecycle failure and fencing evaluation
         run: python -m evals.p4l_checkpoint_lifecycle_fencing
+      - name: P4-M durable lifecycle journal evaluation
+        run: python -m evals.p4m_durable_lifecycle_journal
