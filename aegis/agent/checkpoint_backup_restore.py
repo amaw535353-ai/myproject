@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from aegis.agent.checkpoint_backup_create import _candidate_from_snapshot
 from aegis.agent.checkpoint_backup_format import (
     P4E_BACKUP_SCHEMA,
     P4E_CHECKPOINT_BACKUP_POLICY_VERSION,
@@ -23,6 +24,11 @@ from aegis.agent.checkpoint_backup_storage import (
     validate_heads,
 )
 from aegis.agent.checkpoint_key_lifecycle import KeyLifecycleConfidentialCheckpointer
+from aegis.agent.checkpoint_runtime_contracts import (
+    CheckpointBackupAuthenticationOperationProvider,
+    CheckpointRecoveryAuthorityOperationProvider,
+    RecoveryAuthorizationRequest,
+)
 from aegis.agent.checkpoint_security import P4A_CHECKPOINT_POLICY_VERSION
 
 
@@ -41,6 +47,13 @@ def restore_checkpoint_backup(
     *,
     backup_key: bytes = P4E_LOCAL_BACKUP_KEY,
     backup_key_id: str = P4E_LOCAL_BACKUP_KEY_ID,
+    backup_authentication_provider: (
+        CheckpointBackupAuthenticationOperationProvider | None
+    ) = None,
+    recovery_authority_provider: (
+        CheckpointRecoveryAuthorityOperationProvider | None
+    ) = None,
+    operator_id: str = "local-synthetic-recovery-operator",
 ) -> CheckpointRestoreReport:
     root = Path(backup_directory)
     checkpoint_path = root / "checkpoints.sqlite3"
@@ -48,7 +61,11 @@ def restore_checkpoint_backup(
     manifest_path = root / "manifest.json"
     if not checkpoint_path.is_file() or not anchor_path.is_file() or not manifest_path.is_file():
         raise CheckpointBackupError(CheckpointBackupReason.PACKAGE_INVALID)
-    manifest = open_package(manifest_path.read_bytes(), key=bytes(backup_key))
+    manifest = open_package(
+        manifest_path.read_bytes(),
+        key=(None if backup_authentication_provider is not None else bytes(backup_key)),
+        provider=backup_authentication_provider,
+    )
     if (
         manifest.get("schema") != P4E_BACKUP_SCHEMA
         or manifest.get("policy_version") != P4E_CHECKPOINT_BACKUP_POLICY_VERSION
@@ -75,12 +92,10 @@ def restore_checkpoint_backup(
     backup_heads = [dict(item) for item in raw_heads]
 
     try:
-        candidate = KeyLifecycleConfidentialCheckpointer(
-            database_path=checkpoint_path,
-            anchor_database_path=anchor_path,
-            key_provider=saver.key_provider,
-            hmac_key=saver._hmac_key,
-            key_id=saver.key_id,
+        candidate = _candidate_from_snapshot(
+            saver,
+            checkpoint_path=checkpoint_path,
+            anchor_path=anchor_path,
         )
         observed_heads = validate_heads(candidate)
         require_active_ciphertext(candidate)
@@ -98,6 +113,20 @@ def restore_checkpoint_backup(
             backup_database_path=checkpoint_path,
             backup_heads=backup_heads,
         )
+        if recovery_authority_provider is not None:
+            try:
+                recovery_authority_provider.authorize_restore(
+                    RecoveryAuthorizationRequest(
+                        request_id=f"checkpoint-restore:{backup_id}",
+                        operator_id=str(operator_id),
+                        backup_authenticated=True,
+                        monotonic_anchor_verified=True,
+                    )
+                )
+            except Exception as exc:
+                raise CheckpointBackupError(
+                    CheckpointBackupReason.RECOVERY_AUTHORIZATION_DENIED
+                ) from exc
         apply_restore(
             saver,
             backup_database_path=checkpoint_path,
