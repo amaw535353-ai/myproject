@@ -6,11 +6,10 @@ from typing import Annotated
 
 from fastapi import Header, HTTPException, status
 
+from aegis.agent.checkpoint_backup import AuthenticatedCheckpointBackupManager
 from aegis.agent.checkpoint_key_lifecycle import KeyLifecycleConfidentialCheckpointer
-from aegis.agent.checkpoint_keys import (
-    LocalSyntheticCheckpointKeyProvider,
-    build_default_local_synthetic_checkpoint_key_provider,
-)
+from aegis.agent.checkpoint_keys import LocalSyntheticCheckpointKeyProvider
+from aegis.agent.checkpoint_trust import LocalSyntheticCheckpointTrustProviderFactory
 from aegis.agent.execution_budget import P2G_EXECUTION_LIMITS
 from aegis.agent.fake_model import DeterministicFakeModel
 from aegis.agent.rag_model import DeterministicRagSecurityModel
@@ -185,16 +184,38 @@ def get_memory_context_service() -> DefaultMemoryContextService:
 
 
 @lru_cache(maxsize=1)
+def get_checkpoint_trust_provider_factory() -> LocalSyntheticCheckpointTrustProviderFactory:
+    factory = LocalSyntheticCheckpointTrustProviderFactory()
+    factory.manifest.assert_allowed(_trust_deployment_profile())
+    return factory
+
+
+@lru_cache(maxsize=1)
 def get_checkpoint_key_provider() -> LocalSyntheticCheckpointKeyProvider:
-    return build_default_local_synthetic_checkpoint_key_provider()
+    return get_checkpoint_trust_provider_factory().encryption_key_provider()
 
 
 @lru_cache(maxsize=1)
 def get_agent_checkpointer() -> KeyLifecycleConfidentialCheckpointer:
+    factory = get_checkpoint_trust_provider_factory()
+    integrity = factory.integrity_key_material()
     return KeyLifecycleConfidentialCheckpointer(
         database_path=_agent_checkpoint_database_path(),
         anchor_database_path=_agent_checkpoint_anchor_database_path(),
         key_provider=get_checkpoint_key_provider(),
+        hmac_key=integrity.key,
+        key_id=integrity.key_id,
+    )
+
+
+@lru_cache(maxsize=1)
+def get_checkpoint_backup_manager() -> AuthenticatedCheckpointBackupManager:
+    factory = get_checkpoint_trust_provider_factory()
+    authentication = factory.backup_authentication_material()
+    return AuthenticatedCheckpointBackupManager(
+        saver=get_agent_checkpointer(),
+        backup_key=authentication.key,
+        backup_key_id=authentication.key_id,
     )
 
 

@@ -47,3 +47,5 @@ jobs:
         run: python -m evals.p4d_checkpoint_key_lifecycle
       - name: P4-E checkpoint backup restore evaluation
         run: python -m evals.p4e_checkpoint_backup_restore
+      - name: P4-F checkpoint trust-provider posture evaluation
+        run: python -m evals.p4f_checkpoint_trust_provider_posture
