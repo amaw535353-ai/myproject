@@ -163,14 +163,11 @@ def canonical_registry_release_bytes(envelope: RegistryReleaseEnvelope) -> bytes
         )
     document = {
         "artifacts": artifacts,
-        "channel": envelope.channel,
         "package_manifest_sha256": sha256_hex(
             canonical_package_manifest_bytes(envelope.package_manifest)
         ),
         "package_signature_sha256": sha256_hex(envelope.package_signature),
-        "registry_id": envelope.registry_id,
         "schema_version": envelope.schema_version,
-        "tag": envelope.tag,
     }
     return json.dumps(document, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
