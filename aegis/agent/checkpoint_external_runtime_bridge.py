@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Iterable, Mapping
 
+from aegis.agent.checkpoint_external_contracts import ExternalAnchorHead
 from aegis.agent.checkpoint_runtime_contracts import (
     CheckpointAnchorHead,
     CheckpointWriteHead,
     decode_checkpoint_scope,
+    encode_checkpoint_scope,
 )
 
 
@@ -14,8 +16,10 @@ class SyntheticExternalCheckpointAnchorRuntimeBridge:
 
     P4-G originally modeled only checkpoint-head compare-and-advance. P4-H also
     needs pending-write set heads. This bridge keeps those write heads in-process
-    while delegating checkpoint monotonicity to the existing P4-G adapter. It is
-    intentionally synthetic and is not a production external anchor adapter.
+    while delegating checkpoint monotonicity to the existing P4-G adapter. P4-J
+    adds explicit state export/import operations used only by the synthetic
+    external-style lifecycle contract; those operations do not expose a local
+    SQLite anchor path and do not make this bridge operationally external.
     """
 
     synthetic_in_process = True
@@ -99,3 +103,89 @@ class SyntheticExternalCheckpointAnchorRuntimeBridge:
                     continue
                 if scoped_thread_id == resolved:
                     del delegate_heads[scope]
+
+    def export_heads(self) -> tuple[dict[str, object], ...]:
+        """Export checkpoint heads without revealing or requiring a local DB path."""
+
+        delegate_heads = getattr(self._delegate, "_heads", None)
+        if not isinstance(delegate_heads, dict):
+            raise RuntimeError("synthetic external anchor does not support state export")
+        exported: list[dict[str, object]] = []
+        for scope, head in sorted(delegate_heads.items(), key=lambda item: str(item[0])):
+            thread_id, checkpoint_ns = decode_checkpoint_scope(str(scope))
+            exported.append(
+                {
+                    "thread_id": thread_id,
+                    "checkpoint_ns": checkpoint_ns,
+                    "generation": int(head.generation),
+                    "checkpoint_id": str(head.checkpoint_id),
+                    "checkpoint_digest": str(head.checkpoint_digest),
+                }
+            )
+        return tuple(exported)
+
+    def export_write_heads(self) -> tuple[dict[str, object], ...]:
+        exported: list[dict[str, object]] = []
+        for (scope, checkpoint_id), head in sorted(
+            self._write_heads.items(), key=lambda item: (str(item[0][0]), str(item[0][1]))
+        ):
+            thread_id, checkpoint_ns = decode_checkpoint_scope(str(scope))
+            exported.append(
+                {
+                    "thread_id": thread_id,
+                    "checkpoint_ns": checkpoint_ns,
+                    "checkpoint_id": str(checkpoint_id),
+                    "write_count": int(head.write_count),
+                    "aggregate_digest": str(head.aggregate_digest),
+                }
+            )
+        return tuple(exported)
+
+    def replace_state(
+        self,
+        *,
+        checkpoint_heads: Iterable[Mapping[str, object]],
+        write_heads: Iterable[Mapping[str, object]],
+    ) -> None:
+        """Replace synthetic external anchor state for an authorized lifecycle operation."""
+
+        delegate_heads = getattr(self._delegate, "_heads", None)
+        if not isinstance(delegate_heads, dict):
+            raise RuntimeError("synthetic external anchor does not support state import")
+
+        next_checkpoint_heads: dict[str, ExternalAnchorHead] = {}
+        for item in checkpoint_heads:
+            thread_id = str(item["thread_id"])
+            checkpoint_ns = str(item.get("checkpoint_ns", ""))
+            generation = int(item["generation"])
+            if generation < 1:
+                raise ValueError("checkpoint anchor generation must be positive")
+            scope = encode_checkpoint_scope(thread_id, checkpoint_ns)
+            if scope in next_checkpoint_heads:
+                raise ValueError("duplicate checkpoint anchor scope")
+            next_checkpoint_heads[scope] = ExternalAnchorHead(
+                generation=generation,
+                checkpoint_id=str(item["checkpoint_id"]),
+                checkpoint_digest=str(item["checkpoint_digest"]),
+            )
+
+        next_write_heads: dict[tuple[str, str], CheckpointWriteHead] = {}
+        for item in write_heads:
+            thread_id = str(item["thread_id"])
+            checkpoint_ns = str(item.get("checkpoint_ns", ""))
+            checkpoint_id = str(item["checkpoint_id"])
+            write_count = int(item["write_count"])
+            if write_count < 0:
+                raise ValueError("checkpoint write count must be non-negative")
+            scope = encode_checkpoint_scope(thread_id, checkpoint_ns)
+            key = (scope, checkpoint_id)
+            if key in next_write_heads:
+                raise ValueError("duplicate checkpoint write-head scope")
+            next_write_heads[key] = CheckpointWriteHead(
+                write_count=write_count,
+                aggregate_digest=str(item["aggregate_digest"]),
+            )
+
+        delegate_heads.clear()
+        delegate_heads.update(next_checkpoint_heads)
+        self._write_heads = next_write_heads
