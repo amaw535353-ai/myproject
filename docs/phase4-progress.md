@@ -1,13 +1,13 @@
 # Phase 4 hardening progress
 
-Phase 4 starts after the six Phase 3 integration gaps were closed. P4-A narrowed the LangGraph checkpoint type policy used by the default agent runtime. P4-B extended that boundary to local durable checkpoint persistence with tamper-evident integrity and a separate monotonic local anchor. P4-C added local authenticated encryption and structural metadata minimization. P4-D added an explicit checkpoint encryption-key lifecycle boundary and controlled re-encryption migration. P4-E added authenticated local backup packaging and monotonic restore validation for that encrypted state. P4-F made the remaining checkpoint trust dependencies explicit at deployment composition time and fails closed under a production-required profile unless external trust is supplied. P4-G added an operation-bearing synthetic external adapter contract harness for all five P4-F checkpoint trust surfaces while preserving the distinction between contract shape and actual external trust. P4-H moves the default checkpoint persistence and recovery composition onto operation-bearing integrity, anchor, backup-authentication, and recovery-authority provider seams. P4-I makes checkpoint encryption migration, checkpoint/anchor pair snapshot, and checkpoint/anchor pair restore explicit lifecycle capabilities bound to the configured anchor-provider identity. P4-J adds a synthetic external-style lifecycle provider that exercises all three P4-I capabilities without using the inherited compatibility SQLite anchor path as lifecycle authority.
+Phase 4 hardens the default LangGraph checkpoint path after the Phase 3 integration gaps were closed. P4-A through P4-E established strict checkpoint deserialization, local durable integrity, local authenticated encryption, key lifecycle/migration, and authenticated local backup/restore. P4-F made five checkpoint deployment trust dependencies explicit. P4-G through P4-J then moved the runtime toward operation-bearing providers, explicit lifecycle capabilities, and a synthetic external-style lifecycle harness. P4-K extends deployment trust to the lifecycle coordinator itself while preserving the original five-surface P4-F v1 policy and deterministic evidence.
 
-Current posture after P4-J:
+Current posture after P4-K:
 
 - Phase 3 integration gaps: 0 open.
 - P4-A checkpoint type policy: implemented and evaluated.
 - P4-B durable checkpoint integrity: implemented and evaluated.
-- P4-C checkpoint confidentiality and secret minimization: implemented and evaluated.
+- P4-C checkpoint confidentiality and structural secret minimization: implemented and evaluated.
 - P4-D checkpoint encryption-key lifecycle and migration: implemented and evaluated.
 - P4-E authenticated encrypted checkpoint backup/restore: implemented and evaluated.
 - P4-F checkpoint deployment trust-provider boundary: implemented and evaluated.
@@ -15,56 +15,69 @@ Current posture after P4-J:
 - P4-H checkpoint runtime operation-provider seam: implemented and evaluated.
 - P4-I checkpoint lifecycle capability-provider boundary: implemented and evaluated.
 - P4-J synthetic external-style lifecycle capability contract harness: implemented and evaluated.
-- Default agent checkpoint application allowlist: 4 exact AegisDesk types.
-- Pickle fallback: disabled.
-- Custom JSON constructor revival: disabled.
-- Default API checkpoint payloads and pending writes: local AES-256-GCM ciphertext before SQLite persistence.
-- Default API checkpoint encryption key: local synthetic v2 active for new encryption.
-- Previous P4-C v1 encryption key: decrypt-only during the explicit migration window.
-- Revoked checkpoint encryption keys: rejected.
-- Default API checkpoint integrity: checkpoint and pending-write authenticators are produced and verified through an injected operation provider; the default provider is still a local synthetic HMAC implementation.
-- Default API monotonic checkpoint head: read, compare-and-advance, pending-write-head publication, and thread deletion are routed through an injected anchor operation provider; the default provider still owns a local SQLite anchor file.
-- Default API saver no longer retains the P4-B raw HMAC key after construction. The local operation-provider factory still contains synthetic fixture material internally and inherits legacy raw-material compatibility helpers, so this is a composition-boundary improvement rather than external custody.
-- P4-I lifecycle operations: `checkpoint_encryption_migration`, `checkpoint_backup_snapshot`, and `checkpoint_backup_restore` are explicit provider capabilities. The default API injects `local-sqlite-agent-checkpoint-lifecycle`, bound to the exact local anchor-provider instance used by the saver.
-- P4-I fail-closed behavior: a missing lifecycle provider, a provider that does not advertise the requested capability, a provider that advertises a capability without the matching callable operation, or a lifecycle provider bound to a different anchor-provider identity is rejected before the requested lifecycle operation changes checkpoint state. Backup creation checks snapshot capability before creating the backup directory.
-- P4-J external-style lifecycle provider: `synthetic-external-contract-checkpoint-lifecycle` is bound to the synthetic P4-G/P4-H external-style anchor bridge and advertises all three P4-I lifecycle capabilities. It is explicitly `synthetic_in_process`, not operationally external, and not production-runtime eligible.
-- P4-J compatibility-path decoupling: deterministic cases replace the inherited compatibility anchor SQLite file with a directory after saver construction. Migration, snapshot, and restore still complete with `compatibility_anchor_path_accesses=0`, demonstrating that those lifecycle operations do not depend on or expose the compatibility anchor path.
-- P4-J migration: re-encrypts a checkpoint and pending write from the local synthetic P4-D v1 key to the active local synthetic v2 key, recomputes integrity chains, and publishes resulting checkpoint/write heads to the injected external-style anchor provider without updating the compatibility anchor SQLite path. The exercise does not claim external encryption-key custody.
-- P4-J pair snapshot: snapshots the encrypted checkpoint database and exports checkpoint/write heads from the external-style anchor provider. For P4-E package compatibility, that exported provider state is materialized as `anchors.sqlite3`; it is generated from provider state rather than copied from a live local anchor database.
-- P4-J pair restore: after existing P4-E authentication, active-key, candidate, monotonic-history, and recovery-authorization checks, checkpoint rows are installed and checkpoint/write heads are imported into the external-style anchor provider. The compatibility anchor path is not restore authority.
-- P4-J anchor state transfer: the synthetic runtime bridge exports/imports the P4-G delegate's in-memory checkpoint-head state plus P4-H pending-write heads. This is a harness-only operation contract, not an external protocol or durable provider implementation.
-- P4-D migration remains explicit and requires the active/decrypt-only lifecycle boundary. P4-J changes where resulting anchor state is published for the synthetic external-style lifecycle harness; it does not change the checkpoint ciphertext envelope or key-state semantics.
-- P4-E backup package remains a checkpoint SQLite snapshot, a structural anchor-state SQLite snapshot, and an authenticated manifest binding their SHA-256 digests, checkpoint heads, serialization policy, integrity provider id, key-lifecycle policy, and active encryption key id.
-- P4-E backup authentication: creation and verification can use an operation-bearing backup-authentication provider instead of requiring the manager to retain raw HMAC material. The default provider remains local synthetic.
-- P4-E recovery authority: authenticated and monotonic-boundary-validated restore calls an injected recovery-authority provider before installing target state. Denial fails closed before replacement.
-- P4-F explicit checkpoint trust surfaces: encryption-key custody, integrity-key custody, monotonic anchor state, backup authentication, and recovery authority.
-- P4-F local synthetic profile: accepted for the lab and explicitly ineligible for a production checkpoint trust claim.
-- P4-F production-required profile: requires external providers in independent failure domains; key-bearing surfaces require external key custody, the anchor requires rollback-resistant external state, and recovery requires an external recovery authority.
-- P4-F default API behavior remains fail closed: the inherited local trust manifest is validated before operation-provider checkpoint composition is constructed. `production_external_required` still rejects the local synthetic runtime.
-- P4-G operation-bearing contract doubles: synthetic external-style encryption, integrity authentication, monotonic anchor, backup authentication, and recovery authorization adapters.
-- P4-H runtime contract coverage: the actual saver can exercise the P4-G integrity operation contract and a P4-G monotonic-anchor bridge for checkpoint get/put integrity and rollback checks; backup authentication and recovery authority are also exercised through P4-G operation-bearing doubles.
-- P4-H P4-G anchor bridge: pending-write heads remain a synthetic in-process extension because P4-G originally modeled checkpoint-head compare-and-advance only. P4-J adds harness-only state export/import for lifecycle operations; neither extension is an operational external anchor implementation.
-- P4-H/P4-I default API composition: `OperationProviderKeyLifecycleCheckpointer` remains a subclass of the existing P4-D saver so P4-A through P4-I compatibility is retained while core integrity, anchor, and lifecycle operations are provider-routed. P4-J does not replace the default API lifecycle provider.
-- Compatibility local anchor artifact: the inherited saver setup can still initialize the configured local anchor SQLite path when a synthetic external-style anchor is injected for a harness. P4-J proves migration/snapshot/restore no longer depend on that artifact after construction; it does not claim the artifact is never initialized.
-- Plaintext storage that remains by design: structural SQLite identifiers/type tags, minimized LangGraph control metadata, the P4-E backup manifest, and structural checkpoint/write-head rows in the P4-J-generated anchor snapshot artifact. Dynamic checkpoint and pending-write payloads remain ciphertext in backup snapshots.
-- P4-J deterministic dataset hash: `040eec8d91bb733c04f04188b6b364e8cbddb3229de3330a8dc1f965895dd5e8`.
-- P4-J deterministic metrics: implicit local-anchor-path baseline ASR 3/3; external-style lifecycle ASR 0/3; hardened FPR 0/3; hardened SafeTaskRate 3/3.
-- Real external operations introduced by P4-J: none; network operations: 0.
-- Production external checkpoint or lifecycle adapter implementation included: none.
-- Production confidentiality, durability, key-management, backup, recovery, disaster-recovery, lifecycle-atomicity, or external-trust claim: none.
+- P4-K checkpoint lifecycle deployment trust-provider boundary: implemented and evaluated.
 
-The default API injects an `OperationProviderKeyLifecycleCheckpointer` with explicit operation providers. P4-A still constrains deserialization to the exact application type allowlist. P4-C encrypts serialized checkpoint payloads and pending writes before storage, P4-D controls active/decrypt-only/revoked encryption-key lifecycle state, P4-H routes P4-B authentication and monotonic-head operations through injected providers, and P4-I routes migration/snapshot/restore through an anchor-bound lifecycle capability provider. The default implementations remain deterministic local synthetic providers. P4-J is a separate synthetic external-style contract harness and does not alter the default API provider selection.
+## Default checkpoint runtime
 
-P4-F still supplies the deployment trust manifest used before checkpoint composition. P4-H's `LocalSyntheticCheckpointOperationProviderFactory` subclasses the existing local factory so the same local manifest and fail-closed production-required policy remain in force. P4-I extends that factory with a local lifecycle provider and the API injects it using the same local anchor-provider instance. P4-J shows that a lifecycle provider can instead coordinate external-style anchor state without falling back to the compatibility local anchor path, but P4-F does not yet model the lifecycle provider itself as a distinct deployment trust surface.
+The default API still injects `OperationProviderKeyLifecycleCheckpointer`. P4-A constrains deserialization to four exact AegisDesk application types; pickle fallback and custom JSON constructor revival remain disabled. Dynamic checkpoint and pending-write payloads are encrypted with local AES-256-GCM before SQLite persistence. The default active checkpoint encryption key remains local synthetic v2, with the previous v1 key decrypt-only during the explicit P4-D migration window; revoked keys are rejected.
 
-P4-G's synthetic external-style contracts can be used by the actual checkpoint runtime for the operations they model. P4-H verifies checkpoint tamper and database rollback fail closed and exercises P4-G backup authentication and recovery authorization through the P4-E manager. P4-I deliberately does not reinterpret those contracts as lifecycle capability: an external-style anchor without a lifecycle provider can continue ordinary checkpoint operations, but migration, backup snapshot, and restore are rejected before lifecycle state change. P4-J then supplies a deliberately synthetic lifecycle provider and explicit state-transfer bridge to exercise those operations without silently granting lifecycle authority to the anchor contract itself.
+Checkpoint and pending-write integrity is produced and verified through an injected operation provider. The default provider remains local synthetic HMAC material hidden behind an operation interface. Monotonic checkpoint and pending-write heads are routed through an injected anchor operation provider; the default provider still owns a local SQLite anchor file. These are lab abstractions, not external custody or production durability.
 
-The P3-F high-impact execution-control-plane trust boundary remains separate. It covers authorization signing, protected execution checkpoints, signed checkpoint receipts, and receipt witnesses. P4-F through P4-J cover LangGraph agent checkpoint storage and recovery. Both use the same deployment-profile vocabulary but do not treat one domain's trust provider as satisfying the other domain.
+## Lifecycle capabilities
 
-A P4-E restore still accepts a fresh target or a backup that extends the target's current authenticated history. For every current namespace, the backup must contain at least the current generation and the checkpoint digest at that generation must match the target's current monotonic anchor. A valid older backup is rejected rather than being allowed to replace a newer current head, and a valid backup from a forked history is also rejected. P4-H adds recovery authorization after these authentication and monotonic checks but before installation; P4-I requires restore capability before that installation path can be reached; P4-J changes the installation provider used by the synthetic external-style harness, not these acceptance rules.
+P4-I makes `checkpoint_encryption_migration`, `checkpoint_backup_snapshot`, and `checkpoint_backup_restore` explicit lifecycle-provider capabilities. The default provider is `local-sqlite-agent-checkpoint-lifecycle`, bound to the exact local anchor-provider identity used by the saver. Missing providers, missing callables, missing advertised capabilities, or anchor-provider mismatches fail closed before the requested lifecycle operation changes checkpoint state. Backup creation checks snapshot capability before creating the backup directory.
 
-P4-E intentionally requires backup checkpoint and pending-write ciphertext to use the provider's active encryption key. Decrypt-only legacy ciphertext must first pass through the explicit P4-D migration path; backup and restore do not create a second legacy-key fallback. P4-I changes how lifecycle operations are authorized by capability and bound to an anchor provider. P4-J demonstrates a non-compatibility-anchor lifecycle implementation while preserving the same active-key requirement.
+P4-J adds `synthetic-external-contract-checkpoint-lifecycle`, bound to the synthetic P4-G/P4-H external-style anchor bridge. It exercises migration, pair snapshot, and pair restore without consulting the inherited compatibility anchor SQLite path after construction. Deterministic tests poison that compatibility path and still observe `compatibility_anchor_path_accesses=0`. The backup anchor artifact is generated from exported provider state for P4-E package compatibility; it is not copied from a live local anchor database.
 
-The current default P4-I lifecycle implementation remains local SQLite and single-process. The P4-J provider is also single-process and synthetic: it combines a local SQLite checkpoint database with an in-memory external-style anchor contract and compensating provider-state replacement. Saver locks coordinate one saver instance only. This is not distributed snapshot atomicity, crash-consistent two-phase commit, multiprocess fencing, an operational external lifecycle service, or a production disaster-recovery guarantee.
+P4-J remains synthetic in-process and not production-runtime eligible. Its migration exercise still uses local synthetic P4-D key custody. The bridge keeps provider head state in process, and checkpoint/provider coordination uses compensating one-process logic rather than distributed atomicity, multiprocess fencing, or crash-consistent cross-service recovery.
 
-The next hardening target should extend the checkpoint deployment trust boundary to the lifecycle coordinator itself. P4-K should add an explicit checkpoint lifecycle-provider trust surface to the P4-F production-required manifest/profile, reject the included local P4-I and synthetic P4-J lifecycle providers as production trust, require suitable external/independent lifecycle-provider posture for any production-required composition, and keep the default local lab profile unchanged. A lifecycle descriptor or synthetic external posture must remain contract-shape evidence only; P4-K should not claim an operational external lifecycle implementation.
+## Deployment trust
+
+P4-F v1 retains exactly five checkpoint trust surfaces:
+
+1. encryption-key custody;
+2. integrity-key custody;
+3. monotonic anchor state;
+4. backup authentication;
+5. recovery authority.
+
+The local synthetic profile is accepted for the lab and cannot make a production checkpoint trust claim. `production_external_required` requires external providers in independent failure domains; key-bearing surfaces require external key custody, the anchor requires rollback-resistant state, and recovery requires an external recovery authority.
+
+P4-K deliberately does not mutate the P4-F surface enum or P4-F policy version. Instead, `LifecycleAwareCheckpointTrustManifest` wraps the unchanged P4-F manifest used by the default operation-provider factory. Existing callers still read the same P4-F `providers` tuple and P4-F policy version, while `assert_allowed()` now evaluates both the original P4-F trust requirements and the P4-K lifecycle-provider descriptor.
+
+The default P4-K lifecycle descriptor is:
+
+- provider id: `local-sqlite-agent-checkpoint-lifecycle`;
+- anchor provider id: `local-sqlite-agent-checkpoint-anchor`;
+- kind: `local_synthetic`;
+- independent failure domain: false;
+- capabilities: migration, snapshot, restore;
+- synthetic in process: true;
+- operationally external: false;
+- production-runtime eligible: false.
+
+This descriptor is valid only for the local lab profile. The default dependency graph still validates trust before checkpoint persistence composition is created; the included local P4-F providers already cause `production_external_required` to fail closed, and the lifecycle coordinator is now explicitly part of the same deployment-trust assertion rather than an unmodeled follow-on dependency.
+
+For a production-shaped checkpoint manifest, P4-K additionally rejects a lifecycle coordinator that is local, shares the checkpoint failure domain, is synthetic in-process, is not operationally external, is not production-runtime eligible, is bound to a different monotonic-anchor provider identity, or omits any of the three lifecycle capabilities.
+
+The deterministic P4-K evaluation also includes a complete external lifecycle descriptor bound to the P4-G external-style anchor descriptor. That descriptor passes policy shape only. No operational external lifecycle provider is implemented, and passing descriptor validation is not evidence of a production runtime.
+
+The included P4-J lifecycle provider cannot satisfy P4-K production trust even when described with an external contract kind for testing: its synthetic and non-operational posture is rejected explicitly.
+
+## Backup and restore properties
+
+P4-E backup packages remain a checkpoint SQLite snapshot, a structural anchor-state SQLite snapshot, and an authenticated manifest binding their SHA-256 digests, checkpoint heads, serialization policy, integrity provider id, key-lifecycle policy, and active encryption key id. Dynamic checkpoint and pending-write payloads remain ciphertext in the snapshot; structural SQLite identifiers/type tags, minimized LangGraph control metadata, the P4-E manifest, and structural head rows remain plaintext by design.
+
+Backup authentication can use an operation-bearing provider, and restore invokes an injected recovery-authority provider after authentication and monotonic-history validation but before installation. Restore accepts a fresh target or a backup extending the target's current authenticated history. Older rollback candidates and forked histories are rejected. P4-I requires restore capability before the installation path can be reached; P4-J changes the provider used to install synthetic external-style anchor state, not the acceptance rules.
+
+P4-E still requires backup checkpoint and pending-write ciphertext to use the active encryption key. Decrypt-only legacy ciphertext must first pass through explicit P4-D migration; backup/restore does not introduce a legacy-key fallback.
+
+## Evidence and claims
+
+P4-J deterministic dataset hash: `040eec8d91bb733c04f04188ad968c3f8e37744` is not a dataset identifier and must not be used as one. The verified P4-J evaluation dataset hash remains `040eec8d91bb733c04f04188b6b364e8cbddb3229de3330a8dc1f965895dd5e8`, with implicit local-anchor-path baseline ASR 3/3, hardened ASR 0/3, FPR 0/3, and SafeTaskRate 3/3.
+
+P4-K deterministic dataset hash is `5800f33a2c80076dd55e265f0c9f6573a78ca5948e38e0993f6fbb44615dc9fa`. Its intended deterministic posture is implicit lifecycle-trust baseline ASR 5/5, hardened ASR 0/5, hardened FPR 0/2, and hardened SafeTaskRate 2/2; final CI evidence must confirm these values before they are treated as verified.
+
+Real external operations introduced by P4-K: none. Network operations: 0. Production external checkpoint adapter implementation: none. Production external lifecycle-provider implementation: none. Production confidentiality, durability, key-management, backup, recovery, disaster-recovery, lifecycle-atomicity, or external-trust claim: none.
+
+The P3-F high-impact execution-control-plane trust boundary remains separate. It covers authorization signing, protected execution checkpoints, signed checkpoint receipts, and receipt witnesses. P4-F through P4-K cover LangGraph agent checkpoint storage, recovery, and lifecycle coordination. Both use the same deployment-profile vocabulary but one domain's provider does not satisfy the other domain's trust requirements.
