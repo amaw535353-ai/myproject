@@ -28,3 +28,5 @@ jobs:
         run: pytest
       - name: P6-A continuous AI security assurance regression evaluation
         run: python -m evals.p6a_security_regression
+      - name: P6-B security invariant drift and waiver governance evaluation
+        run: python -m evals.p6b_waiver_governance
