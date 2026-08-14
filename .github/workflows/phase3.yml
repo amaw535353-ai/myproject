@@ -69,3 +69,5 @@ jobs:
         run: python -m evals.p4o_provider_outcome_receipts
       - name: P4-P provider crash-safe state evaluation
         run: python -m evals.p4p_provider_crash_safe_state
+      - name: P4-Q Phase 4 claim and evidence exit gate
+        run: python -m evals.p4q_phase4_exit_gate
