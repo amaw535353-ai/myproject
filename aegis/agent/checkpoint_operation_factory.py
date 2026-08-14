@@ -16,6 +16,7 @@ from aegis.agent.checkpoint_lifecycle_capabilities import (
 )
 from aegis.agent.checkpoint_lifecycle_trust import (
     CheckpointLifecycleTrustProviderDescriptor,
+    LifecycleAwareCheckpointTrustManifest,
 )
 from aegis.agent.checkpoint_runtime_providers import (
     LocalSqliteCheckpointAnchorProvider,
@@ -24,16 +25,43 @@ from aegis.agent.checkpoint_runtime_providers import (
     LocalSyntheticCheckpointRecoveryAuthorityProvider,
 )
 from aegis.agent.checkpoint_trust import (
+    LOCAL_SYNTHETIC_CHECKPOINT_TRUST_MANIFEST,
     CheckpointTrustSurface,
     LocalSyntheticCheckpointTrustProviderFactory,
 )
 from aegis.effects.trust_providers import TrustProviderKind
 
 
+def _local_lifecycle_trust_descriptor() -> CheckpointLifecycleTrustProviderDescriptor:
+    anchor_provider_id = next(
+        provider.provider_id
+        for provider in LOCAL_SYNTHETIC_CHECKPOINT_TRUST_MANIFEST.providers
+        if provider.surface is CheckpointTrustSurface.MONOTONIC_ANCHOR
+    )
+    return CheckpointLifecycleTrustProviderDescriptor(
+        provider_id=LocalSqliteCheckpointLifecycleProvider.provider_id,
+        anchor_provider_id=anchor_provider_id,
+        kind=TrustProviderKind.LOCAL_SYNTHETIC,
+        independent_failure_domain=False,
+        capabilities=frozenset(CheckpointLifecycleCapability),
+        synthetic_in_process=True,
+        operationally_external=False,
+        production_runtime_eligible=False,
+    )
+
+
 class LocalSyntheticCheckpointOperationProviderFactory(
     LocalSyntheticCheckpointTrustProviderFactory
 ):
     """Default local trust factory that exports operations instead of raw keys."""
+
+    manifest = LifecycleAwareCheckpointTrustManifest(
+        checkpoint_manifest=LOCAL_SYNTHETIC_CHECKPOINT_TRUST_MANIFEST,
+        lifecycle_descriptor=_local_lifecycle_trust_descriptor(),
+    )
+
+    def lifecycle_trust_descriptor(self) -> CheckpointLifecycleTrustProviderDescriptor:
+        return self.manifest.lifecycle_descriptor
 
     def integrity_provider(self) -> LocalSyntheticCheckpointIntegrityProvider:
         return LocalSyntheticCheckpointIntegrityProvider(
@@ -49,23 +77,6 @@ class LocalSyntheticCheckpointOperationProviderFactory(
         anchor_provider: LocalSqliteCheckpointAnchorProvider,
     ) -> LocalSqliteCheckpointLifecycleProvider:
         return LocalSqliteCheckpointLifecycleProvider(anchor_provider=anchor_provider)
-
-    def lifecycle_trust_descriptor(self) -> CheckpointLifecycleTrustProviderDescriptor:
-        anchor_provider_id = next(
-            provider.provider_id
-            for provider in self.manifest.providers
-            if provider.surface is CheckpointTrustSurface.MONOTONIC_ANCHOR
-        )
-        return CheckpointLifecycleTrustProviderDescriptor(
-            provider_id=LocalSqliteCheckpointLifecycleProvider.provider_id,
-            anchor_provider_id=anchor_provider_id,
-            kind=TrustProviderKind.LOCAL_SYNTHETIC,
-            independent_failure_domain=False,
-            capabilities=frozenset(CheckpointLifecycleCapability),
-            synthetic_in_process=True,
-            operationally_external=False,
-            production_runtime_eligible=False,
-        )
 
     def backup_authentication_provider(
         self,
