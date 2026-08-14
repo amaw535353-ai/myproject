@@ -61,5 +61,24 @@ from .corpus_evolution import (
     canonical_change_manifest_bytes,
     change_manifest_digest,
 )
+from .posture_reporting import (
+    P6D_CONTROL_CATALOG_SCHEMA_VERSION,
+    P6D_POSTURE_EVIDENCE_SCHEMA_VERSION,
+    P6D_POSTURE_MODE,
+    P6D_POSTURE_POLICY_VERSION,
+    AISecurityPostureReporter,
+    ControlPostureAssessment,
+    ControlStatus,
+    PostureRating,
+    PostureRejectReason,
+    SecurityControlCatalog,
+    SecurityControlObjective,
+    SecurityPosturePolicy,
+    SecurityPostureRejected,
+    SecurityPostureRequest,
+    VerifiedSecurityPosture,
+    canonical_control_catalog_bytes,
+    control_catalog_digest,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
