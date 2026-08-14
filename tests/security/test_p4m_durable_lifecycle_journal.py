@@ -13,7 +13,6 @@ from aegis.agent.checkpoint_external_lifecycle import (
 from aegis.agent.checkpoint_external_runtime_bridge import (
     SyntheticExternalCheckpointAnchorRuntimeBridge,
 )
-from aegis.agent.checkpoint_keys import build_legacy_single_key_provider
 from aegis.agent.checkpoint_lifecycle_fencing import (
     CheckpointLifecycleCommandOperation,
 )
@@ -29,6 +28,10 @@ from aegis.agent.checkpoint_operation_runtime import (
 )
 from evals.p4e_backup_common import marker, put
 from evals.p4m_durable_lifecycle_journal import build_report
+from evals.p4m_lifecycle_fixture import (
+    build_p4m_legacy_fixture_key_provider,
+    build_p4m_migration_fixture_key_provider,
+)
 
 
 def _runtime(tmp_path, name: str, *, legacy_seed: bool = False):
@@ -43,7 +46,7 @@ def _runtime(tmp_path, name: str, *, legacy_seed: bool = False):
         legacy_saver = OperationProviderKeyLifecycleCheckpointer(
             database_path=database_path,
             anchor_database_path=compatibility_anchor,
-            key_provider=build_legacy_single_key_provider(),
+            key_provider=build_p4m_legacy_fixture_key_provider(),
             integrity_provider=bundle.integrity,
             anchor_provider=bridge,
             lifecycle_provider=lifecycle,
@@ -54,11 +57,14 @@ def _runtime(tmp_path, name: str, *, legacy_seed: bool = False):
             checkpoint_id="00000001",
             marker=f"{name}-state",
         )
+        key_provider = build_p4m_migration_fixture_key_provider()
+    else:
+        key_provider = bundle.encryption
 
     saver = OperationProviderKeyLifecycleCheckpointer(
         database_path=database_path,
         anchor_database_path=compatibility_anchor,
-        key_provider=bundle.encryption,
+        key_provider=key_provider,
         integrity_provider=bundle.integrity,
         anchor_provider=bridge,
         lifecycle_provider=lifecycle,
