@@ -22,5 +22,25 @@ from .regression import (
     corpus_digest,
     release_evidence_digest,
 )
+from .waiver_governance import (
+    P6B_GOVERNANCE_MODE,
+    P6B_INVARIANT_REGISTRY_SCHEMA_VERSION,
+    P6B_WAIVER_POLICY_VERSION,
+    P6B_WAIVER_SCHEMA_VERSION,
+    InvariantRecord,
+    InvariantRegistry,
+    SecurityInvariantWaiverGovernanceGate,
+    SecurityWaiver,
+    VerifiedWaiverGovernance,
+    WaiverApproval,
+    WaiverGovernancePolicy,
+    WaiverGovernanceRejectReason,
+    WaiverGovernanceRejected,
+    WaiverGovernanceRequest,
+    canonical_invariant_registry_bytes,
+    canonical_waiver_bytes,
+    invariant_registry_digest,
+    waiver_digest,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
