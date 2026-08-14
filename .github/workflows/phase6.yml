@@ -30,3 +30,5 @@ jobs:
         run: python -m evals.p6a_security_regression
       - name: P6-B security invariant drift and waiver governance evaluation
         run: python -m evals.p6b_waiver_governance
+      - name: P6-C assurance corpus evolution and coverage drift evaluation
+        run: python -m evals.p6c_corpus_evolution
