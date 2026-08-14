@@ -99,5 +99,26 @@ from .finding_lifecycle import (
     finding_digest,
     retest_digest,
 )
+from .incident_feedback import (
+    P6F_FEEDBACK_MODE,
+    P6F_FEEDBACK_POLICY_VERSION,
+    P6F_FEEDBACK_SCHEMA_VERSION,
+    P6F_LEDGER_SCHEMA_VERSION,
+    IncidentAssuranceFeedback,
+    IncidentCaseLink,
+    IncidentCoverageLedger,
+    IncidentCoverageObligation,
+    IncidentFeedbackPolicy,
+    IncidentFeedbackRejectReason,
+    IncidentFeedbackRejected,
+    IncidentFeedbackRequest,
+    IncidentToAssuranceFeedbackGate,
+    VerifiedIncidentFeedback,
+    canonical_incident_coverage_ledger_bytes,
+    canonical_incident_feedback_bytes,
+    incident_coverage_ledger_digest,
+    incident_feedback_digest,
+    incident_trace_digest,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
