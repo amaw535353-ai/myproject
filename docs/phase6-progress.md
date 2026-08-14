@@ -35,7 +35,7 @@ Deterministic evaluation evidence:
 - dataset SHA-256: `eefe9b1b9bab0332de4fbb0039644e02dabdc52fbd27a7407e100806aa7ce9a1`;
 - fixture SHA-256: `90ff835b2d646937ed955c1a4a912f8e9003f47cf2890e0491c1f4ff334e3f42`.
 
-An isolated local harness compiled the exact P6-A implementation/evaluation/test files, passed **24 P6-A security-test outcomes**, and completed the deterministic evaluation with the metrics above. The harness tests the standalone P6-A assurance domain; this is not a claim that full-repository pytest ran locally.
+An isolated local harness compiled the standalone P6-A implementation/evaluation/test logic, passed **24 P6-A security-test outcomes**, and completed the deterministic evaluation with the metrics above. This is not a claim that full-repository pytest ran locally or that a GitHub-hosted runner executed the branch.
 
 P6-A does **not** claim formal verification, exhaustive red-team coverage, production CI attestation, trusted-runner hardware identity, real attack execution, or proof against unseen attacks.
 
