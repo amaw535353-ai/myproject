@@ -59,3 +59,5 @@ jobs:
         run: python -m evals.p4j_external_lifecycle_contract
       - name: P4-K lifecycle deployment trust evaluation
         run: python -m evals.p4k_checkpoint_lifecycle_trust
+      - name: P4-L lifecycle failure and fencing evaluation
+        run: python -m evals.p4l_checkpoint_lifecycle_fencing
