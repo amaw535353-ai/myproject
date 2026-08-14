@@ -40,3 +40,5 @@ jobs:
         run: python -m evals.p5f_model_scanning
       - name: P5-G model privacy, extraction, and membership-inference control evaluation
         run: python -m evals.p5g_model_privacy
+      - name: P5-H deployment provenance and attestation evaluation
+        run: python -m evals.p5h_deployment_attestation
