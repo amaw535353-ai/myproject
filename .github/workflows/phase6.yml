@@ -36,3 +36,5 @@ jobs:
         run: python -m evals.p6d_posture_reporting
       - name: P6-E adversarial finding lifecycle and closure evaluation
         run: python -m evals.p6e_finding_lifecycle
+      - name: P6-F incident-to-assurance feedback evaluation
+        run: python -m evals.p6f_incident_feedback
