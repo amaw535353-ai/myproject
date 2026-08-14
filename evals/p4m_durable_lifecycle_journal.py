@@ -16,7 +16,6 @@ from aegis.agent.checkpoint_external_lifecycle import (
 from aegis.agent.checkpoint_external_runtime_bridge import (
     SyntheticExternalCheckpointAnchorRuntimeBridge,
 )
-from aegis.agent.checkpoint_keys import build_legacy_single_key_provider
 from aegis.agent.checkpoint_lifecycle_fencing import CheckpointLifecycleCommandOperation
 from aegis.agent.checkpoint_lifecycle_journal import (
     P4M_DURABLE_LIFECYCLE_JOURNAL_POLICY_VERSION,
@@ -29,6 +28,10 @@ from aegis.agent.checkpoint_operation_runtime import (
     OperationProviderKeyLifecycleCheckpointer,
 )
 from evals.p4e_backup_common import put
+from evals.p4m_lifecycle_fixture import (
+    build_p4m_legacy_fixture_key_provider,
+    build_p4m_migration_fixture_key_provider,
+)
 
 
 ADVERSARIAL_CASES = (
@@ -65,7 +68,7 @@ def _make(root: Path, name: str, *, legacy_seed: bool = False):
         legacy_saver = OperationProviderKeyLifecycleCheckpointer(
             database_path=database_path,
             anchor_database_path=compatibility_anchor,
-            key_provider=build_legacy_single_key_provider(),
+            key_provider=build_p4m_legacy_fixture_key_provider(),
             integrity_provider=bundle.integrity,
             anchor_provider=bridge,
             lifecycle_provider=lifecycle,
@@ -76,10 +79,13 @@ def _make(root: Path, name: str, *, legacy_seed: bool = False):
             checkpoint_id="00000001",
             marker=f"{name}-state",
         )
+        key_provider = build_p4m_migration_fixture_key_provider()
+    else:
+        key_provider = bundle.encryption
     saver = OperationProviderKeyLifecycleCheckpointer(
         database_path=database_path,
         anchor_database_path=compatibility_anchor,
-        key_provider=bundle.encryption,
+        key_provider=key_provider,
         integrity_provider=bundle.integrity,
         anchor_provider=bridge,
         lifecycle_provider=lifecycle,
@@ -373,6 +379,7 @@ def build_report() -> dict[str, Any]:
         "policy_version": P4M_DURABLE_LIFECYCLE_JOURNAL_POLICY_VERSION,
         "eval_dataset_hash_sha256": _dataset_hash(),
         "p4j_lifecycle_provider_exercised": True,
+        "migration_reconciliation_uses_local_synthetic_two_version_fixture": True,
         "durable_journal_enabled": True,
         "durable_fence_survives_reopen": stale_safe,
         "durable_receipt_replay_survives_reopen": replay_safe,
@@ -415,6 +422,7 @@ def build_report() -> dict[str, Any]:
         and replay_safe
         and pre_crash_safe
         and reconciled_safe
+        and report["migration_reconciliation_uses_local_synthetic_two_version_fixture"] is True
         and report["journal_rollback_resistance_claim"] is False
         and report["distributed_fencing_claim"] is False
         and report["exactly_once_claim"] is False
