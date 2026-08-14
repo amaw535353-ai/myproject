@@ -42,5 +42,24 @@ from .waiver_governance import (
     invariant_registry_digest,
     waiver_digest,
 )
+from .corpus_evolution import (
+    P6C_CHANGE_MANIFEST_SCHEMA_VERSION,
+    P6C_EVOLUTION_MODE,
+    P6C_EVOLUTION_POLICY_VERSION,
+    P6C_TOMBSTONE_SCHEMA_VERSION,
+    AssuranceCorpusEvolutionGate,
+    CaseTombstone,
+    CorpusChangeManifest,
+    CorpusChangeRecord,
+    CorpusChangeType,
+    CorpusEvolutionPolicy,
+    CorpusEvolutionRejectReason,
+    CorpusEvolutionRejected,
+    CorpusEvolutionRequest,
+    CoverageFloor,
+    VerifiedCorpusEvolution,
+    canonical_change_manifest_bytes,
+    change_manifest_digest,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
