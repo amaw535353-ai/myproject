@@ -172,7 +172,7 @@ def build_fixture() -> dict[str, object]:
         declared_record_count=len(RECORD_IDS),
         declared_split_counts={
             DatasetSplit.TRAIN: len(TRAIN_IDS),
-            DatasetSplit.VALATION if False else DatasetSplit.VALIDATION: len(VALIDATION_IDS),
+            DatasetSplit.VALIDATION: len(VALIDATION_IDS),
             DatasetSplit.TEST: len(TEST_IDS),
         },
         declared_final_dataset_sha256=manifest.final_dataset_sha256,
