@@ -36,7 +36,7 @@ The hardened boundary enforces:
 
 ### Deterministic evidence
 
-The exact standalone P8-J module, fixture, evaluator, vulnerable baseline, and tests were exercised in an isolated Python environment:
+The focused P8-J module, fixture, evaluator, vulnerable baseline, and tests were exercised in an isolated Python environment. The committed evaluator differs from the locally exercised copy only by comment-only lines, not executable behavior:
 
 - tests: **17 passed**;
 - adversarial cases: **130**;
@@ -49,7 +49,7 @@ The exact standalone P8-J module, fixture, evaluator, vulnerable baseline, and t
 - fixture SHA-256: `d4071cd7552a2ce9be3dfeec85763591a05dcd5eeadd4b9541d6199aa16d297b`;
 - clean assessment SHA-256: `1bbf03a27b206911c23abed3af2cbace3c515e48785aeff802cf947857ff23eb`.
 
-This is isolated P8-J execution, not a claim that full-repository pytest or production backup/checkpoint/credential/runtime systems were exercised.
+This is isolated focused P8-J execution, not a claim that full-repository pytest or production backup/checkpoint/credential/runtime systems were exercised.
 
 ### Free/open-source implementation path
 
