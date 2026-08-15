@@ -58,7 +58,7 @@ The canonical fixture contains:
 
 The checkpoint chain is `checkpoint-root → checkpoint-safe-1 → checkpoint-safe-2 → checkpoint-compromised`. The compromised generation contains a quarantined rejected message, a revoked stale credential, and a quarantined poisoned artifact. The clean rollback restores `checkpoint-safe-2`, quarantines the rejected message and poisoned artifact, and revokes the stale credential under a bounded destructive authorization.
 
-Exact isolated validation:
+Isolated focused validation:
 
 - tests: **17 passed**;
 - adversarial cases: **130**;
@@ -71,7 +71,7 @@ Exact isolated validation:
 - fixture SHA-256: `d4071cd7552a2ce9be3dfeec85763591a05dcd5eeadd4b9541d6199aa16d297b`;
 - clean assessment SHA-256: `1bbf03a27b206911c23abed3af2cbace3c515e48785aeff802cf947857ff23eb`.
 
-This validation exercised the standalone P8-J module/fixture/evaluator/vulnerable baseline/tests in an isolated Python environment. It is not full-repository pytest and not production checkpoint, backup, database, credential, or agent-runtime integration.
+This validation exercised the focused P8-J module/fixture/evaluator/vulnerable baseline/tests in an isolated Python environment. The committed evaluator differs from the locally exercised copy only by comment-only lines, not executable behavior. It is not full-repository pytest and not production checkpoint, backup, database, credential, or agent-runtime integration.
 
 ## Free/open-source implementation path
 
