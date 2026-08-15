@@ -77,5 +77,30 @@ from .goal_plan_security import (
     goal_plan_manifest_digest,
     instruction_provenance_digest,
 )
+from .tool_observation_security import (
+    P8D_ASSESSMENT_MODE,
+    P8D_ASSESSMENT_SCHEMA_VERSION,
+    P8D_TOOL_POLICY_VERSION,
+    P8D_TOOL_SCHEMA_VERSION,
+    AgentToolObservationIntegrityAnalyzer,
+    EnvironmentSnapshot,
+    ObservationDecision,
+    ObservationRejectReason,
+    ObservationRisk,
+    ObservationTrust,
+    ToolContract,
+    ToolEffect,
+    ToolInvocation,
+    ToolObservation,
+    ToolObservationFact,
+    ToolObservationManifest,
+    ToolObservationPolicy,
+    ToolObservationRequest,
+    ToolObservationSecurityRejected,
+    ToolResult,
+    VerifiedToolObservationAssessment,
+    canonical_tool_observation_manifest_bytes,
+    tool_observation_manifest_digest,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
