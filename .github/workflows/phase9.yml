@@ -34,3 +34,5 @@ jobs:
         run: python -m evals.p9c_fine_tuning_admission
       - name: P9-D training execution provenance and least-privilege boundary evaluation
         run: python -m evals.p9d_training_execution_provenance
+      - name: P9-E checkpoint/resume integrity and rollback-safe lineage evaluation
+        run: python -m evals.p9e_checkpoint_integrity
