@@ -41,7 +41,7 @@ def test_11_future_skew():
 def test_12_upstream_decision():
     f=build_fixture(); f['p10b']=replace(f['p10b'],decision=SchedulerDecision.DENY); assert CacheRisk.UPSTREAM_P10B_INVALID in risk(f)
 def test_13_upstream_risk():
-    f=build_fixture(); f['p10b']=replace(f['p10b'],risks=(SchedulerRisk.SYNTHETIC,)); assert CacheRisk.UPSTREAM_P10B_INVALID in risk(f)
+    f=build_fixture(); f['p10b']=replace(f['p10b'],risks=('synthetic-risk',)); assert CacheRisk.UPSTREAM_P10B_INVALID in risk(f)
 def test_14_upstream_digest():
     f=build_fixture(); f['p10b']=replace(f['p10b'],assessment_evidence_sha256='0'*64); assert CacheRisk.UPSTREAM_BINDING_MISMATCH in risk(f)
 def test_15_owner_mismatch(): assert CacheRisk.CACHE_OWNER_MISMATCH in risk(emut(0,tenant_id='beta'))
