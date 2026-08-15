@@ -7,6 +7,16 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+FOCUSED = {
+    "p10a": (
+        "tests/security/test_p10a_inference_tenant_isolation.py",
+        "evals.p10a_inference_tenant_isolation",
+    ),
+    "p10b": (
+        "tests/security/test_p10b_scheduler_security.py",
+        "evals.p10b_scheduler_security",
+    ),
+}
 
 
 def run(args: list[str]) -> None:
@@ -15,20 +25,27 @@ def run(args: list[str]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Reproducible local Phase 10 verification")
-    parser.add_argument(
-        "--focused-p10a",
-        action="store_true",
-        help="Run only P10-A security tests and evaluator.",
-    )
+    group = parser.add_mutually_exclusive_group()
+    for phase in FOCUSED:
+        group.add_argument(
+            f"--focused-{phase}",
+            action="store_true",
+            help=f"Run only {phase.upper()} security tests and evaluator.",
+        )
     args = parser.parse_args()
-    if args.focused_p10a:
-        run([sys.executable, "-m", "pytest", "-q", "tests/security/test_p10a_inference_tenant_isolation.py"])
-        run([sys.executable, "-m", "evals.p10a_inference_tenant_isolation"])
-        scope = "p10a_focused"
+    selected = next(
+        (phase for phase in FOCUSED if getattr(args, f"focused_{phase}")), None
+    )
+    if selected:
+        test, evaluator = FOCUSED[selected]
+        run([sys.executable, "-m", "pytest", "-q", test])
+        run([sys.executable, "-m", evaluator])
+        scope = f"{selected}_focused"
         status = "LOCAL_FOCUSED_PASS"
     else:
         run([sys.executable, "-m", "pytest"])
-        run([sys.executable, "-m", "evals.p10a_inference_tenant_isolation"])
+        for _, evaluator in FOCUSED.values():
+            run([sys.executable, "-m", evaluator])
         scope = "phase10_repository"
         status = "LOCAL_FULL_PASS"
     print(
