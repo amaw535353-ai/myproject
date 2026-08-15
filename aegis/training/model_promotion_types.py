@@ -204,27 +204,28 @@ class ModelRegistryPromotionRequest:
     declared_artifact_ids: tuple[str, ...]
     declared_upstream_bound: bool
     declared_training_lineage_valid: bool
-    declared_phase5_handoff_valid: bool
+    declared_phase5_provenance_bound: bool
     declared_registry_target_immutable: bool
     declared_promotion_authorized: bool
-    declared_rollback_revocation_bound: bool
     declared_promotion_safe: bool
 
 
 @dataclass(frozen=True)
 class VerifiedModelRegistryPromotionAssessment:
     promotion_id: str
+    model_id: str
+    revision: str
     governance_id: str
     evaluation_id: str
     checkpoint_id: str
     execution_id: str
     job_id: str
-    model_id: str
-    revision: str
     decision: PromotionDecision
     risks: tuple[PromotionRisk, ...]
     p9g_assessment_sha256: str
     artifact_ids: tuple[str, ...]
+    package_id: str
+    registry_id: str
     registry_namespace: str
     registry_model_name: str
     registry_version: str
