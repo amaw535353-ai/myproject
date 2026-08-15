@@ -42,3 +42,5 @@ jobs:
         run: python -m evals.p7g_telemetry_security
       - name: P7-H control-plane administrative change-path evaluation
         run: python -m evals.p7h_control_plane
+      - name: P7-I cross-layer security invariant blast-radius evaluation
+        run: python -m evals.p7i_invariant_blast_radius
