@@ -48,3 +48,5 @@ jobs:
         run: python -m evals.p8j_agent_recovery
       - name: P8-K provenance-led incident containment forensic reconstruction evaluation
         run: python -m evals.p8k_incident_forensics
+      - name: P8-L integrated multi-agent compromise Phase 8 exit-gate evaluation
+        run: python -m evals.p8l_phase8_exit_gate
