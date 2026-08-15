@@ -1,57 +1,51 @@
 # Phase 9 progress — secure AI training and dataset lifecycle
 
-Phase 9 treats training data, fine-tuning admission, training execution, checkpointing, evaluation governance, sensitive-data handling, and promotion as security-sensitive evidence.
+Phase 9 treats training data, fine-tuning admission, execution, checkpoints, evaluation, sensitive-data handling, and promotion as security-sensitive evidence.
 
-## P9-A through P9-F
+## Completed milestones
 
-- **P9-A:** dataset provenance and holdout isolation — complete for current synthetic scope.
-- **P9-B:** poisoning, label integrity, and contributor trust — complete for current synthetic scope.
-- **P9-C:** fine-tuning/LoRA/adapter authorization — complete for current synthetic scope.
-- **P9-D:** training execution provenance and least privilege — complete for current synthetic scope.
-- **P9-E:** checkpoint/resume integrity and rollback-safe lineage — complete for current synthetic scope.
-- **P9-F:** evaluation leakage and benchmark-contamination governance — complete for current synthetic scope.
+- **P9-A:** dataset provenance and holdout isolation.
+- **P9-B:** poisoning, label integrity, and contributor trust.
+- **P9-C:** fine-tuning/LoRA/adapter authorization and base-model binding.
+- **P9-D:** training execution provenance and least privilege.
+- **P9-E:** checkpoint/resume integrity and rollback-safe lineage.
+- **P9-F:** evaluation leakage and benchmark-contamination governance.
+- **P9-G:** sensitive-data, PII, secret, and canary governance.
+- **P9-H:** training-to-model-registry promotion evidence binding into Phase 5 provenance — complete for current deterministic synthetic scope.
 
 Hosted runner execution remains an external infrastructure dependency. A GitHub job that executes zero steps because runner provisioning is blocked is `REMOTE_CI_BLOCKED`, not a security-test failure and not a hosted CI pass.
 
-## P9-G — sensitive-data, PII, secret, and canary governance
+## P9-H — promotion into the model supply chain
 
-Status: **complete for the current deterministic synthetic scope; hosted runner execution remains an external infrastructure dependency**.
+`ModelRegistryPromotionAnalyzer` consumes the exact P9-G clean assessment and binds governance/evaluation/checkpoint identity, execution/job lineage, model/base-model identity, final-checkpoint digest, the exact promoted artifact closure, an immutable registry namespace/model/version/URI, policy-owned promotion authorization, predecessor/rollback/revocation metadata, and zero modeled network operations.
 
-`SensitiveDataGovernanceAnalyzer` consumes exact P9-F assessment evidence and binds policy-owned scanner/canary profiles, ordered training/evaluation/output records, content and sanitized-content digests, finding IDs/evidence digests, sensitivity classes, dispositions, training inclusion, output identity, output-batch digest, and zero modeled network operations.
-
-The canonical fixture includes public records, two modeled PII records that must be redacted, one modeled API secret and one canary that must be quarantined from training, and two clean model outputs. Any modeled PII, secret, or canary finding in an output fails closed. Caller-declared safety summaries cannot override derived evidence.
+The Phase 5 bridge pins the existing P5-A artifact policy/schema, P5-B package policy/schema and component roles, and P5-C registry policy/release schema plus package and release digests. It is deliberately a handoff boundary: P9-H does not claim that Phase 5 signatures, registry acquisition, scanning, deployment, or serving checks have executed.
 
 ### Focused deterministic evidence
 
-- tests: **21 passed**;
-- adversarial cases: **114**;
-- vulnerable ASR: **114/114**;
-- hardened ASR: **0/114**;
+An isolated API-compatible harness exercised the P9-H implementation/evaluator/test logic against the P9-G assessment and Phase 5 constant/role contracts:
+
+- tests: **26 passed**;
+- adversarial cases: **113**;
+- vulnerable ASR: **113/113**;
+- hardened ASR: **0/113**;
 - hardened FPR: **0/4**;
 - SafeTaskRate: **4/4**;
-- sensitive-data manifest SHA-256: `4dfb72a686f3fc12980d03317b251be9c712fa6cff0a194d9ad7e0728203d85c`;
-- adversarial dataset SHA-256: `a279bec3e3bfb374b6f6b8f4a86d64dc6580101660721689cc2b8fd86bc524b1`;
-- fixture/evaluator evidence SHA-256: `aca0df27c879a37d2b8dc926ff9fe9ccabb366047e955e1582285371c0632b01`;
-- clean assessment SHA-256: `5f6fef4642e0f9d390ba7a7745f74290176608e4f0e24eafff7cb3de28cc5849`.
+- promotion manifest SHA-256: `8166e90e7e7c04028628c02f10b3cf6c702686bf6c986bee31583b51501fa914`;
+- adversarial dataset SHA-256: `d4d0d9ed30fd2e6905427d846ca0d10b10d93a359d5049b05e152ffc1d99583a`;
+- fixture/evaluator evidence SHA-256: `fb0804d3f8c320657955815e08e66e4c49b87f27cb4c5a3b09a8e8217a1b7e3a`;
+- clean assessment SHA-256: `8daa403475acdf99254740ac7ba1c6384696acd4eb3fb1b57b09d98232946888`.
 
-This is focused local P9-G evidence, **not** a full-repository pytest claim. `scripts/verify_phase9.py --focused-p9g` is the explicit focused path.
+This is focused P9-H evidence, **not** a full-repository pytest claim. `scripts/verify_phase9.py --focused-p9h` is the explicit focused path.
 
 ### Claim boundary
 
-P9-G is deterministic synthetic governance evidence. It does **not** claim comprehensive PII/secret detection, production DLP or redaction enforcement, consent/license/legal compliance, cryptographic scanner authentication, differential privacy, membership-inference resistance, memorization absence, or proof that a real model emitted the modeled outputs.
+P9-H is deterministic synthetic promotion evidence. SHA-256 is integrity binding, not authenticity. It does **not** claim a registry write occurred, production registry integration, cryptographic promotion signing, deployment execution, complete key provenance, semantic model safety, representative evaluation, production privacy assurance, or propagated revocation.
 
-No runtime dependency is added.
+No runtime dependency is added. Package version is **0.89.0**.
 
-## Phase 9 roadmap
+## Remaining Phase 9 roadmap
 
-- **P9-A:** complete.
-- **P9-B:** complete.
-- **P9-C:** complete.
-- **P9-D:** complete.
-- **P9-E:** complete.
-- **P9-F:** complete.
-- **P9-G:** complete for current synthetic scope.
-- **P9-H:** training-to-model-registry promotion evidence binding into Phase 5 provenance.
 - **P9-I:** integrated training compromise exercise and machine-readable Phase 9 exit gate.
 
-The next milestone is **P9-H**, binding the exact Phase 9 training/evaluation/privacy evidence into model-registry promotion without treating synthetic lineage as production registry attestation.
+The next milestone is **P9-I**, composing the Phase 9 boundaries into compromise scenarios and a machine-readable exit decision without promoting synthetic evidence into production attestation.

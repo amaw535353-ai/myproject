@@ -154,5 +154,25 @@ from .sensitive_data_types import (
     sensitive_finding_digest,
     sensitive_output_batch_digest,
 )
+from .model_promotion_security import ModelRegistryPromotionAnalyzer
+from .model_promotion_types import (
+    P9H_ASSESSMENT_MODE,
+    P9H_ASSESSMENT_SCHEMA_VERSION,
+    P9H_POLICY_VERSION,
+    P9H_SCHEMA_VERSION,
+    ModelPromotionAuthorizationEvidence,
+    ModelPromotionSecurityRejected,
+    ModelRegistryPromotionManifest,
+    ModelRegistryPromotionPolicy,
+    ModelRegistryPromotionRequest,
+    Phase5ProvenanceBridgeEvidence,
+    PromotionArtifactEvidence,
+    PromotionDecision,
+    PromotionRejectReason,
+    PromotionRisk,
+    VerifiedModelRegistryPromotionAssessment,
+    model_registry_promotion_manifest_digest,
+    phase5_provenance_bridge_digest,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]

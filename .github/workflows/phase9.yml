@@ -40,3 +40,5 @@ jobs:
         run: python -m evals.p9f_evaluation_governance
       - name: P9-G sensitive-data, PII, secret, and canary governance evaluation
         run: python -m evals.p9g_sensitive_data_governance
+      - name: P9-H training-to-model-registry promotion and Phase 5 provenance handoff evaluation
+        run: python -m evals.p9h_model_promotion
