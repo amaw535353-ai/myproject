@@ -32,3 +32,5 @@ jobs:
         run: python -m evals.p10b_scheduler_security
       - name: P10-C KV and prefix-cache lifecycle, reuse, zeroization, and rollback safety evaluation
         run: python -m evals.p10c_cache_lifecycle
+      - name: P10-D speculative decoding, draft trust, and disaggregated serving evaluation
+        run: python -m evals.p10d_speculative_serving
