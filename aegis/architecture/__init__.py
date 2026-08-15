@@ -158,5 +158,28 @@ from .telemetry_security import (
     canonical_telemetry_coverage_manifest_bytes,
     telemetry_coverage_manifest_digest,
 )
+from .control_plane_security import (
+    P7H_ASSESSMENT_MODE,
+    P7H_ASSESSMENT_SCHEMA_VERSION,
+    P7H_CONTROL_PLANE_MANIFEST_SCHEMA_VERSION,
+    P7H_CONTROL_PLANE_POLICY_VERSION,
+    AdministrativeChangeRoute,
+    AdministrativeOperation,
+    AdministrativePrincipal,
+    AdministrativePrincipalType,
+    ControlPlaneChangePathFact,
+    ControlPlaneManifest,
+    ControlPlanePolicy,
+    ControlPlaneRejectReason,
+    ControlPlaneRejected,
+    ControlPlaneRequest,
+    ControlPlaneResource,
+    ControlPlaneResourceType,
+    ControlPlaneSensitivity,
+    SecurityControlPlaneChangeAnalyzer,
+    VerifiedControlPlaneAssessment,
+    canonical_control_plane_manifest_bytes,
+    control_plane_manifest_digest,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
