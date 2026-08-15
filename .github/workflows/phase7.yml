@@ -40,3 +40,5 @@ jobs:
         run: python -m evals.p7f_resilience_security
       - name: P7-G telemetry integrity auditability blind-spot evaluation
         run: python -m evals.p7g_telemetry_security
+      - name: P7-H control-plane administrative change-path evaluation
+        run: python -m evals.p7h_control_plane
