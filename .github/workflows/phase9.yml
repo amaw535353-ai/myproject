@@ -1,0 +1,30 @@
+name: phase9
+
+on:
+  push:
+    branches:
+      - main
+      - "phase9/**"
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+      - name: Test
+        run: pytest
+      - name: P9-A training dataset provenance and holdout-isolation evaluation
+        run: python -m evals.p9a_training_data_provenance
