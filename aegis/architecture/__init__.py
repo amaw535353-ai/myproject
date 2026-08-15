@@ -45,5 +45,25 @@ from .privilege_paths import (
     identity_capability_manifest_digest,
     privilege_path_identifier,
 )
+from .data_manifest import canonical_data_flow_manifest_bytes, data_flow_manifest_digest
+from .data_paths import TenantIsolationExfiltrationAnalyzer, data_path_identifier
+from .data_types import (
+    P7C_ASSESSMENT_MODE,
+    P7C_ASSESSMENT_SCHEMA_VERSION,
+    P7C_DATA_MANIFEST_SCHEMA_VERSION,
+    P7C_DATA_POLICY_VERSION,
+    DataClassification,
+    DataFlowEdge,
+    DataFlowManifest,
+    DataKind,
+    DataObject,
+    DataPathFact,
+    DataPathPolicy,
+    DataPathRejectReason,
+    DataPathRejected,
+    DataPathRequest,
+    DataTransform,
+    VerifiedDataExfiltrationAssessment,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
