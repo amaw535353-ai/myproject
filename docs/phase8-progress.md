@@ -1,58 +1,59 @@
-# Phase 8 progress — agentic trust, authority, state, execution, autonomy, communications, concurrency, and artifact integrity
+# Phase 8 progress — agentic trust, authority, state, execution, autonomy, communications, concurrency, artifact, and recovery integrity
 
-Phase 8 broadens AegisDesk into security properties specific to cooperating autonomous agents. P8-A through P8-H established delegation/authority propagation, memory/context boundaries, goal/plan integrity, tool-result/environment integrity, execution-budget security, human approval/autonomy boundaries, inter-agent message/protocol security, and concurrency/race security. P8-I now secures agent workspaces, generated artifacts, and code/supply-chain persistence paths.
+Phase 8 broadens AegisDesk into security properties specific to cooperating autonomous agents. P8-A through P8-I established delegation/authority propagation, memory/context boundaries, goal/plan integrity, tool-result/environment integrity, execution-budget security, human approval/autonomy boundaries, inter-agent message/protocol security, concurrency/race security, and artifact/workspace/generated-code integrity. P8-J now secures rollback, recovery, and durable persistence boundaries.
 
-## P8-A through P8-H
+## P8-A through P8-I
 
-P8-A through P8-H are complete for the current deterministic synthetic-lab scope. Their evidence establishes original-principal authority, state provenance, instruction/goal integrity, exact tool-result binding, bounded resource consumption, evidence-bound human approval, provenance-preserving messaging, and race-aware state transitions.
+P8-A through P8-I are complete for the current deterministic synthetic-lab scope. Together they establish original-principal authority, provenance-preserving context and messaging, bounded execution, evidence-bound approval, race-aware state transitions, and generated-artifact/workspace confinement.
 
-## P8-I — agent artifact, workspace, and generated-code integrity
+## P8-J — agent rollback, recovery, and persistence-boundary security
 
-Status: **implemented and deterministically exercised in an isolated P8-I harness; hosted runner execution pending infrastructure**.
+Status: **implemented and deterministically exercised in an isolated P8-J harness; hosted runner execution pending infrastructure**.
 
-P8-I adds `AgentArtifactWorkspaceSecurityAnalyzer`. The workspace is modeled as a security boundary: an authorized agent write is not automatically safe if it escapes the allowed path, crosses tenant scope, changes executable state, persists through dependency/build/CI/startup configuration, launders untrusted provenance, or races against the approved state.
+P8-J adds `AgentRollbackRecoverySecurityAnalyzer`. Recovery is modeled as a security operation: a checkpoint is not resumable merely because it is recent or internally consistent. The analyzer reasons about checkpoint ancestry, generation floors, persistent-item state, explicit quarantine/revocation, recovery authorization, and exact upstream memory/artifact/state evidence.
 
-The canonical fixture contains **2 workspaces, 9 artifacts, and 9 actions** spanning generated source, dependency manifest, lockfile, CI workflow, startup hook, inbound archive, release artifact, Dockerfile/build configuration, and a generated document.
+The canonical fixture contains **8 persistence items, 4 checkpoints, 2 recovery authorizations, and 3 recovery operations**. Its compromised generation contains a rejected message, stale credential, and poisoned artifact. The clean rollback returns to the last known-good checkpoint while explicitly quarantining or revoking compromised source-only persistence.
 
 The hardened boundary enforces:
 
 - exact graph ID/version/SHA-256 and freshness;
-- exact P8-C goal/plan, P8-F human-approval, and P8-H state-transition evidence binding;
-- exact workspace/artifact/action coverage and trusted owners;
-- policy-pinned workspace tenant/root/write/execute/build-context prefixes;
-- policy-pinned initial artifact path, kind, trust label, content digest, executable state, and link metadata;
-- relative-only normalized paths and allowed-write-prefix confinement;
-- symlink/hardlink target confinement;
-- archive member path/link confinement plus deterministic member/byte limits;
-- cross-tenant denial;
-- exact expected-base and resulting content SHA-256 reasoning;
-- plan-step actor continuity and state-transition safety;
-- approval requirements for dependency/lock/build/CI/startup/release/executable paths;
-- generated/untrusted source lineage preventing trust-label laundering;
-- build-context poisoning detection;
-- executable-write and execution approval/path checks; and
-- rejection of caller-provided denied/risk/result summaries that disagree with derived evidence.
+- exact P8-B memory, P8-I artifact, and P8-H state-transition evidence binding;
+- exact item/checkpoint/authorization/recovery coverage and trusted owners;
+- policy-pinned item/checkpoint profiles;
+- acyclic monotonically increasing checkpoint ancestry;
+- tenant/session/original-principal/state-digest continuity;
+- checkpoint expiry and recovery-floor generations;
+- compromised-checkpoint resume denial;
+- exact target restore partitioning;
+- explicit quarantine/revocation of compromised source-only persistence;
+- non-restoration of revoked, quarantined, or superseded items;
+- stale credential resurrection denial;
+- non-restorable message/artifact policy;
+- upstream denied/missing memory, artifact, or state evidence denial;
+- actor/principal/tenant/mode/item/depth/expiry authorization binding;
+- destructive rollback authorization; and
+- rejection of caller-declared recovery summaries that disagree with derived facts.
 
 ### Deterministic evidence
 
-The exact standalone P8-I module, fixture, evaluator, vulnerable baseline, and tests were exercised in an isolated Python environment:
+The exact standalone P8-J module, fixture, evaluator, vulnerable baseline, and tests were exercised in an isolated Python environment:
 
-- tests: **16 passed**;
-- adversarial cases: **135**;
-- vulnerable ASR: **135/135**;
-- hardened ASR: **0/135**;
+- tests: **17 passed**;
+- adversarial cases: **130**;
+- vulnerable ASR: **130/130**;
+- hardened ASR: **0/130**;
 - hardened FPR: **0/3**;
 - SafeTaskRate: **3/3**;
-- artifact graph SHA-256: `397b28558c6ddf50a67263dc3cb06f66a7d6b2eec67c7354b4909efc750265f4`;
-- adversarial dataset SHA-256: `8ef250681c0d454b866fd2c58ffd5e0c5f7e709083209184cd3285bed8bad87c`;
-- fixture SHA-256: `f18e3afef238a177109a73cdfe619fb5bedd9cf835fd612f88e1e088b15e559b`;
-- clean assessment SHA-256: `6c5b49bd8798e7a9c35c945bdc3eab89e342f0d9365945411a604ef8787994b8`.
+- recovery graph SHA-256: `b8a38dd2e9002fb9ff4864442918e6ac4ec11f9584c8b851f93de034e57b774a`;
+- adversarial dataset SHA-256: `66f2aa0fd8e99c3f7dedf65d63fc3448cfedd4aee49930f86b19e6ae7bc13e46`;
+- fixture SHA-256: `d4071cd7552a2ce9be3dfeec85763591a05dcd5eeadd4b9541d6199aa16d297b`;
+- clean assessment SHA-256: `1bbf03a27b206911c23abed3af2cbace3c515e48785aeff802cf947857ff23eb`.
 
-This is isolated P8-I execution, not a claim that full-repository pytest ran locally or that production filesystems, sandboxes, build systems, or signing systems were exercised.
+This is isolated P8-J execution, not a claim that full-repository pytest or production backup/checkpoint/credential/runtime systems were exercised.
 
 ### Free/open-source implementation path
 
-No new runtime dependency was added. P8-I documents optional future integration paths using Trivy for repository/filesystem security scanning and SBOM generation, OSV-Scanner for dependency vulnerability analysis, in-toto for signed/authorized supply-chain step and artifact-rule evidence, and Sigstore Cosign for signing/verifying blobs or release artifacts. These remain optional future enforcement/evidence sources, not dependencies or executed P8-I evidence.
+No new runtime dependency was added. P8-J documents optional future integration paths using Temporal Server for durable workflow/replay mechanics, restic for snapshot backup/restore and repository integrity, and Litestream for continuous SQLite replication/restore. P8-J keeps security-specific recovery-floor, quarantine, revocation, provenance, and authorization checks independent of the storage substrate.
 
 ## Phase 8 status
 
@@ -64,8 +65,9 @@ No new runtime dependency was added. P8-I documents optional future integration 
 - P8-F: complete for current deterministic synthetic scope.
 - P8-G: complete for current deterministic synthetic scope.
 - P8-H: complete for current deterministic synthetic scope.
-- P8-I: implemented with isolated deterministic evidence; hosted execution remains infrastructure-blocked.
+- P8-I: complete for current deterministic synthetic scope.
+- P8-J: implemented with isolated deterministic evidence; hosted execution remains infrastructure-blocked.
 
 ## Next direction
 
-P8-J should broaden into **agent rollback, recovery, and persistence-boundary security**: durable checkpoints, safe resume, compromised-state quarantine, persistence revocation, recovery provenance, destructive rollback authorization, and ensuring recovery cannot silently reintroduce previously rejected memory, artifacts, messages, or credentials.
+P8-K should broaden into **agent provenance-led incident containment and forensic reconstruction**: tamper-evident event chains, incident-scope derivation, compromised-agent quarantine, evidence-preserving containment, deterministic causal reconstruction, and safe re-entry after containment without turning Phase 8 into another generic approval/governance layer.
