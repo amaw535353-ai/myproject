@@ -150,5 +150,28 @@ from .human_approval_security import (
     canonical_human_approval_manifest_bytes,
     human_approval_manifest_digest,
 )
+from .message_security import (
+    P8G_ASSESSMENT_MODE,
+    P8G_ASSESSMENT_SCHEMA_VERSION,
+    P8G_MESSAGE_POLICY_VERSION,
+    P8G_MESSAGE_SCHEMA_VERSION,
+    AgentMessage,
+    AgentMessageFact,
+    AgentMessageManifest,
+    AgentMessagePolicy,
+    AgentMessageProtocolSecurityAnalyzer,
+    AgentMessageRequest,
+    AgentMessageSecurityRejected,
+    MessageChannelPolicy,
+    MessageChannelType,
+    MessageDecision,
+    MessageIntent,
+    MessageRejectReason,
+    MessageRisk,
+    MessageTrust,
+    VerifiedAgentMessageAssessment,
+    agent_message_manifest_digest,
+    canonical_agent_message_manifest_bytes,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]

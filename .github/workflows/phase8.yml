@@ -38,3 +38,5 @@ jobs:
         run: python -m evals.p8e_execution_budget
       - name: P8-F human approval autonomy-boundary evaluation
         run: python -m evals.p8f_human_approval
+      - name: P8-G agent communications message-protocol evaluation
+        run: python -m evals.p8g_agent_messages
