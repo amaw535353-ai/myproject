@@ -21,5 +21,31 @@ from .delegation_security import (
     agent_delegation_manifest_digest,
     canonical_agent_delegation_manifest_bytes,
 )
+from .memory_security import (
+    P8B_ASSESSMENT_MODE,
+    P8B_ASSESSMENT_SCHEMA_VERSION,
+    P8B_MEMORY_POLICY_VERSION,
+    P8B_MEMORY_SCHEMA_VERSION,
+    AgentMemoryContextSecurityAnalyzer,
+    AgentMemoryManifest,
+    AgentMemoryPolicy,
+    AgentMemoryRequest,
+    MemoryClassification,
+    MemoryDecision,
+    MemoryRecord,
+    MemoryRejectReason,
+    MemoryRetrieval,
+    MemoryRetrievalFact,
+    MemoryRisk,
+    MemoryScope,
+    MemorySecurityRejected,
+    MemoryStore,
+    MemoryTrust,
+    MemoryWrite,
+    MemoryWriteFact,
+    VerifiedAgentMemoryAssessment,
+    agent_memory_manifest_digest,
+    canonical_agent_memory_manifest_bytes,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
