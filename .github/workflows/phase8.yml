@@ -28,3 +28,5 @@ jobs:
         run: pytest
       - name: P8-A multi-agent delegation authority-propagation evaluation
         run: python -m evals.p8a_agent_delegation
+      - name: P8-B agent memory context-boundary evaluation
+        run: python -m evals.p8b_agent_memory
