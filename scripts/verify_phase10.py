@@ -24,6 +24,10 @@ FOCUSED = {
         "tests/security/test_p10d_speculative_serving.py",
         "evals.p10d_speculative_serving",
     ),
+    "p10e": (
+        "tests/security/test_p10e_adapter_routing.py",
+        "evals.p10e_adapter_routing",
+    ),
 }
 
 
