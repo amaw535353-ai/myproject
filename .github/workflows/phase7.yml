@@ -38,3 +38,5 @@ jobs:
         run: python -m evals.p7e_dependency_trust
       - name: P7-F dependency failure graceful-degradation security evaluation
         run: python -m evals.p7f_resilience_security
+      - name: P7-G telemetry integrity auditability blind-spot evaluation
+        run: python -m evals.p7g_telemetry_security
