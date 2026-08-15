@@ -135,5 +135,28 @@ from .resilience_security import (
     canonical_resilience_security_manifest_bytes,
     resilience_security_manifest_digest,
 )
+from .telemetry_security import (
+    P7G_ASSESSMENT_MODE,
+    P7G_ASSESSMENT_SCHEMA_VERSION,
+    P7G_TELEMETRY_MANIFEST_SCHEMA_VERSION,
+    P7G_TELEMETRY_POLICY_VERSION,
+    SecurityTelemetryIntegrityAnalyzer,
+    TelemetryBlindSpotRejectReason,
+    TelemetryBlindSpotRejected,
+    TelemetryCoverageManifest,
+    TelemetryCoveragePolicy,
+    TelemetryCoverageRequest,
+    TelemetryEventClass,
+    TelemetryEventRequirement,
+    TelemetryNode,
+    TelemetryNodeType,
+    TelemetryRequirementFact,
+    TelemetryRoute,
+    TelemetrySeverity,
+    TelemetrySourceKind,
+    VerifiedTelemetryCoverageAssessment,
+    canonical_telemetry_coverage_manifest_bytes,
+    telemetry_coverage_manifest_digest,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
