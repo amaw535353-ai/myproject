@@ -1,6 +1,6 @@
 # Phase 10 progress — secure inference runtime and multi-tenant serving
 
-Phase 10 secures shared inference runtime state: request routing, scheduling, KV/prefix caches, speculative serving, adapters, accelerators, streaming outputs, and multi-replica serving. From P10-F onward the project explicitly distinguishes **deterministic portfolio evidence** from **professional-mastery evidence gathered on real infrastructure**.
+Phase 10 secures shared inference runtime state: request routing, scheduling, KV/prefix caches, speculative serving, adapters, accelerators, streaming outputs, and multi-replica serving. From P10-F onward the project explicitly distinguishes **deterministic portfolio evidence** from **professional-mastery evidence gathered on executable infrastructure**.
 
 ## Milestone status
 
@@ -9,7 +9,8 @@ Phase 10 secures shared inference runtime state: request routing, scheduling, KV
 - **P10-C:** KV/prefix-cache lifecycle, eviction/reuse, modeled zeroization, and rollback-safe ownership — deterministic scope complete.
 - **P10-D:** speculative decoding, draft-model trust, disaggregated prefill/decode, and cross-service state binding — deterministic scope complete.
 - **P10-E:** adapter/LoRA hot-swap, per-tenant composition, authorization, and runtime model-routing integrity — deterministic scope complete.
-- **P10-F:** accelerator/GPU device, memory, DMA, and modeled side-channel-profile isolation — implementation/evaluator complete; **real GPU professional-mastery lab pending**.
+- **P10-F:** accelerator/GPU device, memory, DMA, and modeled side-channel-profile isolation — implementation/evaluator complete; **live GPU operations deferred because GPU infrastructure is currently unavailable**.
+- **P10-G:** streaming response, cancellation, backpressure, output-channel, replay, and tool-call framing integrity — deterministic scope complete and **local loopback runtime mastery gate passed**.
 
 ## Reproducible focused evidence
 
@@ -21,45 +22,56 @@ Phase 10 secures shared inference runtime state: request routing, scheduling, KV
 | P10-D | 34 | 145 | 145/145 | 0/145 | 0/4 | 4/4 | `3d1d51ad6fddcd75c77ef31c39e9b86a93201c743a9221ab551c73ed96b7c3fa` |
 | P10-E | 36 | 157 | 157/157 | 0/157 | 0/4 | 4/4 | `27dfed5cf9281c4105be59e3e38b00998d86314c46bf9bff0b438b9f25ebddc7` |
 | P10-F | 55 | 160 | 160/160 | 0/160 | 0/4 | 4/4 | `a84cad654ea4ee8aadf8f8a0750c55fc0fa1a7826a188504ca99c254a2627053` |
+| P10-G | 137 | 127 | 127/127 | 0/127 | 0/4 | 4/4 | `7e1f232b3f18120129629859c6ec7cfc6113f6e9d3a3d0c40eff3ab14f6ff268` |
 
-P10-F accelerator manifest SHA-256: `bd141b7af9903eaecd169507c1ac4aeb9879e49bd654b040ddbaf0304d15a2dc`.
+P10-G streaming manifest SHA-256: `31803741d20e03590f4fb40f3f5e28a31de3732c6e3f8bd55d256100dc59ca78`.
 
-P10-F adversarial dataset SHA-256: `8d1bbedfb460d046a29ca251283dbd59b2a283e94bd9661228a113dd66106e2c`.
+P10-G adversarial dataset SHA-256: `742be9deec6520d9c627605d0d906cde694cf146ede07e3738fd89f9b824be99`.
 
-P10-F fixture/evaluator SHA-256: `bf12c0c7f889583b8e72d15e0a60ff316cff910e9e55363c59a96aae9f05c2ff`.
+P10-G fixture/evaluator SHA-256: `a2f1e497ff65ae7acbc1c1607d3e93fe6472b3309960e917bb92587d92cb9977`.
 
-`scripts/verify_phase10.py --focused-p10f` is the focused deterministic verification path. The isolated harness uses API-compatible upstream imports; it does not claim the complete repository or P10-A through P10-E were rerun in that same environment.
+`scripts/verify_phase10.py --focused-p10g` runs the focused deterministic tests/evaluator plus the real loopback streaming lab.
 
-## P10-F — accelerator/GPU isolation
+## P10-F professional-mastery debt
 
-`InferenceAcceleratorIsolationAnalyzer` consumes the exact P10-E assessment and preserves request/tenant/session, target-model, ordered adapter-stack, and adapter-generation identity. It binds a self-digested host probe plus policy-owned accelerator topology and evaluates exclusive-GPU/MIG assignment, cross-tenant sharing, MIG GPU Instance and memory-slice separation, exact device-node exposure, cgroup device-filter evidence, PCI/IOMMU grouping, peer-DMA and GPUDirect/RDMA policy, accelerator memory budgets, CUDA address-space identity, memory epoch/generation floors, profiling/telemetry exposure, strict side-channel-profile evidence, fresh accelerator leases, hash chaining, and replay protection.
+The P10-F deterministic implementation remains valid, but live NVIDIA GPU operations are explicitly **deferred/unverified** because suitable GPU infrastructure is not currently available. The project does not convert CPU-only or modeled evidence into GPU mastery. The deferred debt remains: live NVIDIA device administration, MIG configuration, real VRAM/CUDA isolation testing, and empirical GPU side-channel work.
 
-The synthetic safe fixture deliberately includes both an exclusive GPU assignment and a cross-tenant physical GPU represented as distinct MIG GPU Instances with disjoint memory-slice evidence. Strict policy rejects MPS and time-slicing as hard cross-tenant isolation mechanisms.
+## P10-G — streaming-output integrity
 
-A new non-destructive collector, `scripts/collect_p10f_gpu_evidence.py`, inventories NVIDIA PCI devices, IOMMU groups, NVIDIA `/dev` nodes, runtime visibility variables, `nvidia-smi` device output, and MIG listing when available. Its output is evidence collection only, not hardware attestation.
+`InferenceStreamingSecurityAnalyzer` consumes the exact P10-F clean assessment and preserves request/tenant/session, model revision, adapter composition/generation, and accelerator partition identity. It binds a single stream/output channel, SSE/UTF-8 framing, per-frame payload and encoded-event digests, ordered sequence/hash chaining, frame/total/buffer/unacknowledged budgets, cancellation authorization and bounded cancellation lag, canonical JSON tool-call framing, explicit terminal semantics, and prior-stream replay state.
 
-The collector was smoke-tested in the local CPU-only execution environment and correctly reported `hardware_present=false` and `nvidia_smi_available=false`; this validates the no-GPU failure path only. It is **not** live GPU validation.
+The safe corpus includes payloads and tool arguments containing SSE-looking newline sequences. They remain safe because P10-G treats payload data as JSON inside SSE rather than concatenating raw user text into protocol framing.
 
-## P10-F professional-mastery gate
+The matched vulnerable baseline trusts only the caller's final `declared_streaming_safe` boolean. Across 127 adversarial cases it accepts 127/127 while the hardened path accepts 0/127. Four safe cases are accepted with zero false positives.
 
-P10-F is not professionally complete until `docs/labs/p10f-gpu-isolation-lab.md` is executed on an authorized dedicated GPU host or disposable GPU node. The evidence packet must include the live host probe, tenant/container device visibility, a denied unassigned-device access test, IOMMU grouping, peer/GD-RDMA state, profiling/telemetry exposure, a controlled memory-pressure observation, and a residual-risk analysis.
+## P10-G real loopback professional-mastery evidence
 
-Until that run is reviewed, the clean P10-F assessment keeps these claims false: `live_gpu_hardware_validated`, production GPU runtime integration, production cgroup enforcement, production IOMMU enforcement, physical VRAM zeroization, DMA attack resistance, side-channel resistance, and hardware attestation.
+`apps/p10g_streaming_lab.py` plus `scripts/run_p10g_streaming_lab.py` were executed through a real localhost Uvicorn/FastAPI TCP path. The reviewed run demonstrated:
+
+- wrong-tenant stream access denied before stream start;
+- cancellation issued by a second HTTP request while the first SSE response was in flight;
+- terminal sequence `token -> cancelled` with no later `final` event;
+- SSE-looking newline payload contained as JSON data rather than a new event;
+- bounded application queue with limit 2, maximum depth 2, producer pause count 2, and drained queue;
+- one-shot replay rejected with HTTP 409.
+
+Loopback lab report SHA-256: `e0b04581e926baaeff9178629a3209aa0bb5ccb0e05917033663462a64c5cff9`.
+
+This closes the **local streaming-runtime mastery gate** for P10-G. It does not claim production reverse-proxy behavior, kernel/TCP saturation backpressure, remote-client disconnect semantics, multi-worker cancellation linearizability, production tool dispatch, or internet-facing availability.
 
 ## Hosted CI classification
 
-Hosted CI is an external execution dependency. A GitHub Actions job that reaches a terminal `failure` state with `steps: null` / `steps: []` because runner provisioning is blocked is classified as `REMOTE_CI_BLOCKED`, not as a test failure and not as a hosted CI pass.
+Hosted CI is an external execution dependency. A GitHub Actions job that reaches terminal `failure` with `steps: null` / `steps: []` because runner provisioning is blocked is classified as `REMOTE_CI_BLOCKED`, not as a test failure and not as a hosted CI pass.
 
 ## Claim boundary
 
-P10-A through P10-F deterministic evidence proves only the implemented evidence contracts and fail-closed logic. SHA-256 provides integrity binding, not authenticity. Modeled zeroization does not prove physical memory overwrite. Service, adapter, device, IOMMU, and lease digests do not prove production enforcement. P10-F's side-channel profile is a policy model; it does not establish empirical timing/cache side-channel resistance.
+P10-A through P10-G deterministic evidence proves only the implemented evidence contracts and fail-closed logic. SHA-256 provides integrity binding, not authenticity. Modeled accelerator evidence does not prove hardware enforcement. P10-G local runtime evidence proves a single-process localhost FastAPI/Uvicorn path only. It does not prove distributed cancellation, kernel/TCP backpressure under saturation, semantic output safety, or production tool execution.
 
-No runtime dependency is added. Package version is **0.96.0**.
+No runtime dependency is added. Package version is **0.97.0**.
 
 ## Remaining Phase 10 roadmap
 
-- **P10-G:** streaming response, cancellation, backpressure, output-channel, and tool-call framing integrity.
-- **P10-H:** replica autoscaling, failover, routing consistency, and rollback-safe serving lineage.
+- **P10-H:** replica autoscaling, failover, routing consistency, and rollback-safe serving lineage, with a runnable multi-process failover lab where feasible.
 - **P10-I:** integrated multi-tenant inference compromise exercise and machine-readable Phase 10 exit gate.
 
-The immediate professional-mastery action is the **real P10-F GPU isolation lab**. P10-G should follow after the hardware gate is completed or explicitly recorded as unavailable, rather than treating synthetic P10-F success as professional mastery.
+The next milestone is **P10-H**, continuing the professional-mastery approach with executable distributed-serving behavior rather than synthetic evidence alone.
