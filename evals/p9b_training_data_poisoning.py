@@ -11,13 +11,14 @@ def _mut_record(m,index,**kw):
 def _mut_contrib(m,index,**kw):
     xs=list(m.contributors); xs[index]=replace(xs[index],**kw); return replace(m,contributors=tuple(xs))
 def _mut_review(m,index,**kw):
-    xs=list(m.reviews); x=replace(xs[index],**kw)
+    xs=list(m.reviews); x=replace(xs[index],**kw); 
     if 'evidence_sha256' not in kw: x=replace(x,evidence_sha256=review_evidence_digest(x))
     xs[index]=x; return replace(m,reviews=tuple(xs))
 
 def build_attacks():
     f=build_fixture(); m=f['manifest']; p=f['p9a']; attacks=[]
     def add(name,fx): attacks.append((name,fx))
+    # upstream and request binding
     add('upstream-deny',rebind(f,p9a=replace(p,decision=__import__('aegis.training.data_provenance_types',fromlist=['TrainingDataDecision']).TrainingDataDecision.DENY)))
     for field in ('exact_manifest_binding_verified','trusted_source_snapshots_verified','record_hash_coverage_verified','split_isolation_verified','transform_lineage_verified'): add('upstream-'+field,rebind(f,p9a=replace(p,**{field:False})))
     add('upstream-caller-trust',rebind(f,p9a=replace(p,caller_declared_training_data_safety_trusted=True)))
@@ -31,6 +32,7 @@ def build_attacks():
     add('upstream-production-data-lake-claim',rebind(f,p9a=replace(p,production_data_lake_integration=True)))
     add('upstream-production-pipeline-claim',rebind(f,p9a=replace(p,production_training_pipeline_attestation=True)))
     add('upstream-source-auth-claim',rebind(f,p9a=replace(p,cryptographic_source_authentication=True)))
+    # records / labels / contributors
     for i in range(8):
         add(f'record-digest-{i}',rebind(f,_mut_record(m,i,payload_sha256=h(f'evil-{i}'))))
         add(f'record-source-{i}',rebind(f,_mut_record(m,i,source_id='src-unknown')))
@@ -47,22 +49,29 @@ def build_attacks():
         add(f'contributor-weight-{i}',rebind(f,_mut_contrib(m,i,trust_weight_bps=100)))
     add('contributor-coverage-missing',rebind(f,replace(m,contributors=m.contributors[:-1])))
     add('contributor-coverage-extra',rebind(f,replace(m,contributors=m.contributors+(ContributorEvidence('attacker',ContributorTrust.TRUSTED,10000),))))
+    # review tampering
     for i in range(2):
         add(f'review-untrusted-{i}',rebind(f,_mut_review(m,i,reviewer_id='attacker')))
         add(f'review-payload-{i}',rebind(f,_mut_review(m,i,reviewed_payload_sha256=h('wrong'))))
         add(f'review-label-{i}',rebind(f,_mut_review(m,i,approved_label='wrong')))
         add(f'review-reject-{i}',rebind(f,_mut_review(m,i,decision=ReviewDecision.REJECT)))
         add(f'review-signature-{i}',rebind(f,_mut_review(m,i,evidence_sha256=h('forged'))))
+    # missing reviews for reviewed contributor
     for i in (6,7): add(f'missing-review-{i}',rebind(f,_mut_record(m,i,review_ids=())))
+    # concentration: move all to first contributor
     rs=tuple(replace(r,contributor_id='contrib-curated-a') for r in m.records); add('contributor-concentration',rebind(f,replace(m,records=rs)))
+    # duplicate cluster abuse
     rs=list(m.records)
     for i in range(4): rs[i]=replace(rs[i],duplicate_cluster_id='cluster-abuse')
     add('duplicate-cluster-abuse',rebind(f,replace(m,records=tuple(rs))))
+    # quarantine/inclusion manipulation
     add('unnecessary-quarantine',rebind(f,_mut_record(m,0,quarantined=True),declared_weighted_risk_score=450))
     add('included-set-drop',rebind(f,replace(m,included_record_ids=tuple(sorted(m.included_record_ids[1:])))))
     add('included-set-extra',rebind(f,replace(m,included_record_ids=tuple(sorted(m.included_record_ids+('ghost-record',))))))
+    # manifest upstream binding swaps
     add('manifest-p9a-hash',rebind(f,replace(m,p9a_assessment_sha256=h('other-p9a'))))
     add('manifest-final-hash',rebind(f,replace(m,p9a_final_dataset_sha256=h('other-final'))))
+    # request-only mismatches (vulnerable still true)
     add('request-manifest-id',{**f,'request':replace(f['request'],manifest_id='wrong')})
     add('request-manifest-sha',{**f,'request':replace(f['request'],manifest_sha256=h('wrong'))})
     add('request-dataset-id',{**f,'request':replace(f['request'],dataset_id='wrong')})
