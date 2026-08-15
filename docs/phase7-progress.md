@@ -1,6 +1,6 @@
 # Phase 7 progress — AI security architecture and attack-path analysis
 
-Phase 7 broadens AegisDesk from continuous assurance into explicit security-architecture analysis. The current sequence covers trust-boundary attack paths, identity/capability escalation, tenant-aware data exfiltration, secrets/credential/trust-root blast radius, and third-party dependency/service-egress trust. Every milestone remains deterministic and synthetic and binds analysis to prior assurance evidence rather than trusting caller summaries.
+Phase 7 broadens AegisDesk from continuous assurance into explicit security-architecture analysis. The current sequence covers trust-boundary attack paths, identity/capability escalation, tenant-aware data exfiltration, secrets/credential/trust-root blast radius, third-party dependency/service-egress trust, and security-preserving graceful degradation. Every milestone remains deterministic and synthetic and binds analysis to prior assurance evidence rather than trusting caller summaries.
 
 ## P7-A — trust-boundary graph and attack-path assurance
 
@@ -42,48 +42,79 @@ Status: **implemented and deterministically exercised in an isolated API-compati
 
 P7-E adds `ExternalDependencyTrustAnalyzer`, which models hosted-model, privileged-tool, identity-provider, telemetry, and registry dependencies as explicit trust objects instead of accepting a caller-owned “all destinations trusted” summary.
 
-The hardened analyzer requires:
+The hardened analyzer requires exact dependency/P7-A/P7-B/P7-C/P7-D/P6-D evidence binding, trusted providers/owners, policy-pinned dependency identity/criticality, exact endpoints and transport/authentication/server identity, bounded data/secret exposure, exact controls, fail-closed expectations, contiguous egress routing, and deterministic caller-summary verification.
 
-- exact dependency-graph ID/version/SHA-256, freshness, and P7-A architecture binding;
-- exact P7-A, P7-B, P7-C, P7-D, and P6-D evidence digests;
-- exact required dependency and service-egress-route coverage;
-- trusted internal owners and trusted external provider IDs;
-- policy-pinned dependency type and minimum criticality;
-- exact endpoint host/port, transport, authentication, and expected server identity;
-- bounded data-class and secret exposure scope per dependency;
-- exact dependency/route control sets with P6-D control-state derivation;
-- policy-pinned fail-closed behavior;
-- exact route source/dependency/P7-A flow/control bindings and contiguous routing;
-- policy-owned entry-source and target-dependency scope; and
-- rejection of forged caller exposed-path or maximum-risk summaries.
+An isolated API-compatible harness passed **53 P7-E security-test outcomes** with vulnerable ASR **49/49**, hardened ASR **0/49**, hardened FPR **0/3**, and SafeTaskRate **3/3**. This is not a claim that full-repository pytest ran locally or that GitHub-hosted P7-E files executed byte-for-byte in that harness.
+
+P7-E does not claim production dependency discovery, live DNS/TLS/SPIFFE/OAuth/mTLS validation, production egress enforcement, real third-party requests, vendor penetration testing, complete supply-chain provenance, formal reachability proof, or compliance certification.
+
+## P7-F — dependency failure and graceful-degradation security
+
+Status: **implemented and deterministically exercised in an isolated API-compatible harness; hosted runner execution pending infrastructure**.
+
+P7-F adds `DependencyFailureSecurityAnalyzer`, which separates service continuity from security preservation. It evaluates degraded, unavailable, and untrusted P7-E dependencies against exact policy-pinned fallback plans instead of accepting a caller-owned “availability restored safely” declaration.
+
+The hardened boundary requires:
+
+- exact resilience-plan ID/version/SHA-256, freshness, and dependency-graph binding;
+- exact P7-E assessment and P6-D posture/control-catalog evidence;
+- fully verified P7-E destination identity, transport/authentication, egress-scope, fail-closed, and risk derivation properties;
+- exact failure-scenario/fallback coverage and trusted owners;
+- policy-pinned dependency and failure state per scenario;
+- exact required controls and complete preserved/disabled-control accounting;
+- exact fallback mode/target/data/secret/retry/cache semantics;
+- fail-closed strategies that perform no external operation;
+- bounded retry of the primary only;
+- independently represented alternate dependencies;
+- local safe mode with no external target or secret consumption;
+- concrete cache timestamps and deterministic freshness evaluation;
+- explicit exposure for disabled, exceptioned, or not-evaluated controls on continuing fallbacks;
+- explicit exposure for retrying an untrusted primary, exposed/weaker alternate providers, or stale cache material; and
+- rejection of forged caller exposed-scenario or maximum-risk summaries.
 
 ### Deterministic fixture
 
-The fixture models five dependencies and five egress routes. With all modeled controls satisfied, all five paths are controlled. With `CTRL-TOOL-EGRESS` exceptioned, one critical secret-bearing/restricted-data path is exposed at synthetic risk score **134**. With `CTRL-TELEMETRY-EGRESS` not evaluated, one telemetry path is exposed at score **60**.
+Seven modeled scenarios cover model-provider unavailable/untrusted/degraded states, privileged-tool outage, identity-provider outage, telemetry degradation, and registry outage. They exercise local safe mode, alternate provider, bounded retry, fail closed, and cache fallback.
+
+With modeled controls satisfied:
+
+- scenarios: **7**;
+- security-preserved scenarios: **7**;
+- exposed scenarios: **0**;
+- service-continuity scenarios: **5**;
+- deliberate fail-closed scenarios: **2**;
+- maximum security risk: **0**.
+
+Additional valid evidence states demonstrate:
+
+- `CTRL-CACHE-INTEGRITY` exceptioned → telemetry and registry cache scenarios exposed, maximum risk **68**;
+- `CTRL-FALLBACK-AUTHZ` not evaluated → all three model-continuity scenarios exposed, maximum risk **73**;
+- stale telemetry cache → one exposed scenario, risk **56**; and
+- fail-closed tool/identity paths remain security-preserving even when `CTRL-FAIL-CLOSED` is exceptioned, because no operation proceeds; the exception remains visible in per-scenario evidence.
 
 ### Deterministic security evidence
 
-An isolated local harness used API-compatible P7-A/P7-B/P7-C/P7-D/P6-D interfaces and a mirror of the P7-E gate/evaluator/test contract. It compiled the mirror, passed **53 P7-E security-test outcomes**, and completed the deterministic evaluation:
+An isolated local API-compatible harness compiled and exercised a mirror of the P7-F implementation/evaluator/test contract, passed **70 P7-F security-test outcomes**, and completed the deterministic evaluation:
 
-- adversarial cases: **49**;
-- vulnerable ASR: **49/49**;
-- hardened ASR: **0/49**;
+- adversarial cases: **64**;
+- vulnerable ASR: **64/64**;
+- hardened ASR: **0/64**;
 - hardened FPR: **0/3**;
 - SafeTaskRate: **3/3**;
-- dependency graph SHA-256: `0e1ca3a4a0d391f9c86fe74242a1dd337a0372785001710b8ae14e8f9612b75f`;
-- dataset SHA-256: `e0025085eabb4d3b7891b0d406fb4ae8f60a8ab67885baf362ebef5d4273af27`;
-- fixture SHA-256: `0311799fa205284d7afb617f4f94e26bcf11530f23c8fdcd9908ab5798975695`.
+- resilience-plan SHA-256: `ac05d8714cc2b13c8bcfa29675884f5831e2de35e244c9756e23f8165547abe1`;
+- dataset SHA-256: `769ea9a325c703ed6a200bd543240f5d333877657a3f8cb85d122d228c5e7b15`;
+- fixture SHA-256: `953b61ba33e010b27c837305ea5d29c27216192d054578f6c867063b8a8c9df7`.
 
-This is **not** a claim that full-repository pytest ran locally or that the GitHub-hosted P7-E files executed byte-for-byte in that harness.
+The harness used API-compatible P7-E/P6-D interfaces. This is **not** a claim that full-repository pytest ran locally or that the GitHub-hosted P7-F files executed byte-for-byte in that harness.
 
-The adversarial set covers graph/request identity substitution, missing/duplicate dependencies or routes, provider/owner substitution, endpoint/port drift, transport/authentication downgrade, destination-identity substitution, criticality downgrade, unauthorized data/secret scope, control removal, fail-open drift, route/flow manipulation, non-contiguous routing, upstream evidence downgrade/substitution, control-catalog drift, and forged green summaries.
+The 64-case adversarial set covers request/manifest substitution, time drift, scenario/fallback deletion and duplication, owner/dependency/state/control drift, mode/target/data/secret changes, retry/cache abuse, invalid fallback shapes, malformed policy maps/bounds, P7-E/P6-D evidence substitution, explicit control disabling, retry of an untrusted primary, stale cache, exposed/weaker alternate dependencies, and forged caller green summaries.
 
-The matched `VulnerableDependencyTrustReporter` accepts caller declarations that the graph is complete, all destinations are trusted, and aggregate exposure/risk are zero.
+The intentionally weak `VulnerableAvailabilityRestorationReporter` equates restored availability with preserved security and trusts caller-owned aggregate degradation/risk declarations.
 
 ### Claim boundary
 
-P7-E does **not** claim production dependency discovery, live DNS/TLS/SPIFFE/OAuth/mTLS validation, production egress enforcement, real third-party requests, vendor penetration testing, real secret transmission, complete supply-chain provenance, formal reachability proof, or compliance certification.
+P7-F does **not** claim production dependency-health monitoring, real failover orchestration, live chaos/outage testing, actual retry/queue/cache/network behavior, SLA/SLO/RTO/RPO achievement, disaster-recovery certification, production alternate-provider validation, formal liveness/safety proof, or compliance certification. `service_continuity_expected=True` is a modeled plan property, not operational uptime evidence.
 
 ## Next direction
 
-P7-F should add **availability, dependency-failure, and graceful-degradation security analysis**: model how model/tool/identity/telemetry/registry dependency outages or degraded trust states affect authorization, safety controls, fail-open behavior, retry/fallback paths, and release security posture so resilience mechanisms cannot silently bypass security boundaries.
+P7-G should add **security telemetry integrity, auditability, and detection blind-spot analysis** across model/tool/data/identity/dependency paths: map required security events to trusted collection paths, detect missing/tamperable telemetry and failover-induced observability gaps, bind alerting evidence to existing architecture controls, and prevent a caller-declared “fully monitored” state from masking detection blind spots.
