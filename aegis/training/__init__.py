@@ -45,5 +45,27 @@ from .data_poisoning_types import (
     review_evidence_digest,
     training_poisoning_manifest_digest,
 )
+from .fine_tuning_security import FineTuningAdmissionAnalyzer
+from .fine_tuning_types import (
+    P9C_ASSESSMENT_MODE,
+    P9C_ASSESSMENT_SCHEMA_VERSION,
+    P9C_POLICY_VERSION,
+    P9C_SCHEMA_VERSION,
+    FineTuneAdapterSpec,
+    FineTuneAuthorizationEvidence,
+    FineTuneBaseModelEvidence,
+    FineTuneDecision,
+    FineTuneHyperparameters,
+    FineTuneMode,
+    FineTuneRejectReason,
+    FineTuneRisk,
+    FineTuningAdmissionManifest,
+    FineTuningAdmissionPolicy,
+    FineTuningAdmissionRequest,
+    FineTuningSecurityRejected,
+    VerifiedFineTuningAdmissionAssessment,
+    fine_tuning_manifest_digest,
+    selected_training_data_digest,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
