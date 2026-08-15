@@ -30,3 +30,5 @@ jobs:
         run: python -m evals.p10a_inference_tenant_isolation
       - name: P10-B dynamic batching, scheduler fairness, admission, and resource isolation evaluation
         run: python -m evals.p10b_scheduler_security
+      - name: P10-C KV and prefix-cache lifecycle, reuse, zeroization, and rollback safety evaluation
+        run: python -m evals.p10c_cache_lifecycle
