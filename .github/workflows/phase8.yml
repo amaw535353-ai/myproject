@@ -40,3 +40,5 @@ jobs:
         run: python -m evals.p8f_human_approval
       - name: P8-G agent communications message-protocol evaluation
         run: python -m evals.p8g_agent_messages
+      - name: P8-H agent state-machine concurrency race evaluation
+        run: python -m evals.p8h_state_machine
