@@ -32,3 +32,5 @@ jobs:
         run: python -m evals.p9b_training_data_poisoning
       - name: P9-C fine-tuning authorization and base-model binding evaluation
         run: python -m evals.p9c_fine_tuning_admission
+      - name: P9-D training execution provenance and least-privilege boundary evaluation
+        run: python -m evals.p9d_training_execution_provenance
