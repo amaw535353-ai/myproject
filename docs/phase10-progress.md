@@ -26,7 +26,7 @@ P10-F accelerator manifest SHA-256: `bd141b7af9903eaecd169507c1ac4aeb9879e49bd65
 
 P10-F adversarial dataset SHA-256: `8d1bbedfb460d046a29ca251283dbd59b2a283e94bd9661228a113dd66106e2c`.
 
-P10-F fixture/evaluator SHA-256: `217ef0c3ee5730a36f11c7009c565ca6f5fe6e1fdf2adafd406d89afb0f05246`.
+P10-F fixture/evaluator SHA-256: `bf12c0c7f889583b8e72d15e0a60ff316cff910e9e55363c59a96aae9f05c2ff`.
 
 `scripts/verify_phase10.py --focused-p10f` is the focused deterministic verification path. The isolated harness uses API-compatible upstream imports; it does not claim the complete repository or P10-A through P10-E were rerun in that same environment.
 
