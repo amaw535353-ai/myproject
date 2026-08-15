@@ -39,7 +39,7 @@ CASES=[
 ]
 CASES += [
 ('p10b-decision-deny',lambda f:_up(f,decision=SchedulerDecision.DENY)),
-('p10b-risk',lambda f:_up(f,risks=(SchedulerRisk.SYNTHETIC,))),
+('p10b-risk',lambda f:_up(f,risks=('synthetic-risk',))),
 ('p10b-schema',lambda f:_up(f,assessment_schema_version='wrong-schema')),
 ('p10b-mode',lambda f:_up(f,assessment_mode='caller-mode')),
 ('p10b-digest',lambda f:_up(f,assessment_evidence_sha256=h('wrong-p10b'))),
