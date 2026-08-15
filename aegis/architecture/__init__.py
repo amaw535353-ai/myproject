@@ -65,5 +65,31 @@ from .data_types import (
     DataTransform,
     VerifiedDataExfiltrationAssessment,
 )
+from .secrets_exposure import (
+    P7D_ASSESSMENT_MODE,
+    P7D_ASSESSMENT_SCHEMA_VERSION,
+    P7D_SECRET_MANIFEST_SCHEMA_VERSION,
+    P7D_SECRET_POLICY_VERSION,
+    ExposureScope,
+    ExposureSurface,
+    ExposureSurfaceType,
+    SecretExposureManifest,
+    SecretExposurePathFact,
+    SecretExposurePolicy,
+    SecretExposureRejectReason,
+    SecretExposureRejected,
+    SecretExposureRequest,
+    SecretKind,
+    SecretMaterial,
+    SecretScope,
+    SecretSensitivity,
+    SecretTransferChannel,
+    SecretTransferEdge,
+    SecretsCredentialTrustRootExposureAnalyzer,
+    VerifiedSecretExposureAssessment,
+    canonical_secret_exposure_manifest_bytes,
+    secret_exposure_manifest_digest,
+    secret_exposure_path_identifier,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]

@@ -32,3 +32,5 @@ jobs:
         run: python -m evals.p7b_privilege_paths
       - name: P7-C data-flow tenant-isolation exfiltration evaluation
         run: python -m evals.p7c_data_exfiltration
+      - name: P7-D secrets credential trust-root exposure evaluation
+        run: python -m evals.p7d_secret_exposure_run
