@@ -130,5 +130,29 @@ from .evaluation_governance_types import (
     evaluation_result_digest,
     training_exposure_digest,
 )
+from .sensitive_data_security import SensitiveDataGovernanceAnalyzer
+from .sensitive_data_types import (
+    P9G_ASSESSMENT_MODE,
+    P9G_ASSESSMENT_SCHEMA_VERSION,
+    P9G_POLICY_VERSION,
+    P9G_SCHEMA_VERSION,
+    DataDisposition,
+    DataSurface,
+    SensitiveDataDecision,
+    SensitiveDataGovernanceManifest,
+    SensitiveDataGovernancePolicy,
+    SensitiveDataGovernanceRequest,
+    SensitiveDataRejectReason,
+    SensitiveDataRisk,
+    SensitiveDataSecurityRejected,
+    SensitiveFindingEvidence,
+    SensitiveKind,
+    SensitiveRecordEvidence,
+    SensitivityClass,
+    VerifiedSensitiveDataGovernanceAssessment,
+    sensitive_data_manifest_digest,
+    sensitive_finding_digest,
+    sensitive_output_batch_digest,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
