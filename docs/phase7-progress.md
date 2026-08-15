@@ -1,73 +1,83 @@
 # Phase 7 progress — AI security architecture and attack-path analysis
 
-Phase 7 broadens AegisDesk from continuous assurance into explicit security-architecture analysis. The sequence covers trust-boundary attack paths, privilege/capability escalation, tenant-aware data exfiltration, secrets and trust-root blast radius, external dependency/service-egress trust, security-preserving graceful degradation, telemetry/audit blind spots, and security control-plane administrative change paths. Every milestone remains deterministic and synthetic and binds analysis to prior evidence rather than trusting caller summaries.
+Phase 7 broadens AegisDesk from continuous assurance into explicit security-architecture analysis. The sequence now spans trust-boundary attack paths, privilege/capability escalation, tenant-aware data exfiltration, secrets/trust-root blast radius, third-party dependency trust, security-preserving graceful degradation, telemetry/audit blind spots, administrative control-plane mutation, and end-to-end invariant/blast-radius synthesis. Every milestone remains deterministic and synthetic and binds analysis to prior evidence rather than trusting caller summaries.
 
-## P7-A through P7-G
+## P7-A through P7-H
 
-P7-A through P7-G are complete for the current synthetic-lab scope. Their hardened analyzers cover trust-boundary graph analysis, privileged identity paths, data exfiltration, secret exposure, third-party dependency trust, dependency-failure security, and telemetry integrity/detection blind spots. Earlier deterministic evidence and claim boundaries remain unchanged.
+P7-A through P7-H are complete for the current synthetic-lab scope. Their hardened analyzers cover trust-boundary graph analysis, privileged identity paths, data exfiltration, secret exposure, third-party dependency trust, dependency-failure security, telemetry integrity/detection blind spots, and control-plane administrative change paths. Earlier deterministic evidence and claim boundaries remain unchanged.
 
-## P7-H — security control-plane and administrative change paths
+## P7-I — security architecture invariant synthesis and cross-layer blast radius
 
 Status: **implemented and deterministically exercised in an isolated API-compatible harness; hosted runner execution pending infrastructure**.
 
-P7-H adds `SecurityControlPlaneChangeAnalyzer`. It models who and what can mutate authorization policy, model deployment/security gates, telemetry configuration, egress/fallback rules, trust stores, and assurance settings instead of accepting a caller-owned “admin approved” summary.
+P7-I adds `SecurityArchitectureInvariantAnalyzer`. It synthesizes compact end-to-end security invariants from exact P7-A through P7-H evidence and binds those invariants back to P6-D control posture. It reports which higher-level security properties hold, degrade, or fail when a modeled path, dependency, failure mode, telemetry requirement, control-plane route, or P6-D control becomes unsafe.
+
+The canonical catalog defines eight invariants:
+
+- privileged tool execution remains authorized and observable;
+- tenant-sensitive data remains confined to approved tenant/egress boundaries;
+- secrets and trust roots remain confined from untrusted surfaces/providers;
+- model release integrity retains provenance, signing, and assurance gates;
+- dependency failover cannot silently weaken authorization/data/secret controls;
+- critical security telemetry remains observable across normal and failure paths;
+- administrative identities cannot self-authorize or disable their own security evidence; and
+- release assurance cannot be bypassed through cross-layer control-plane mutation.
 
 The hardened boundary requires:
 
-- exact control-plane ID/version/SHA-256 and freshness;
-- exact P7-B, P7-E, P7-F, P7-G, and P6-D evidence digests;
-- verified upstream evidence flags and exact referenced upstream object IDs;
-- exact principal/resource/route coverage;
-- trusted resource, principal, and route owners;
-- policy-pinned administrative principal types and exact P7-B privilege paths;
-- policy-pinned resource type, minimum sensitivity, upstream evidence bindings, controls, change telemetry, separation-of-duties, and break-glass semantics;
-- policy-pinned route principal/resource/operation, trusted execution identity, exact independent approvers, controls, telemetry, target version, and break-glass mode;
-- resource-required controls and telemetry as a mandatory subset of each change route;
-- fresh route verification, non-empty change references, and exact SHA-256 target-state digests; and
-- deterministic rejection of caller-declared exposed-route and maximum-risk summaries that differ from evidence.
+- exact invariant-catalog ID/version/SHA-256 and freshness;
+- exact P7-A/P7-B/P7-C/P7-D/P7-E/P7-F/P7-G/P7-H and P6-D evidence digests;
+- verified upstream evidence flags and non-duplicate object inventories;
+- exact invariant ID coverage and trusted invariant ownership;
+- policy-pinned minimum severity for every invariant;
+- policy-pinned exact cross-layer evidence bindings;
+- policy-pinned protected assets, affected identities, dependencies, control-plane routes, and required P6-D controls;
+- a minimum distinct-layer coverage floor for every invariant;
+- exact validation that each referenced upstream object/control exists;
+- explicit `HOLDS`, `DEGRADED`, and `VIOLATED` states derived from evidence;
+- deduplicated global blast radius across assets, identities, dependencies, and control-plane routes;
+- deterministic risk prioritization; and
+- rejection of caller-declared invariant state, zero-blast-radius, or maximum-risk summaries that disagree with evidence.
 
-Structurally valid routes remain exposed when the acting admin's P7-B path is exposed, the target resource is bound to exposed upstream evidence, administrative controls are exceptioned/not evaluated, required change telemetry has a P7-G blind spot, an administrator can rewrite the exact authorization path that grants its own authority, telemetry configuration can rewrite its own audit requirement, or a critical resource is subject to a destructive disable/delete route.
+A non-control P7-A through P7-H exposure/blind spot makes the relevant invariant `VIOLATED`. A required P6-D control that is exceptioned or not evaluated makes the invariant `DEGRADED` when no non-control path is exposed. Satisfied evidence is retained separately as counterevidence instead of being used to erase a violation.
 
 ### Deterministic fixture
 
-The canonical fixture contains:
+With all modeled upstream evidence controlled and all required P6-D controls satisfied:
 
-- administrative principals: **6**;
-- security control-plane resources: **7**;
-- administrative change routes: **8**;
-- policy-constrained break-glass routes: **1**.
+- invariants: **8**;
+- holding: **8/8**;
+- degraded: **0**;
+- violated: **0**;
+- global cross-layer blast radius: **0**;
+- maximum blast-radius score: **0**.
 
-With all modeled controls satisfied, all referenced upstream evidence controlled, and change telemetry intact:
+Representative truthful degraded/violated states include:
 
-- controlled routes: **8/8**;
-- exposed routes: **0**;
-- maximum exposed risk: **0**.
-
-Representative truthful degraded states exercised locally include:
-
-- exposed release-admin P7-B path → only `route-release-promote` exposed, risk **113**;
-- `req-control-change` P7-G blind spot → all **8** routes exposed, maximum risk **111**;
-- `CTRL-CHANGE-APPROVAL` exceptioned → all **8** routes exposed, maximum risk **103**;
-- coherent self-authorization mutation → authorization route exposed because the admin can rewrite its own authority path;
-- coherent self-audit mutation → telemetry route exposed because it can rewrite the same P7-G requirement used to audit the change; and
-- coherent critical delete operation → egress-policy route exposed as a destructive critical-resource change.
+- exposed `p7c:data-tenant-egress` → only `INV-TENANT-DATA-CONFINEMENT` violated, blast radius **6**, maximum score **125**;
+- exceptioned `CTRL-TELEMETRY` → **4** invariants degraded, global blast radius **21**, maximum score **116**; and
+- a four-layer privileged-tool chain across P7-A/P7-B/P7-D/P7-E → exact exposed layers retained in the violated privileged-tool invariant while remaining satisfied bindings stay visible as counterevidence.
 
 ### Deterministic security evidence
 
-The repository evaluator contains **92 adversarial cases** plus three benign evidence states. An isolated API-compatible harness executed the exact P7-H implementation/evaluator/test files against synthetic upstream objects, passed **14 pytest tests**, and completed the evaluator:
+The repository evaluator contains **98 adversarial cases** plus three truthful benign/degraded evidence states. An isolated API-compatible harness executed the exact P7-I implementation/evaluator/test files, passed **14 P7-I pytest tests**, and completed the evaluator:
 
-- vulnerable ASR: **92/92**;
-- hardened ASR: **0/92**;
+- vulnerable ASR: **98/98**;
+- hardened ASR: **0/98**;
 - hardened FPR: **0/3**;
 - SafeTaskRate: **3/3**;
-- control-plane manifest SHA-256: `c7a3e96a0227eabe57ae56326047d583af46e95decf49a8d8a958cd3e76f9525`;
-- adversarial dataset SHA-256: `96a007b13658518dfe5d0b507114b71111300ecef30bbdabf8d91493daac177d`;
-- fixture SHA-256: `b0c8732204c57e29f517ac69fa55e9168d999d8b8a96897a30f1165f200a82f0`.
+- invariant catalog SHA-256: `999edcda89df9c878bbc01b3cf6cd1ee3ea2895929892f8e5f2057db9a02f530`;
+- adversarial dataset SHA-256: `aeef85e381df1d6ad37356d01ad9bff62400ce1796daf4874a9c8d2d7fae6691`;
+- fixture SHA-256: `fe8734dd7398df94a7d437810f1090dfc81f452f8a50762d7b58d83fb6737d07`.
 
 This isolated run is not a claim that full-repository pytest ran locally. GitHub-hosted workflow execution remains subject to the existing account billing/spending-limit runner-provisioning condition.
 
-P7-H does not claim production IAM/RBAC enforcement, real administrative API interception, live ticket validation, cryptographic human approval, production configuration deployment, rollback-resistant history, formal authorization proof, or compliance certification.
+P7-I does not claim exhaustive attack coverage, formal end-to-end security proof, production asset/dependency discovery, real-time blast-radius discovery, production control-plane enforcement, probabilistic loss estimation, business-impact quantification, or compliance certification.
+
+## Phase 7 status
+
+**P7-A through P7-I are complete for the current deterministic synthetic-lab scope.**
 
 ## Next direction
 
-P7-I should add **security architecture invariant synthesis and cross-layer blast-radius reporting**: derive a compact set of end-to-end invariants from P7-A through P7-H, identify which identities/resources/dependencies/control-plane paths can violate each invariant, quantify cross-layer blast radius, and bind the result back to Phase 6 assurance evidence without turning the project into another approval chain.
+Phase 8 should broaden into **agentic trust and delegation security** rather than adding more architecture reporting layers. P8-A should model multi-agent delegation, authority propagation, task handoff, identity continuity, and confused-deputy/capability-laundering paths across cooperating agents, tools, and tenants, with a matched caller-trusting vulnerable baseline and deterministic cross-agent evidence.
