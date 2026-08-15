@@ -42,3 +42,5 @@ jobs:
         run: python -m evals.p9g_sensitive_data_governance
       - name: P9-H training-to-model-registry promotion and Phase 5 provenance handoff evaluation
         run: python -m evals.p9h_model_promotion
+      - name: P9-I integrated training compromise exercise and Phase 9 exit gate
+        run: python -m evals.p9i_phase9_exit_gate
