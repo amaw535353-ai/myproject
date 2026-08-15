@@ -36,3 +36,7 @@ jobs:
         run: python -m evals.p10d_speculative_serving
       - name: P10-E adapter/LoRA hot-swap, tenant composition, and route integrity evaluation
         run: python -m evals.p10e_adapter_routing
+      - name: P10-F non-destructive accelerator host collector smoke test
+        run: python scripts/collect_p10f_gpu_evidence.py --probe-id phase10-ci-cpu-smoke > /tmp/p10f-gpu-probe.json
+      - name: P10-F accelerator, GPU memory, DMA, and side-channel-profile evaluation
+        run: python -m evals.p10f_accelerator_isolation

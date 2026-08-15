@@ -28,6 +28,10 @@ FOCUSED = {
         "tests/security/test_p10e_adapter_routing.py",
         "evals.p10e_adapter_routing",
     ),
+    "p10f": (
+        "tests/security/test_p10f_accelerator_isolation.py",
+        "evals.p10f_accelerator_isolation",
+    ),
 }
 
 
