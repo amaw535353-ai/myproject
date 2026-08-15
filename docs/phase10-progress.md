@@ -1,71 +1,65 @@
 # Phase 10 progress — secure inference runtime and multi-tenant serving
 
-Phase 10 moves beyond model provenance and training security into the runtime state of shared inference systems: request routing, dynamic batching, KV/prefix caches, adapters, speculative decoding, accelerators, streaming outputs, and multi-replica serving.
+Phase 10 secures shared inference runtime state: request routing, scheduling, KV/prefix caches, speculative serving, adapters, accelerators, streaming outputs, and multi-replica serving. From P10-F onward the project explicitly distinguishes **deterministic portfolio evidence** from **professional-mastery evidence gathered on real infrastructure**.
 
-## Completed milestones
+## Milestone status
 
-- **P10-A:** inference tenant/request/session isolation and immutable runtime-state route binding — complete for the current deterministic synthetic scope.
-- **P10-B:** dynamic batching, scheduler fairness, admission control, and resource-exhaustion isolation — complete for the current deterministic synthetic scope.
-- **P10-C:** KV/prefix-cache lifecycle, eviction/reuse, modeled zeroization, and rollback-safe ownership — complete for the current deterministic synthetic scope.
-- **P10-D:** speculative decoding, draft-model trust, disaggregated prefill/decode, and cross-service state binding — complete for the current deterministic synthetic scope.
-- **P10-E:** adapter/LoRA hot-swap, per-tenant composition, authorization, and runtime model-routing integrity — complete for the current deterministic synthetic scope.
+- **P10-A:** inference tenant/request/session isolation and immutable runtime-state route binding — deterministic scope complete.
+- **P10-B:** dynamic batching, scheduler fairness, admission control, and resource-exhaustion isolation — deterministic scope complete.
+- **P10-C:** KV/prefix-cache lifecycle, eviction/reuse, modeled zeroization, and rollback-safe ownership — deterministic scope complete.
+- **P10-D:** speculative decoding, draft-model trust, disaggregated prefill/decode, and cross-service state binding — deterministic scope complete.
+- **P10-E:** adapter/LoRA hot-swap, per-tenant composition, authorization, and runtime model-routing integrity — deterministic scope complete.
+- **P10-F:** accelerator/GPU device, memory, DMA, and modeled side-channel-profile isolation — implementation/evaluator complete; **real GPU professional-mastery lab pending**.
 
-## P10-A — tenant and runtime-state isolation
+## Reproducible focused evidence
 
-`InferenceTenantIsolationAnalyzer` binds an opaque deployment-attestation identity/digest and the exact P9-H promotion assessment SHA-256 to an immutable deployment/endpoint/model/tokenizer route. It derives tenant/principal/session authorization, same-tenant batch partitioning, KV-cache owner/session/epoch namespaces, tenant-scoped prefix-cache reuse, exact adapter and speculative draft-model routing, tenant/session output routing, and request-replay state.
+| Milestone | Tests | Attacks | Vulnerable ASR | Hardened ASR | FPR | SafeTaskRate | Clean assessment SHA-256 |
+|---|---:|---:|---:|---:|---:|---:|---|
+| P10-A | 30 | 136 | 136/136 | 0/136 | 0/4 | 4/4 | `3fcd0475ddc05727dad597f375bd3929e2f96bd665aa0cf137d33ea9fc28904d` |
+| P10-B | 31 | 135 | 135/135 | 0/135 | 0/4 | 4/4 | `a46197f548332077d3245fd10bc37d2a356b51e5f9e035add82a9751f68f0388` |
+| P10-C | 30 | 117 | 117/117 | 0/117 | 0/4 | 4/4 | `27edbe07d57ea8074742416aa028860dec3ae1125899b57a608e1d00c633866f` |
+| P10-D | 34 | 145 | 145/145 | 0/145 | 0/4 | 4/4 | `3d1d51ad6fddcd75c77ef31c39e9b86a93201c743a9221ab551c73ed96b7c3fa` |
+| P10-E | 36 | 157 | 157/157 | 0/157 | 0/4 | 4/4 | `27dfed5cf9281c4105be59e3e38b00998d86314c46bf9bff0b438b9f25ebddc7` |
+| P10-F | 55 | 160 | 160/160 | 0/160 | 0/4 | 4/4 | `a84cad654ea4ee8aadf8f8a0750c55fc0fa1a7826a188504ca99c254a2627053` |
 
-Focused P10-A evidence: 30 tests passed; 136 adversarial cases; vulnerable ASR 136/136; hardened ASR 0/136; hardened FPR 0/4; SafeTaskRate 4/4; manifest `80ac9247fa6253426957a7b4e0c5f717f94365743338898ed688ef0d860e66f3`; dataset `8c240c1480447b7725a2ec5a1c294011795621f23f8766da1766f75438a8e148`; fixture/evaluator `8d6c9b4096476d6aa43716c34eeb549fc1ba9a08a0bbeaae1272b1dfedf5bac7`; assessment `3fcd0475ddc05727dad597f375bd3929e2f96bd665aa0cf137d33ea9fc28904d`.
+P10-F accelerator manifest SHA-256: `bd141b7af9903eaecd169507c1ac4aeb9879e49bd654b040ddbaf0304d15a2dc`.
 
-## P10-B — scheduler fairness, admission, and resource isolation
+P10-F adversarial dataset SHA-256: `8d1bbedfb460d046a29ca251283dbd59b2a283e94bd9661228a113dd66106e2c`.
 
-`InferenceSchedulerSecurityAnalyzer` consumes an exact P10-A assessment and binds it to concurrent scheduler evidence. It verifies scheduler/worker identity, tenant/session ownership, request uniqueness and replay state, policy-owned request/tenant/global resource limits, priority and starvation bounds, deterministic weighted-deficit accounting, deterministic fair tenant selection, and a capacity-bounded greedy batch plan.
+P10-F fixture/evaluator SHA-256: `217ef0c3ee5730a36f11c7009c565ca6f5fe6e1fdf2adafd406d89afb0f05246`.
 
-Focused P10-B evidence: 31 tests passed; 135 adversarial cases; vulnerable ASR 135/135; hardened ASR 0/135; hardened FPR 0/4; SafeTaskRate 4/4; manifest `2ab1b0b48fbadb206db07dc763b992ea0ccc2eadc7c838b07c16c1655238c929`; dataset `7c496ff36a20e59d3116dfa4d14ac497ffcec3263874c6fe2d6ee02f6e54f02d`; fixture/evaluator `e9040f0ec24b3829ec84c09f3e4fb658f49de8b5f4f5eda0c05f4068edfe3926`; assessment `a46197f548332077d3245fd10bc37d2a356b51e5f9e035add82a9751f68f0388`.
+`scripts/verify_phase10.py --focused-p10f` is the focused deterministic verification path. The isolated harness uses API-compatible upstream imports; it does not claim the complete repository or P10-A through P10-E were rerun in that same environment.
 
-## P10-C — cache lifecycle, reuse, zeroization, and rollback-safe ownership
+## P10-F — accelerator/GPU isolation
 
-`InferenceCacheLifecycleAnalyzer` consumes the exact P10-B assessment contract and binds cache entries to policy-owned tenant/session namespaces, cache epoch/generation, key and payload digests, reuse lineage, active-entry limits, retired-entry replay state, a zeroization-method digest, deterministic zeroization receipts, and rollback authorization handles. It fails closed on cross-tenant reuse, cross-session KV reuse, stale-generation resurrection, unzeroized eviction, forged zeroization evidence, retired-entry resurrection, cache-capacity abuse, stale active state, or an unauthorized/wrong-owner rollback target.
+`InferenceAcceleratorIsolationAnalyzer` consumes the exact P10-E assessment and preserves request/tenant/session, target-model, ordered adapter-stack, and adapter-generation identity. It binds a self-digested host probe plus policy-owned accelerator topology and evaluates exclusive-GPU/MIG assignment, cross-tenant sharing, MIG GPU Instance and memory-slice separation, exact device-node exposure, cgroup device-filter evidence, PCI/IOMMU grouping, peer-DMA and GPUDirect/RDMA policy, accelerator memory budgets, CUDA address-space identity, memory epoch/generation floors, profiling/telemetry exposure, strict side-channel-profile evidence, fresh accelerator leases, hash chaining, and replay protection.
 
-Focused P10-C evidence: 30 tests passed; 117 adversarial cases; vulnerable ASR 117/117; hardened ASR 0/117; hardened FPR 0/4; SafeTaskRate 4/4; manifest `7e0ab033e702a0846cdf5197a185a01f22a9637c586ce503c9d9c40b7c07659b`; dataset `430a52385b8ce90d75f97ca1cdae69f923ae976e42b0544bed6ce96813ddbb86`; fixture/evaluator `416777e9607c7322fdfb6f6c282c22f7638338c1bed5d0de4c4373ba7dd7f526`; assessment `27edbe07d57ea8074742416aa028860dec3ae1125899b57a608e1d00c633866f`.
+The synthetic safe fixture deliberately includes both an exclusive GPU assignment and a cross-tenant physical GPU represented as distinct MIG GPU Instances with disjoint memory-slice evidence. Strict policy rejects MPS and time-slicing as hard cross-tenant isolation mechanisms.
 
-## P10-D — speculative decoding and disaggregated serving
+A new non-destructive collector, `scripts/collect_p10f_gpu_evidence.py`, inventories NVIDIA PCI devices, IOMMU groups, NVIDIA `/dev` nodes, runtime visibility variables, `nvidia-smi` device output, and MIG listing when available. Its output is evidence collection only, not hardware attestation.
 
-`InferenceSpeculativeServingAnalyzer` consumes the exact P10-C assessment and introduces separate policy-owned request/model/service evidence because P10-C does not carry final serving-model or RPC topology identities. It binds request/tenant/session and request-input evidence, target and draft model revisions/artifact digests, tokenizer and draft-trust profile digests, exact prefill/draft/decode service identities, a policy-pinned handoff-state digest, ordered prefill-to-draft/decode transfers with replay-chain evidence, target verification of every draft proposal, and final decode-state binding.
+The collector was smoke-tested in the local CPU-only execution environment and correctly reported `hardware_present=false` and `nvidia_smi_available=false`; this validates the no-GPU failure path only. It is **not** live GPU validation.
 
-Focused P10-D evidence: 34 tests passed; 145 adversarial cases; vulnerable ASR 145/145; hardened ASR 0/145; hardened FPR 0/4; SafeTaskRate 4/4; manifest `76cc93eefe3fae01edbf9b4f5f3c83039d8c1ab6515e024ebdcf82ce556c24fc`; dataset `c65af4045490228319049d70f4c413b9914aab87143161c1a0d91c5496059e33`; fixture/evaluator `a2db3929835ca82c4d0f9a0bf2ad09390911f2d7074f1f34321ba1aaa249278e`; assessment `3d1d51ad6fddcd75c77ef31c39e9b86a93201c743a9221ab551c73ed96b7c3fa`.
+## P10-F professional-mastery gate
 
-## P10-E — adapter/LoRA hot-swap and runtime route integrity
+P10-F is not professionally complete until `docs/labs/p10f-gpu-isolation-lab.md` is executed on an authorized dedicated GPU host or disposable GPU node. The evidence packet must include the live host probe, tenant/container device visibility, a denied unassigned-device access test, IOMMU grouping, peer/GD-RDMA state, profiling/telemetry exposure, a controlled memory-pressure observation, and a residual-risk analysis.
 
-`InferenceAdapterRoutingAnalyzer` consumes the exact P10-D assessment contract and binds the same request/tenant/session and target-model route to policy-owned runtime adapter evidence. Each adapter is pinned by ID, kind, revision, generation, artifact digest, provenance handle, base-model/tokenizer identity, tenant, parent lineage, data-only serialization format, rank/alpha bounds, and target-module allowlist. Before/after route snapshots bind exact ordered adapter composition to base-model and adapter artifact bytes. A principal/tenant/base-model authorization must cover the final stack and be fresh at manifest time. Hot-swap evidence must advance the route generation exactly once, preserve the before/after snapshots, chain from the prior-swap ledger, avoid replay, and never resurrect a retired adapter.
+Until that run is reviewed, the clean P10-F assessment keeps these claims false: `live_gpu_hardware_validated`, production GPU runtime integration, production cgroup enforcement, production IOMMU enforcement, physical VRAM zeroization, DMA attack resistance, side-channel resistance, and hardware attestation.
 
-Focused deterministic evidence from the isolated API-compatible P10-D harness:
+## Hosted CI classification
 
-- tests: **36 passed**;
-- adversarial cases: **157**;
-- vulnerable ASR: **157/157**;
-- hardened ASR: **0/157**;
-- hardened FPR: **0/4**;
-- SafeTaskRate: **4/4**;
-- adapter routing manifest SHA-256: `3d56d2692349e1bdda7d26dd9adc6a261647d4d3c3f00fb40f2ef20393e53802`;
-- adversarial dataset SHA-256: `498e974cb2be7676a431e64dadb2a086f93aa5758a926e064f4c6f08c5780007`;
-- fixture/evaluator SHA-256: `73c08a8145f7ef77bf13f84200a9ef72a36034b129ed455d36ada4329c44b196`;
-- clean assessment SHA-256: `27dfed5cf9281c4105be59e3e38b00998d86314c46bf9bff0b438b9f25ebddc7`.
+Hosted CI is an external execution dependency. A GitHub Actions job that reaches a terminal `failure` state with `steps: null` / `steps: []` because runner provisioning is blocked is classified as `REMOTE_CI_BLOCKED`, not as a test failure and not as a hosted CI pass.
 
-The safe corpus includes a longer-lived but still valid authorization window and case-insensitive hexadecimal digest normalization. `scripts/verify_phase10.py --focused-p10e` is the explicit focused path. This does not claim full-repository pytest or prior Phase 10 evaluators ran in the isolated harness.
+## Claim boundary
 
-Hosted CI remains an external execution dependency. A GitHub job with zero executed steps because runner provisioning is blocked must be classified as `REMOTE_CI_BLOCKED`, not as a security-test failure and not as a hosted CI pass.
+P10-A through P10-F deterministic evidence proves only the implemented evidence contracts and fail-closed logic. SHA-256 provides integrity binding, not authenticity. Modeled zeroization does not prove physical memory overwrite. Service, adapter, device, IOMMU, and lease digests do not prove production enforcement. P10-F's side-channel profile is a policy model; it does not establish empirical timing/cache side-channel resistance.
 
-### Claim boundary
+No runtime dependency is added. Package version is **0.96.0**.
 
-P10-A through P10-E are deterministic synthetic evidence. SHA-256 is integrity binding, not authenticity. P10-C's zeroization receipt does not prove physical CPU/GPU/HBM memory was overwritten. P10-D's service-identity and target-verification digests do not prove cryptographic service attestation or real target-model execution. P10-E's adapter provenance, authorization, composition, and swap digests do not prove a real adapter manager atomically changed GPU-resident weights or that replicas converged. These milestones do not claim production inference-gateway/scheduler/cache-manager/speculative-decoder/adapter-manager integration, RPC confidentiality, distributed linearizability, physical cache/GPU-memory isolation, kernel/cgroup quota enforcement, DMA isolation, side-channel resistance, autoscaling correctness, hardware attestation, semantic token/adapter equivalence, or semantic model safety.
+## Remaining Phase 10 roadmap
 
-No runtime dependency is added. Package version is **0.95.0**.
-
-## Phase 10 roadmap
-
-- **P10-F:** accelerator/GPU memory, device, DMA, and modeled side-channel isolation evidence.
 - **P10-G:** streaming response, cancellation, backpressure, output-channel, and tool-call framing integrity.
 - **P10-H:** replica autoscaling, failover, routing consistency, and rollback-safe serving lineage.
 - **P10-I:** integrated multi-tenant inference compromise exercise and machine-readable Phase 10 exit gate.
 
-The next milestone is **P10-F**, moving from logical adapter routing into accelerator/device-memory and DMA isolation evidence.
+The immediate professional-mastery action is the **real P10-F GPU isolation lab**. P10-G should follow after the hardware gate is completed or explicitly recorded as unavailable, rather than treating synthetic P10-F success as professional mastery.
