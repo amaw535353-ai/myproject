@@ -1,6 +1,6 @@
-# Phase 8 progress — agentic trust, authority, state, execution, autonomy, communications, concurrency, artifact, recovery, and incident integrity
+# Phase 8 progress — agentic trust, authority, state, execution, autonomy, communications, concurrency, artifact, recovery, incident, and exit integrity
 
-Phase 8 broadens AegisDesk into security properties specific to cooperating autonomous agents. P8-A through P8-I established delegation/authority propagation, memory/context boundaries, goal/plan integrity, tool-result/environment integrity, execution-budget security, human approval/autonomy boundaries, inter-agent message/protocol security, concurrency/race security, and artifact/workspace/generated-code integrity. P8-J secures rollback, recovery, and durable persistence boundaries. P8-K now adds provenance-led incident containment, evidence preservation, deterministic reconstruction, and controlled re-entry.
+Phase 8 broadens AegisDesk into security properties specific to cooperating autonomous agents. P8-A through P8-I established delegation/authority propagation, memory/context boundaries, goal/plan integrity, tool-result/environment integrity, execution-budget security, human approval/autonomy boundaries, inter-agent message/protocol security, concurrency/race security, and artifact/workspace/generated-code integrity. P8-J secures rollback, recovery, and durable persistence boundaries. P8-K adds provenance-led incident containment, evidence preservation, deterministic reconstruction, and controlled re-entry. P8-L closes the current Phase 8 synthetic scope with an integrated evidence-lineage exercise and machine-readable exit gate.
 
 ## P8-A through P8-I
 
@@ -103,6 +103,65 @@ This is isolated focused P8-K execution, not a claim that full-repository pytest
 
 P8-K adds no runtime dependency. The security logic is Python-standard-library-only. Production telemetry, event-store, SIEM/EDR, evidence-retention, and workload-isolation integrations remain explicit future substrates rather than executed evidence.
 
+## P8-L — integrated multi-agent compromise exercise and machine-readable Phase 8 exit gate
+
+Status: **implemented and deterministically exercised in an isolated P8-L harness; Phase 8 exits the current synthetic/local scope with an explicit external hosted-CI limitation**.
+
+P8-L adds `Phase8IntegratedExitGate`. It binds one ordered P8-A-through-P8-K evidence lineage using exact milestone manifest/assessment SHA-256 values, predecessor-assessment links, policy-pinned assessment schema/mode profiles, and cross-milestone input/output-state continuity. It also makes verification provenance part of the security decision instead of collapsing every green/red infrastructure state into a generic pass/fail.
+
+The machine-readable exit states are:
+
+- `PASS` — local security validation is complete and remote CI evidence proves a runner actually started and executed steps;
+- `PASS_WITH_EXTERNAL_CI_LIMITATION` — deterministic local/synthetic evidence is complete, while hosted CI is externally blocked before execution for a policy-recognized reason;
+- `FAIL` — evidence is missing/tampered/unsafe, local verification did not execute, remote CI actually executed and failed, or unsupported production claims are asserted.
+
+The canonical fixture models the currently observed hosted-runner condition as `REMOTE_CI_BLOCKED` with `runner_started=false`, `steps_executed=0`, and reason code `github-hosted-runner-account-billing-or-spending-limit`. The gate therefore refuses to call hosted CI “passed,” while also refusing to reinterpret a runner-provisioning failure as a security-test failure.
+
+The hardened boundary enforces:
+
+- exact P8-A through P8-K coverage and ordering;
+- exact control-domain and step-index binding;
+- a single execution-lineage identity across all milestones;
+- predecessor assessment-chain continuity;
+- cross-milestone input/output-state continuity;
+- exact milestone manifest, assessment, output-state, schema, and mode policy pins;
+- upstream safe evidence with no caller-declared-safety trust;
+- zero unexpected network operations in the synthetic evidence envelopes;
+- explicit local verification execution markers and positive executed-step counts;
+- `REMOTE_CI_PASS` only when a runner started and steps actually executed;
+- `REMOTE_CI_BLOCKED` only when no runner started, zero steps executed, and the reason is policy-recognized;
+- `REMOTE_CI_FAIL` as a real exit failure when a remote runner actually executed and failed;
+- exact machine-readable synthetic/local assumptions;
+- fail-closed production-claim boundaries; and
+- rejection of caller-declared exit/evidence/verification summaries that disagree with derived facts.
+
+### P8-L deterministic evidence
+
+The focused P8-L implementation/evaluator/test harness and the local verification wrapper were exercised locally:
+
+- tests: **21 passed**;
+- adversarial cases: **198**;
+- vulnerable ASR: **198/198**;
+- hardened ASR: **0/198**;
+- hardened FPR: **0/4**;
+- SafeTaskRate: **4/4**;
+- Phase 8 exit manifest SHA-256: `d38530c7d925c7df5705c142c01b59dc9a849a7509f24b6dc85a410adface203`;
+- adversarial dataset SHA-256: `809c95a014771eb79a626b42cca018ff4f147146df67de562314a2060053a1d2`;
+- fixture/evaluator SHA-256: `fe880b63ffc256b44a73c3768cf2ce0de8c2876fad4e9d643ebdf34b8ee0c1f6`;
+- clean assessment SHA-256: `afef4e4035e3b0bd25b8036d324d0479bdbb37b5eaffbef8404277ee7646e9c6`;
+- canonical exit decision: `PASS_WITH_EXTERNAL_CI_LIMITATION`;
+- canonical remote CI status: `REMOTE_CI_BLOCKED`.
+
+`scripts/verify_phase8.py --focused-p8l` provides a reproducible focused local path; its JSON evidence explicitly sets `hosted_ci_execution_verified=false` and `production_validation_claimed=false`. The default script mode is reserved for a real full local Phase 8 run and must not be reported as passed unless it actually completes.
+
+This evidence is focused local P8-L execution. It is not a claim that full-repository pytest, every P8-A-through-P8-K evaluator, GitHub-hosted Actions, or production agent infrastructure executed successfully in the same run.
+
+### P8-L claim boundary
+
+P8-L does not independently re-run every prior analyzer inside the exit gate, digitally sign historic assessment origins, provide trusted distributed timestamps, integrate production SIEM/EDR, rotate real production secrets, isolate real workloads, prove production distributed-system behavior, or establish legal chain of custody. SHA-256 binding is deterministic tamper evidence in the lab, not origin authentication.
+
+P8-L adds no runtime dependency.
+
 ## Phase 8 status
 
 - P8-A: complete for current deterministic synthetic scope.
@@ -116,7 +175,10 @@ P8-K adds no runtime dependency. The security logic is Python-standard-library-o
 - P8-I: complete for current deterministic synthetic scope.
 - P8-J: implemented with isolated deterministic evidence; hosted execution remains infrastructure-blocked.
 - P8-K: implemented with isolated deterministic evidence; hosted execution remains infrastructure-blocked.
+- P8-L: implemented with isolated deterministic evidence and a verification-aware exit gate; current exit is `PASS_WITH_EXTERNAL_CI_LIMITATION`, not hosted-CI `PASS`.
+
+**Phase 8 is closed for the current deterministic synthetic/local scope.** Hosted GitHub Actions remains a separate external verification dependency and must be rerun against an exact commit SHA after the account billing/spending-limit runner-provisioning condition is resolved.
 
 ## Next direction
 
-P8-L should close Phase 8 with an **integrated multi-agent compromise exercise and machine-readable exit gate**. It should compose P8-A through P8-K into one deterministic attack chain, prove that authority, memory, plan, tool, budget, approval, messaging, concurrency, artifact, recovery, and incident-response evidence all bind to the same execution lineage, reject unsupported production claims, enumerate remaining synthetic/local assumptions, and then pivot the roadmap to the next breadth domain rather than adding another isolated agent-control layer.
+Do not add another isolated Phase 8 control layer merely to compensate for unavailable hosted CI. Preserve the deterministic local verification path, rerun exact Phase 8 commit evidence remotely when GitHub-hosted execution becomes available, and pivot the roadmap to the next breadth domain with the same evidence/claim discipline.

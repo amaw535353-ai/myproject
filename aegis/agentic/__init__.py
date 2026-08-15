@@ -278,5 +278,30 @@ from .incident_forensics_security import (
     incident_event_digest,
     reconstruction_digest,
 )
+from .phase8_exit_security import Phase8IntegratedExitGate, machine_readable_phase8_exit
+from .phase8_exit_types import (
+    MILESTONE_DOMAINS,
+    MILESTONE_ORDER,
+    P8L_ASSESSMENT_MODE,
+    P8L_ASSESSMENT_SCHEMA_VERSION,
+    P8L_EXIT_POLICY_VERSION,
+    P8L_EXIT_SCHEMA_VERSION,
+    PRODUCTION_CLAIM_FIELDS,
+    REQUIRED_SYNTHETIC_ASSUMPTIONS,
+    ExitRejectReason,
+    ExitRisk,
+    MilestoneEvidence,
+    Phase8ClaimProfile,
+    Phase8ExitAssessment,
+    Phase8ExitDecision,
+    Phase8ExitManifest,
+    Phase8ExitPolicy,
+    Phase8ExitRejected,
+    Phase8ExitRequest,
+    VerificationRecord,
+    VerificationStatus,
+    canonical_phase8_exit_manifest_bytes,
+    phase8_exit_manifest_digest,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
