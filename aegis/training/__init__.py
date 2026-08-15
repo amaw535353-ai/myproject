@@ -88,5 +88,24 @@ from .training_execution_types import (
     VerifiedTrainingExecutionAssessment,
     training_execution_manifest_digest,
 )
+from .checkpoint_integrity_security import TrainingCheckpointIntegrityAnalyzer
+from .checkpoint_integrity_types import (
+    P9E_ASSESSMENT_MODE,
+    P9E_ASSESSMENT_SCHEMA_VERSION,
+    P9E_POLICY_VERSION,
+    P9E_SCHEMA_VERSION,
+    CheckpointAction,
+    CheckpointDecision,
+    CheckpointOperationAuthorization,
+    CheckpointRejectReason,
+    CheckpointRisk,
+    CheckpointSecurityRejected,
+    TrainingCheckpointEvidence,
+    TrainingCheckpointManifest,
+    TrainingCheckpointPolicy,
+    TrainingCheckpointRequest,
+    VerifiedTrainingCheckpointAssessment,
+    training_checkpoint_manifest_digest,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
