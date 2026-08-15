@@ -77,8 +77,8 @@ Isolated focused validation:
 - hardened FPR: **0/3**;
 - SafeTaskRate: **3/3**;
 - incident graph SHA-256: `3f3f75891ec0f6b5678841b296b50ac7703021a749da8be6c79afdb44722bb27`;
-- adversarial dataset SHA-256: `837b265ab54fa64d947a40b4b5a1ce2955b04a29a9a8ceefabaff79dae2adf55`;
-- fixture SHA-256: `8b932acabc0533d15ca5a29715328558ec3018ceb431c3d14ba04d6b48ed1195`;
+- adversarial dataset SHA-256: `a41d8b510e710032494ee4af1c6091d658ea5ba53e0c10f64c888dac5dbf6092`;
+- fixture SHA-256: `e460824ef7ca48d370c2e3698da0100d306fd5d040778d15b5d381541063b1b5`;
 - clean assessment SHA-256: `7dda5fdc4b43d25bda9fed630ec3c8ce6902d37fc5f2c942e123c0831098ef0d`.
 
 This validation exercised the exact focused P8-K module, fixture, evaluator, vulnerable baseline, and test file in an isolated Python environment. It is not full-repository pytest and not production SIEM, EDR, distributed event-log, credential, orchestration, or agent-runtime integration.
