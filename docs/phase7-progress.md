@@ -1,121 +1,73 @@
 # Phase 7 progress — AI security architecture and attack-path analysis
 
-Phase 7 broadens AegisDesk from continuous assurance into explicit security-architecture analysis. The sequence now covers trust-boundary attack paths, identity/capability escalation, tenant-aware data exfiltration, secrets/credential/trust-root blast radius, third-party dependency/service-egress trust, security-preserving graceful degradation, and telemetry/audit detection blind spots. Every milestone remains deterministic and synthetic and binds analysis to prior evidence rather than trusting caller summaries.
+Phase 7 broadens AegisDesk from continuous assurance into explicit security-architecture analysis. The sequence covers trust-boundary attack paths, privilege/capability escalation, tenant-aware data exfiltration, secrets and trust-root blast radius, external dependency/service-egress trust, security-preserving graceful degradation, telemetry/audit blind spots, and security control-plane administrative change paths. Every milestone remains deterministic and synthetic and binds analysis to prior evidence rather than trusting caller summaries.
 
-## P7-A — trust-boundary graph and attack-path assurance
+## P7-A through P7-G
 
-Status: **implemented and deterministically evaluated**.
+P7-A through P7-G are complete for the current synthetic-lab scope. Their hardened analyzers cover trust-boundary graph analysis, privileged identity paths, data exfiltration, secret exposure, third-party dependency trust, dependency-failure security, and telemetry integrity/detection blind spots. Earlier deterministic evidence and claim boundaries remain unchanged.
 
-`TrustBoundaryAttackPathAnalyzer` pins the architecture graph, trust zones, sensitive targets, P6-D control posture, bounded attack-path enumeration, per-path control gaps, and mitigating counterevidence.
-
-Evidence: vulnerable ASR **50/50**, hardened ASR **0/50**, hardened FPR **0/3**, SafeTaskRate **3/3**.
-
-## P7-B — identity, privilege, and capability escalation paths
-
-Status: **implemented and deterministically evaluated**.
-
-`IdentityPrivilegeCapabilityAnalyzer` overlays policy-pinned principals, privilege tiers/scopes, delegated capabilities, exact P7-A routes, and P6-D controls.
-
-Evidence: vulnerable ASR **54/54**, hardened ASR **0/54**, hardened FPR **0/3**, SafeTaskRate **3/3**.
-
-## P7-C — data flow, tenant isolation, and exfiltration paths
-
-Status: **implemented and deterministically evaluated in an isolated API-compatible harness**.
-
-`TenantIsolationExfiltrationAnalyzer` models classified data objects, tenant ownership, exact routes, transforms, approved sinks, classification ceilings, external egress, P7-B identity evidence, and P6-D control posture.
-
-Evidence: vulnerable ASR **61/61**, hardened ASR **0/61**, hardened FPR **0/3**, SafeTaskRate **3/3**.
-
-## P7-D — secrets, credential, and trust-root exposure analysis
-
-Status: **implemented with deterministic fixture/evaluation/test coverage; hosted runner execution pending infrastructure**.
-
-`SecretsCredentialTrustRootExposureAnalyzer` models secret material and transfer surfaces across configuration, build/release boundaries, tool/model credentials, signing/runtime injection, telemetry, vault boundaries, and external egress. The repository encodes 67 adversarial cases plus benign scenarios.
-
-## P7-E — external dependency, service-egress, and third-party trust paths
+## P7-H — security control-plane and administrative change paths
 
 Status: **implemented and deterministically exercised in an isolated API-compatible harness; hosted runner execution pending infrastructure**.
 
-`ExternalDependencyTrustAnalyzer` models hosted-model, privileged-tool, identity-provider, telemetry, and registry dependencies as explicit trust objects with exact endpoint, provider, transport/authentication, data/secret scope, controls, and fail-closed expectations.
-
-Isolated evidence: **53** P7-E security-test outcomes; vulnerable ASR **49/49**, hardened ASR **0/49**, hardened FPR **0/3**, SafeTaskRate **3/3**.
-
-## P7-F — dependency failure and graceful-degradation security
-
-Status: **implemented and deterministically exercised in an isolated API-compatible harness; hosted runner execution pending infrastructure**.
-
-`DependencyFailureSecurityAnalyzer` separates service continuity from security preservation across degraded, unavailable, and untrusted dependencies. It binds exact P7-E/P6-D evidence to policy-owned local-safe, alternate-provider, bounded-retry, fail-closed, and cache fallback semantics.
-
-Isolated evidence:
-
-- adversarial cases: **64**;
-- vulnerable ASR: **64/64**;
-- hardened ASR: **0/64**;
-- hardened FPR: **0/3**;
-- SafeTaskRate: **3/3**;
-- local mirror security-test outcomes: **70**;
-- resilience-plan SHA-256: `ac05d8714cc2b13c8bcfa29675884f5831e2de35e244c9756e23f8165547abe1`;
-- dataset SHA-256: `769ea9a325c703ed6a200bd543240f5d333877657a3f8cb85d122d228c5e7b15`;
-- fixture SHA-256: `953b61ba33e010b27c837305ea5d29c27216192d054578f6c867063b8a8c9df7`.
-
-P7-F does not claim production dependency-health monitoring, real failover orchestration, live chaos testing, SLA/SLO/RTO/RPO achievement, disaster-recovery certification, or formal liveness proof.
-
-## P7-G — security telemetry integrity, auditability, and detection blind spots
-
-Status: **implemented with deterministic fixture/evaluator/test coverage and an isolated focused core harness; hosted runner execution pending infrastructure**.
-
-P7-G adds `SecurityTelemetryIntegrityAnalyzer`. It treats monitoring as an evidence-bound security architecture instead of accepting caller declarations such as “100% covered” or “fully monitored.”
+P7-H adds `SecurityControlPlaneChangeAnalyzer`. It models who and what can mutate authorization policy, model deployment/security gates, telemetry configuration, egress/fallback rules, trust stores, and assurance settings instead of accepting a caller-owned “admin approved” summary.
 
 The hardened boundary requires:
 
-- exact telemetry-plan ID/version/SHA-256 and freshness;
-- exact P7-A/P7-B/P7-C/P7-D/P7-E/P7-F assessment digests and P6-D posture/control-catalog binding;
-- verified upstream assessment flags and source object IDs that actually exist in those assessments;
-- exact required telemetry-event, node, and route coverage;
-- trusted requirement/node/route owners and trusted route observers;
-- policy-pinned event class, minimum severity, upstream source kind/object IDs, required fields, alert requirement, and detection-latency objective;
-- policy-pinned telemetry node types/trust zones and minimum integrity/append-only/alert capabilities;
-- exactly one producer → collector → processor → audit route per requirement, with alert sink when required;
-- exact P6-D telemetry controls and consistent per-control posture summaries;
-- fresh route observations;
-- fallback observability scoped only to exact P7-F scenarios; and
-- deterministic rejection of caller-declared blind-spot/risk summaries that disagree with evidence.
+- exact control-plane ID/version/SHA-256 and freshness;
+- exact P7-B, P7-E, P7-F, P7-G, and P6-D evidence digests;
+- verified upstream evidence flags and exact referenced upstream object IDs;
+- exact principal/resource/route coverage;
+- trusted resource, principal, and route owners;
+- policy-pinned administrative principal types and exact P7-B privilege paths;
+- policy-pinned resource type, minimum sensitivity, upstream evidence bindings, controls, change telemetry, separation-of-duties, and break-glass semantics;
+- policy-pinned route principal/resource/operation, trusted execution identity, exact independent approvers, controls, telemetry, target version, and break-glass mode;
+- resource-required controls and telemetry as a mandatory subset of each change route;
+- fresh route verification, non-empty change references, and exact SHA-256 target-state digests; and
+- deterministic rejection of caller-declared exposed-route and maximum-risk summaries that differ from evidence.
 
-### Deterministic event and telemetry topology
+Structurally valid routes remain exposed when the acting admin's P7-B path is exposed, the target resource is bound to exposed upstream evidence, administrative controls are exceptioned/not evaluated, required change telemetry has a P7-G blind spot, an administrator can rewrite the exact authorization path that grants its own authority, telemetry configuration can rewrite its own audit requirement, or a critical resource is subject to a destructive disable/delete route.
 
-The fixture includes **12 event requirements, 13 telemetry nodes, and 12 routes**. Event coverage spans authentication, authorization, privilege changes, tool execution, data access/egress, secret access, model runtime/release, dependency egress, failover, and security-control changes.
+### Deterministic fixture
 
-With intact route observations and all modeled telemetry controls satisfied:
+The canonical fixture contains:
 
-- monitored requirements: **12/12**;
-- blind spots: **0**;
-- maximum blind-spot risk: **0**.
+- administrative principals: **6**;
+- security control-plane resources: **7**;
+- administrative change routes: **8**;
+- policy-constrained break-glass routes: **1**.
 
-Representative valid degraded evidence states:
+With all modeled controls satisfied, all referenced upstream evidence controlled, and change telemetry intact:
 
-- `CTRL-TELEMETRY-FAILOVER` exceptioned → **6** blind-spot requirements, **3 critical**, max risk **103**;
-- `CTRL-ALERT-ROUTING` not evaluated → **9** blind-spot requirements, **7 critical**, max risk **101**;
-- secret-access alert path unavailable → **1 critical** blind spot, risk **109**;
-- tool-execution fallback coverage missing `scenario-tool-unavailable` → **1 critical** blind spot, risk **105**;
-- model-release telemetry chain invalid → **1 critical** integrity blind spot, risk **115**;
-- data-egress required field `data_class` dropped → **1 critical** completeness blind spot, risk **97**.
+- controlled routes: **8/8**;
+- exposed routes: **0**;
+- maximum exposed risk: **0**.
 
-### Evaluation coverage and local evidence
+Representative truthful degraded states exercised locally include:
 
-The repository evaluator encodes **80 adversarial cases** plus three benign evidence states. It covers request/manifest substitution; requirement/node/route deletion, duplication, ownership and definition drift; upstream source-object omission; telemetry-node capability loss; route/control/time/fallback manipulation; P7-A through P7-F verification/digest substitution; P6-D posture/catalog/control-summary manipulation; and attempts to mask signature, chain, audit, alert, latency, fallback, field-loss, exception, or not-evaluated blind spots behind a caller-declared green state.
+- exposed release-admin P7-B path → only `route-release-promote` exposed, risk **113**;
+- `req-control-change` P7-G blind spot → all **8** routes exposed, maximum risk **111**;
+- `CTRL-CHANGE-APPROVAL` exceptioned → all **8** routes exposed, maximum risk **103**;
+- coherent self-authorization mutation → authorization route exposed because the admin can rewrite its own authority path;
+- coherent self-audit mutation → telemetry route exposed because it can rewrite the same P7-G requirement used to audit the change; and
+- coherent critical delete operation → egress-policy route exposed as a destructive critical-resource change.
 
-A small isolated core harness independently reconstructed the canonical fixture and P7-G blind-spot/risk derivation and passed **11 focused checks**. It verified the exact canonical hashes and representative intact/degraded observation behaviors. This is not a claim that full-repository pytest ran locally or that the GitHub-hosted P7-G source executed byte-for-byte.
+### Deterministic security evidence
 
-Exact deterministic hashes:
+The repository evaluator contains **92 adversarial cases** plus three benign evidence states. An isolated API-compatible harness executed the exact P7-H implementation/evaluator/test files against synthetic upstream objects, passed **14 pytest tests**, and completed the evaluator:
 
-- telemetry-plan SHA-256: `f14ddafa02e9a5e5b2b1b2e8055a4ab581c2203bc7a8f3b81c68de9d6e1d4166`;
-- adversarial-dataset SHA-256: `70244b7d723da4a959fa7b4555b3c8215c0051347dc64a4e4316615ebf6dca1d`;
-- fixture SHA-256: `ed9bfd10eb9e8b76b74498fb14dbc6f8cd2863141e41fa17a942f8e38986f9ea`.
+- vulnerable ASR: **92/92**;
+- hardened ASR: **0/92**;
+- hardened FPR: **0/3**;
+- SafeTaskRate: **3/3**;
+- control-plane manifest SHA-256: `c7a3e96a0227eabe57ae56326047d583af46e95decf49a8d8a958cd3e76f9525`;
+- adversarial dataset SHA-256: `96a007b13658518dfe5d0b507114b71111300ecef30bbdabf8d91493daac177d`;
+- fixture SHA-256: `b0c8732204c57e29f517ac69fa55e9168d999d8b8a96897a30f1165f200a82f0`.
 
-The repository evaluator targets vulnerable ASR **80/80**, hardened ASR **0/80**, hardened FPR **0/3**, and SafeTaskRate **3/3**. Until that evaluator executes in a runnable repository environment, these aggregate values are evaluator expectations, **not a green-test claim**.
+This isolated run is not a claim that full-repository pytest ran locally. GitHub-hosted workflow execution remains subject to the existing account billing/spending-limit runner-provisioning condition.
 
-P7-G does not claim production log ingestion, SIEM/SOAR integration, real alert delivery, detection recall/precision, MTTD/MTTR, hardware-backed log signing, operational WORM storage, formal audit completeness, SOC operating effectiveness, or compliance certification.
+P7-H does not claim production IAM/RBAC enforcement, real administrative API interception, live ticket validation, cryptographic human approval, production configuration deployment, rollback-resistant history, formal authorization proof, or compliance certification.
 
 ## Next direction
 
-P7-H should add **security control-plane and administrative change-path analysis**: model who and what can mutate authorization policy, model deployment/security gates, telemetry configuration, egress/fallback rules, trust stores, and assurance settings; bind administrative changes to exact privileged identities and audit evidence; and prevent caller-declared “admin-approved” state from masking control-plane takeover paths.
+P7-I should add **security architecture invariant synthesis and cross-layer blast-radius reporting**: derive a compact set of end-to-end invariants from P7-A through P7-H, identify which identities/resources/dependencies/control-plane paths can violate each invariant, quantify cross-layer blast radius, and bind the result back to Phase 6 assurance evidence without turning the project into another approval chain.
