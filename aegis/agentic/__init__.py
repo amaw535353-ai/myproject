@@ -126,5 +126,29 @@ from .execution_budget_security import (
     canonical_execution_budget_manifest_bytes,
     execution_budget_manifest_digest,
 )
+from .human_approval_security import (
+    P8F_APPROVAL_POLICY_VERSION,
+    P8F_APPROVAL_SCHEMA_VERSION,
+    P8F_ASSESSMENT_MODE,
+    P8F_ASSESSMENT_SCHEMA_VERSION,
+    ActionRisk,
+    ApprovalDecision,
+    ApprovalOutcome,
+    ApprovalRejectReason,
+    ApprovalRisk,
+    AutonomyLevel,
+    HumanApprovalFact,
+    HumanApprovalManifest,
+    HumanApprovalPolicy,
+    HumanApprovalRecord,
+    HumanApprovalRequest,
+    HumanApprovalRule,
+    HumanApprovalSecurityRejected,
+    HumanHandoffAutonomySecurityAnalyzer,
+    PendingHumanAction,
+    VerifiedHumanApprovalAssessment,
+    canonical_human_approval_manifest_bytes,
+    human_approval_manifest_digest,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]

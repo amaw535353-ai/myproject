@@ -36,3 +36,5 @@ jobs:
         run: python -m evals.p8d_tool_observation_integrity
       - name: P8-E agent execution budget runaway-resource evaluation
         run: python -m evals.p8e_execution_budget
+      - name: P8-F human approval autonomy-boundary evaluation
+        run: python -m evals.p8f_human_approval
