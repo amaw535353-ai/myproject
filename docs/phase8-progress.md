@@ -1,65 +1,65 @@
-# Phase 8 progress — agentic trust, authority, state, execution, autonomy, and communications integrity
+# Phase 8 progress — agentic trust, authority, state, execution, autonomy, communications, and concurrency integrity
 
-Phase 8 broadens AegisDesk into security properties specific to cooperating autonomous agents. P8-A through P8-F established delegation/authority propagation, memory/context boundaries, goal/plan integrity, tool-result/environment integrity, execution-budget security, and human approval/autonomy boundaries. P8-G now secures the inter-agent message and protocol boundary.
+Phase 8 broadens AegisDesk into security properties specific to cooperating autonomous agents. P8-A through P8-G established delegation/authority propagation, memory/context boundaries, goal/plan integrity, tool-result/environment integrity, execution-budget security, human approval/autonomy boundaries, and inter-agent message/protocol security. P8-H now addresses state-machine concurrency and race-condition security.
 
-## P8-A through P8-F
+## P8-A through P8-G
 
-P8-A through P8-F are complete for the current deterministic synthetic-lab scope. Their evidence establishes original-principal authority, state provenance, instruction/goal integrity, exact tool-result binding, bounded resource consumption, and evidence-bound human approval before sensitive autonomous actions.
+P8-A through P8-G are complete for the current deterministic synthetic-lab scope. Their evidence establishes original-principal authority, state provenance, instruction/goal integrity, exact tool-result binding, bounded resource consumption, evidence-bound human approval, and provenance-preserving inter-agent messaging.
 
-## P8-G — agent communications, message-bus, and inter-agent protocol security
+## P8-H — agent state-machine, concurrency, and race-condition security
 
-Status: **implemented and deterministically exercised in an isolated P8-G environment; hosted runner execution pending infrastructure**.
+Status: **implemented and deterministically exercised in an isolated P8-H harness; hosted runner execution pending infrastructure**.
 
-P8-G adds `AgentMessageProtocolSecurityAnalyzer`. A message is not trusted merely because it was transported successfully. The analyzer binds channel policy, sender identity, receiver authorization, tenant/principal/task/goal/delegation provenance, schema/protocol version, negotiated capabilities, message freshness/replay state, parent-message chains, P8-C plan steps, and P8-F approval state.
+P8-H adds `AgentStateMachineSecurityAnalyzer`. The analyzer treats concurrency state as security evidence: expected versions, expected state hashes, idempotency keys, lease ownership/expiry, approval state at use time, tool-side-effect observations, cancellation ordering, rollback conflicts, and the derived final state all matter even when each individual message or approval is authorized.
 
-The canonical fixture contains **7 channels and 7 messages** covering tenant retrieval, a safe two-hop tool delegation chain, approved release/telemetry/policy commands, and an authenticated-but-non-authoritative external advisory channel.
+The canonical fixture contains **6 state objects, 1 lease, and 8 state transitions**. It models a tenant ticket, release slot, telemetry config, authorization policy, task lifecycle, and memory metadata. The clean path includes two ordered ticket writes, an idempotency-protected irreversible release commit, a lease-protected telemetry mutation, a serializable policy mutation, a memory update, a task read, and task cancellation.
 
 The hardened boundary enforces:
 
-- exact message graph ID/version/SHA-256 and freshness;
-- exact P8-A delegation, P8-C goal/plan, and P8-F human-approval evidence binding;
-- exact channel/message coverage and trusted owners;
-- policy-pinned sender/receiver sets, message intents, tenant scope, schema, protocol version, capabilities, approval requirements, and message lifetime;
-- policy-pinned sender identity evidence;
-- sender and receiver authorization for the exact channel;
-- message expiry, future-skew, invalid time-window, and nonce-replay checks;
-- schema mismatch and protocol downgrade rejection;
-- capability negotiation bounded by channel policy and exact P8-A delegated capabilities;
-- principal/tenant continuity with delegation evidence;
-- goal/step continuity with P8-C plan evidence;
-- exact P8-F approval-action binding for sensitive command channels;
-- acyclic parent-message chains, parent receiver → child sender continuity, and P8-A parent/child delegation continuity;
-- child message time containment inside the parent message window;
-- external-channel command escalation detection; and
-- command-laundering detection when informational/external content is promoted into an internal command.
-
-### Free/open-source implementation path
-
-No new runtime dependency was added. P8-G was designed to remain compatible with free/open-source infrastructure:
-
-- **NATS Server (Apache-2.0):** authenticated clients, account-level subject namespaces, and per-user publish/subscribe subject permissions map well to channel and tenant authorization;
-- **Apache Kafka (Apache-2.0):** client authentication/encryption plus resource/operation ACLs are suitable for durable event-streaming paths;
-- **SPIFFE / SPIRE (Apache-2.0):** SPIFFE IDs and SVIDs can provide workload identity and authenticated workload channels while P8-G retains message-level authorization/provenance checks; and
-- **OpenTelemetry (Apache-2.0):** messaging semantic conventions can carry correlation and denial evidence through a vendor-neutral telemetry pipeline.
-
-These are optional integration paths only. P8-G does not add them as runtime dependencies or claim they were exercised.
+- exact graph ID/version/SHA-256 and freshness;
+- exact P8-D tool-observation, P8-F human-approval, and P8-G message evidence binding;
+- exact state-object, lease, and transition coverage;
+- policy-pinned initial object type, tenant, version, and state digest;
+- allowed transition intents and concurrency-control modes per object;
+- message actor/tenant safety at transition use time;
+- approval-to-use binding against the actual current object version/state digest;
+- tool-observation safety for side-effecting objects;
+- duplicate side-effect evidence detection;
+- expected-version and expected-state compare-and-swap checks;
+- monotonic versioning and lost-update detection;
+- competing writers against one expected version;
+- idempotency-key replay and same-key/different-request detection;
+- mandatory idempotency evidence for irreversible objects;
+- exact lease object/owner/expiry checks;
+- cancellation vs. later execution races;
+- forward vs. rollback races; and
+- rejection of caller-provided denied/risk/final-version summaries that disagree with the derived state machine.
 
 ### Deterministic evidence
 
-The exact standalone P8-G implementation/evaluator/test set was exercised in an isolated Python environment:
+A local isolated P8-H harness passed **15 tests** and completed **104 adversarial cases**:
 
-- tests: **15 passed**;
-- adversarial cases: **103**;
-- vulnerable ASR: **103/103**;
-- hardened ASR: **0/103**;
+- vulnerable ASR: **104/104**;
+- hardened ASR: **0/104**;
 - hardened FPR: **0/3**;
 - SafeTaskRate: **3/3**;
-- message graph SHA-256: `2afd5ddd030144a9983d34353771d2445276b47793cc57c68db464e5d7a9ba2e`;
-- adversarial dataset SHA-256: `9602be70877a2fabb55b1c567466ec53340a18b9cad09c5b6e9ac4ee7d089a15`;
-- fixture SHA-256: `e67cf7dbb2da2b219db9c52f48e53137f40eeeae221f53a2cc6bd6e4a1285ce6`;
-- clean assessment SHA-256: `f670e1a9e736e47c341543c29d11b4ed00dc5e23ea818be4e27090d47829cf69`.
+- state-transition graph SHA-256: `6c6c6a3666e178b92d2ee9a28a1e55cb69f42c7eed5b828cc9efd7a10f1f3ee0`;
+- adversarial dataset SHA-256: `e796e8104400697c37c82614ea36ffe00810ef9cfd84b23d59d965b125b188e1`;
+- fixture SHA-256: `e659799632a94f7028d9b0a8d20b8ade5c283e1cbe1806bd0df328498ae4a01b`;
+- clean assessment SHA-256: `43aa4d80e2b9d7aa885b4650e5669712c70c7b0858e2322c413c25a8afb4e9e0`.
 
-This is not a claim that full-repository pytest ran locally or that live brokers, workload identity, mTLS, or network transports were exercised.
+The analyzer, vulnerable baseline, and fixture Git blobs were checked against the locally exercised files. Evaluator/test behavior was exercised in the isolated harness; this is not a claim that full-repository pytest ran locally or that production database/locking systems were exercised.
+
+### Free/open-source implementation path
+
+No new runtime dependency was added. P8-H documents optional free/open-source integration paths:
+
+- **etcd (Apache-2.0):** atomic transactions with compare/success/failure semantics plus leases; useful for version-checked distributed coordination. etcd's concurrency guidance reinforces that lease expiry alone is not enough if an old holder can still run, so P8-H keeps explicit version/state checks.
+- **PostgreSQL (PostgreSQL License):** Serializable transactions and explicit row locking provide strong options when the authoritative state can live in one transactional database.
+- **Valkey (BSD-3-Clause):** `MULTI`/`EXEC` plus `WATCH` optimistic locking map directly to expected-version/CAS-style state updates.
+- **Temporal Server (MIT):** durable workflow execution is a useful future substrate for retry/cancellation/idempotency mechanics, while P8-H retains security-specific approval, state, and side-effect checks.
+
+These are optional integration paths, not dependencies or executed evidence sources.
 
 ## Phase 8 status
 
@@ -69,8 +69,9 @@ This is not a claim that full-repository pytest ran locally or that live brokers
 - P8-D: complete for current deterministic synthetic scope.
 - P8-E: complete for current deterministic synthetic scope.
 - P8-F: complete for current deterministic synthetic scope.
-- P8-G: implemented with isolated deterministic evidence; hosted execution remains infrastructure-blocked.
+- P8-G: complete for current deterministic synthetic scope.
+- P8-H: implemented with isolated deterministic evidence; hosted execution remains infrastructure-blocked.
 
 ## Next direction
 
-P8-H should broaden into **agent state-machine, concurrency, and race-condition security**: duplicate execution, concurrent approval/use races, stale-state compare-and-swap failures, conflicting tool actions, idempotency-key semantics, cancellation races, lock/lease expiry, and preventing two individually authorized agent branches from combining into an unsafe state transition.
+P8-I should broaden into **agent artifact, workspace, and generated-code integrity**: provenance and trust of generated files/patches, path/scope confinement, symlink/archive traversal, build-context poisoning, dependency-manifest mutation, executable artifact approval, and preventing an agent from turning a permitted write into code execution or supply-chain persistence.
