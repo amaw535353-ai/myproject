@@ -46,3 +46,5 @@ jobs:
         run: python -m evals.p8i_agent_artifacts
       - name: P8-J agent rollback recovery persistence-boundary evaluation
         run: python -m evals.p8j_agent_recovery
+      - name: P8-K provenance-led incident containment forensic reconstruction evaluation
+        run: python -m evals.p8k_incident_forensics
