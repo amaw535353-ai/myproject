@@ -42,7 +42,7 @@ CASES=[
 ]
 CASES += [
 ('p10d-decision-deny',lambda f:_up(f,decision=ServingDecision.DENY)),
-('p10d-risk',lambda f:_up(f,risks=(ServingRisk.SYNTHETIC,))),
+('p10d-risk',lambda f:_up(f,risks=(ServingRisk.UPSTREAM_P10C_INVALID,))),
 ('p10d-schema',lambda f:_up(f,assessment_schema_version='wrong-schema')),
 ('p10d-mode',lambda f:_up(f,assessment_mode='caller-mode')),
 ('p10d-digest',lambda f:_up(f,assessment_evidence_sha256=h('wrong-p10d'))),
