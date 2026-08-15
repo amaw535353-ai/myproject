@@ -32,3 +32,5 @@ jobs:
         run: python -m evals.p8b_agent_memory
       - name: P8-C agent goal plan instruction-integrity evaluation
         run: python -m evals.p8c_goal_plan_integrity
+      - name: P8-D agent tool observation environment-integrity evaluation
+        run: python -m evals.p8d_tool_observation_integrity
