@@ -41,7 +41,7 @@ def test_11_future_skew():
 def test_12_upstream_decision():
     f=build_fixture(); f['p10d']=replace(f['p10d'],decision=ServingDecision.DENY); assert AdapterRisk.UPSTREAM_P10D_INVALID in risk(f)
 def test_13_upstream_risk():
-    f=build_fixture(); f['p10d']=replace(f['p10d'],risks=(ServingRisk.SYNTHETIC,)); assert AdapterRisk.UPSTREAM_P10D_INVALID in risk(f)
+    f=build_fixture(); f['p10d']=replace(f['p10d'],risks=(ServingRisk.UPSTREAM_P10C_INVALID,)); assert AdapterRisk.UPSTREAM_P10D_INVALID in risk(f)
 def test_14_upstream_digest():
     f=build_fixture(); f['p10d']=replace(f['p10d'],assessment_evidence_sha256='0'*64); assert AdapterRisk.UPSTREAM_BINDING_MISMATCH in risk(f)
 def test_15_upstream_route():
