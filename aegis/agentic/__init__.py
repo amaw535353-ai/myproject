@@ -223,5 +223,31 @@ from .artifact_security import (
     agent_artifact_manifest_digest,
     canonical_agent_artifact_manifest_bytes,
 )
+from .recovery_security import (
+    P8J_ASSESSMENT_MODE,
+    P8J_ASSESSMENT_SCHEMA_VERSION,
+    P8J_RECOVERY_POLICY_VERSION,
+    P8J_RECOVERY_SCHEMA_VERSION,
+    AgentRecoveryManifest,
+    AgentRecoveryPolicy,
+    AgentRecoveryRequest,
+    AgentRecoverySecurityRejected,
+    AgentRollbackRecoverySecurityAnalyzer,
+    CheckpointTrust,
+    PersistenceState,
+    RecoveryAuthorization,
+    RecoveryCheckpoint,
+    RecoveryDecision,
+    RecoveryFact,
+    RecoveryItem,
+    RecoveryItemKind,
+    RecoveryMode,
+    RecoveryOperation,
+    RecoveryRejectReason,
+    RecoveryRisk,
+    VerifiedAgentRecoveryAssessment,
+    agent_recovery_manifest_digest,
+    canonical_agent_recovery_manifest_bytes,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
