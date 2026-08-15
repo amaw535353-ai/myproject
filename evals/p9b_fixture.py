@@ -35,6 +35,7 @@ def build_fixture():
 def rebind(f,manifest=None,p9a=None,**request_updates):
     out=dict(f); manifest=manifest or f['manifest']; p9a=p9a or f['p9a']; digest=training_poisoning_manifest_digest(manifest)
     out['manifest']=manifest; out['p9a']=p9a; out['policy']=replace(f['policy'],expected_manifest_sha256=digest)
+    # derive caller summaries from manifest for attack cases; safety stays true so vulnerable always accepts
     included=tuple(sorted(manifest.included_record_ids)); quarantined=tuple(sorted(r.record_id for r in manifest.records if r.quarantined))
     req=replace(f['request'],manifest_sha256=digest,declared_included_record_ids=included,declared_quarantined_record_ids=quarantined,**request_updates)
     out['request']=req; return out
