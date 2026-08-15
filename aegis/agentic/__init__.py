@@ -173,5 +173,29 @@ from .message_security import (
     agent_message_manifest_digest,
     canonical_agent_message_manifest_bytes,
 )
+from .state_machine_security import (
+    P8H_ASSESSMENT_MODE,
+    P8H_ASSESSMENT_SCHEMA_VERSION,
+    P8H_STATE_POLICY_VERSION,
+    P8H_STATE_SCHEMA_VERSION,
+    AgentStateMachineSecurityAnalyzer,
+    AgentStateSecurityRejected,
+    AgentStateTransitionManifest,
+    AgentStateTransitionPolicy,
+    AgentStateTransitionRequest,
+    ConcurrencyControl,
+    LeaseRecord,
+    StateObject,
+    StateObjectType,
+    StateRejectReason,
+    StateTransition,
+    StateTransitionFact,
+    TransitionDecision,
+    TransitionIntent,
+    TransitionRisk,
+    VerifiedAgentStateTransitionAssessment,
+    agent_state_transition_manifest_digest,
+    canonical_agent_state_transition_manifest_bytes,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
