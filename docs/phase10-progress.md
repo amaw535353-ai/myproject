@@ -8,6 +8,7 @@ Phase 10 moves beyond model provenance and training security into the runtime st
 - **P10-B:** dynamic batching, scheduler fairness, admission control, and resource-exhaustion isolation — complete for the current deterministic synthetic scope.
 - **P10-C:** KV/prefix-cache lifecycle, eviction/reuse, modeled zeroization, and rollback-safe ownership — complete for the current deterministic synthetic scope.
 - **P10-D:** speculative decoding, draft-model trust, disaggregated prefill/decode, and cross-service state binding — complete for the current deterministic synthetic scope.
+- **P10-E:** adapter/LoRA hot-swap, per-tenant composition, authorization, and runtime model-routing integrity — complete for the current deterministic synthetic scope.
 
 ## P10-A — tenant and runtime-state isolation
 
@@ -31,35 +32,40 @@ Focused P10-C evidence: 30 tests passed; 117 adversarial cases; vulnerable ASR 1
 
 `InferenceSpeculativeServingAnalyzer` consumes the exact P10-C assessment and introduces separate policy-owned request/model/service evidence because P10-C does not carry final serving-model or RPC topology identities. It binds request/tenant/session and request-input evidence, target and draft model revisions/artifact digests, tokenizer and draft-trust profile digests, exact prefill/draft/decode service identities, a policy-pinned handoff-state digest, ordered prefill-to-draft/decode transfers with replay-chain evidence, target verification of every draft proposal, and final decode-state binding.
 
-Focused deterministic evidence from the isolated API-compatible P10-C harness:
+Focused P10-D evidence: 34 tests passed; 145 adversarial cases; vulnerable ASR 145/145; hardened ASR 0/145; hardened FPR 0/4; SafeTaskRate 4/4; manifest `76cc93eefe3fae01edbf9b4f5f3c83039d8c1ab6515e024ebdcf82ce556c24fc`; dataset `c65af4045490228319049d70f4c413b9914aab87143161c1a0d91c5496059e33`; fixture/evaluator `a2db3929835ca82c4d0f9a0bf2ad09390911f2d7074f1f34321ba1aaa249278e`; assessment `3d1d51ad6fddcd75c77ef31c39e9b86a93201c743a9221ab551c73ed96b7c3fa`.
 
-- tests: **34 passed**;
-- adversarial cases: **145**;
-- vulnerable ASR: **145/145**;
-- hardened ASR: **0/145**;
+## P10-E — adapter/LoRA hot-swap and runtime route integrity
+
+`InferenceAdapterRoutingAnalyzer` consumes the exact P10-D assessment contract and binds the same request/tenant/session and target-model route to policy-owned runtime adapter evidence. Each adapter is pinned by ID, kind, revision, generation, artifact digest, provenance handle, base-model/tokenizer identity, tenant, parent lineage, data-only serialization format, rank/alpha bounds, and target-module allowlist. Before/after route snapshots bind exact ordered adapter composition to base-model and adapter artifact bytes. A principal/tenant/base-model authorization must cover the final stack and be fresh at manifest time. Hot-swap evidence must advance the route generation exactly once, preserve the before/after snapshots, chain from the prior-swap ledger, avoid replay, and never resurrect a retired adapter.
+
+Focused deterministic evidence from the isolated API-compatible P10-D harness:
+
+- tests: **36 passed**;
+- adversarial cases: **157**;
+- vulnerable ASR: **157/157**;
+- hardened ASR: **0/157**;
 - hardened FPR: **0/4**;
 - SafeTaskRate: **4/4**;
-- serving manifest SHA-256: `76cc93eefe3fae01edbf9b4f5f3c83039d8c1ab6515e024ebdcf82ce556c24fc`;
-- adversarial dataset SHA-256: `c65af4045490228319049d70f4c413b9914aab87143161c1a0d91c5496059e33`;
-- fixture/evaluator SHA-256: `a2db3929835ca82c4d0f9a0bf2ad09390911f2d7074f1f34321ba1aaa249278e`;
-- clean assessment SHA-256: `3d1d51ad6fddcd75c77ef31c39e9b86a93201c743a9221ab551c73ed96b7c3fa`.
+- adapter routing manifest SHA-256: `3d56d2692349e1bdda7d26dd9adc6a261647d4d3c3f00fb40f2ef20393e53802`;
+- adversarial dataset SHA-256: `498e974cb2be7676a431e64dadb2a086f93aa5758a926e064f4c6f08c5780007`;
+- fixture/evaluator SHA-256: `73c08a8145f7ef77bf13f84200a9ef72a36034b129ed455d36ada4329c44b196`;
+- clean assessment SHA-256: `27dfed5cf9281c4105be59e3e38b00998d86314c46bf9bff0b438b9f25ebddc7`.
 
-The safe corpus includes a fully target-verified speculative round in which all draft proposals are rejected, demonstrating that draft trust does not imply draft acceptance. This is deterministic integrity evidence; it does not prove a real target model recomputed probabilities or that a production disaggregated serving transport executed. `scripts/verify_phase10.py --focused-p10d` is the explicit focused path.
+The safe corpus includes a longer-lived but still valid authorization window and case-insensitive hexadecimal digest normalization. `scripts/verify_phase10.py --focused-p10e` is the explicit focused path. This does not claim full-repository pytest or prior Phase 10 evaluators ran in the isolated harness.
 
 Hosted CI remains an external execution dependency. A GitHub job with zero executed steps because runner provisioning is blocked must be classified as `REMOTE_CI_BLOCKED`, not as a security-test failure and not as a hosted CI pass.
 
 ### Claim boundary
 
-P10-A through P10-D are deterministic synthetic evidence. SHA-256 is integrity binding, not authenticity. P10-C's zeroization receipt does not prove physical CPU/GPU/HBM memory was overwritten. P10-D's service-identity and target-verification digests do not prove cryptographic service attestation or real target-model execution. These milestones do not claim production inference-gateway/scheduler/cache-manager/speculative-decoder integration, RPC confidentiality, distributed linearizability, physical cache/GPU-memory isolation, kernel/cgroup quota enforcement, DMA isolation, side-channel resistance, autoscaling correctness, hardware attestation, semantic token equivalence, or semantic model safety.
+P10-A through P10-E are deterministic synthetic evidence. SHA-256 is integrity binding, not authenticity. P10-C's zeroization receipt does not prove physical CPU/GPU/HBM memory was overwritten. P10-D's service-identity and target-verification digests do not prove cryptographic service attestation or real target-model execution. P10-E's adapter provenance, authorization, composition, and swap digests do not prove a real adapter manager atomically changed GPU-resident weights or that replicas converged. These milestones do not claim production inference-gateway/scheduler/cache-manager/speculative-decoder/adapter-manager integration, RPC confidentiality, distributed linearizability, physical cache/GPU-memory isolation, kernel/cgroup quota enforcement, DMA isolation, side-channel resistance, autoscaling correctness, hardware attestation, semantic token/adapter equivalence, or semantic model safety.
 
-No runtime dependency is added. Package version is **0.94.0**.
+No runtime dependency is added. Package version is **0.95.0**.
 
 ## Phase 10 roadmap
 
-- **P10-E:** adapter/LoRA hot-swap, per-tenant composition, and runtime model-routing integrity.
 - **P10-F:** accelerator/GPU memory, device, DMA, and modeled side-channel isolation evidence.
 - **P10-G:** streaming response, cancellation, backpressure, output-channel, and tool-call framing integrity.
 - **P10-H:** replica autoscaling, failover, routing consistency, and rollback-safe serving lineage.
 - **P10-I:** integrated multi-tenant inference compromise exercise and machine-readable Phase 10 exit gate.
 
-The next milestone is **P10-E**, moving from disaggregated speculative-serving state into adapter/LoRA hot-swap and per-tenant runtime composition integrity.
+The next milestone is **P10-F**, moving from logical adapter routing into accelerator/device-memory and DMA isolation evidence.
