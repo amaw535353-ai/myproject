@@ -7,13 +7,13 @@ from aegis.architecture.secrets_exposure import (
     SecretSensitivity,
     SecretsCredentialTrustRootExposureAnalyzer,
 )
-from aegis.assurance.posture_reporting import ControlStatus
 from evals.p7d_fixture import (
     CTRL_BUILD_SECRET,
     CTRL_TELEMETRY_REDACTION,
     build_fixture,
 )
-from evals.p7d_secret_exposure import adversarial_cases, run_evaluation
+from evals.p7d_secret_exposure import adversarial_cases
+from evals.p7d_secret_exposure_run import run_evaluation
 
 
 def _evaluate(fixture):
