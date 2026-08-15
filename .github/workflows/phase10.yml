@@ -40,3 +40,7 @@ jobs:
         run: python scripts/collect_p10f_gpu_evidence.py --probe-id phase10-ci-cpu-smoke > /tmp/p10f-gpu-probe.json
       - name: P10-F accelerator, GPU memory, DMA, and side-channel-profile evaluation
         run: python -m evals.p10f_accelerator_isolation
+      - name: P10-G streaming cancellation, backpressure, output-channel, and tool framing evaluation
+        run: python -m evals.p10g_streaming_security
+      - name: P10-G real loopback streaming runtime lab
+        run: python scripts/run_p10g_streaming_lab.py --output /tmp/p10g-loopback-report.json
