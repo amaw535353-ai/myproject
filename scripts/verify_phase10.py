@@ -32,11 +32,26 @@ FOCUSED = {
         "tests/security/test_p10f_accelerator_isolation.py",
         "evals.p10f_accelerator_isolation",
     ),
+    "p10g": (
+        "tests/security/test_p10g_streaming_security.py",
+        "evals.p10g_streaming_security",
+    ),
 }
 
 
 def run(args: list[str]) -> None:
     subprocess.run(args, cwd=ROOT, check=True)
+
+
+def run_p10g_loopback() -> None:
+    run(
+        [
+            sys.executable,
+            "scripts/run_p10g_streaming_lab.py",
+            "--output",
+            "/tmp/p10g-loopback-report.json",
+        ]
+    )
 
 
 def main() -> int:
@@ -56,12 +71,15 @@ def main() -> int:
         test, evaluator = FOCUSED[selected]
         run([sys.executable, "-m", "pytest", "-q", test])
         run([sys.executable, "-m", evaluator])
+        if selected == "p10g":
+            run_p10g_loopback()
         scope = f"{selected}_focused"
         status = "LOCAL_FOCUSED_PASS"
     else:
         run([sys.executable, "-m", "pytest"])
         for _, evaluator in FOCUSED.values():
             run([sys.executable, "-m", evaluator])
+        run_p10g_loopback()
         scope = "phase10_repository"
         status = "LOCAL_FULL_PASS"
     print(

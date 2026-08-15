@@ -10,5 +10,7 @@ from .adapter_routing_security import InferenceAdapterRoutingAnalyzer
 from .adapter_routing_types import *
 from .accelerator_isolation_security import InferenceAcceleratorIsolationAnalyzer
 from .accelerator_isolation_types import *
+from .streaming_security import InferenceStreamingSecurityAnalyzer
+from .streaming_security_types import *
 
 __all__ = [name for name in globals() if not name.startswith("_")]
