@@ -174,5 +174,32 @@ from .model_promotion_types import (
     model_registry_promotion_manifest_digest,
     phase5_provenance_bridge_digest,
 )
+from .phase9_exit_security import Phase9IntegratedExitGate, machine_readable_phase9_exit
+from .phase9_exit_types import (
+    MILESTONE_DOMAINS,
+    MILESTONE_ORDER,
+    P9I_ASSESSMENT_MODE,
+    P9I_ASSESSMENT_SCHEMA_VERSION,
+    P9I_EXIT_POLICY_VERSION,
+    P9I_EXIT_SCHEMA_VERSION,
+    PRODUCTION_CLAIM_FIELDS,
+    REQUIRED_SYNTHETIC_ASSUMPTIONS,
+    SCENARIO_ORDER,
+    CompromiseExerciseEvidence,
+    Phase9ClaimProfile,
+    Phase9ExitAssessment,
+    Phase9ExitDecision,
+    Phase9ExitManifest,
+    Phase9ExitPolicy,
+    Phase9ExitRejectReason,
+    Phase9ExitRejected,
+    Phase9ExitRequest,
+    Phase9ExitRisk,
+    Phase9MilestoneEvidence,
+    Phase9VerificationRecord,
+    Phase9VerificationStatus,
+    canonical_phase9_exit_manifest_bytes,
+    phase9_exit_manifest_digest,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
