@@ -1,98 +1,86 @@
-# Phase 8 progress — agentic trust, delegation, and authority security
+# Phase 8 progress — agentic trust, delegation, state, and goal integrity
 
-Phase 8 broadens AegisDesk beyond architecture reporting into security properties specific to cooperating autonomous agents. P8-A established delegation and authority propagation. P8-B adds stateful memory/context boundaries so persisted and retrieved context cannot silently acquire stronger trust, cross tenants/sessions, or survive revocation simply because another agent rewrites or retrieves it.
+Phase 8 broadens AegisDesk into security properties specific to cooperating autonomous agents. P8-A established delegation and authority propagation. P8-B added stateful memory/context boundaries. P8-C now addresses goal and plan integrity: preserving what was actually authorized after memory, tool output, delegation, and plan mutation begin influencing agent behavior.
 
 ## P8-A — multi-agent delegation and authority propagation
 
 Status: **complete for the current deterministic synthetic-lab scope**.
 
-P8-A adds `MultiAgentDelegationSecurityAnalyzer` under `aegis.agentic`. The analyzer binds a canonical multi-agent delegation graph to exact P7-B privilege evidence, P7-H control-plane evidence, and P7-I cross-layer invariant evidence.
-
-The canonical fixture contains **9 agents**, **10 capabilities**, and **7 delegation records** across tenant-runtime, release-control, and security-control trust domains. It enforces original-principal authorization, tenant/provenance continuity, delegator/delegatee authority bounds, confused-deputy protection, capability-laundering detection, bounded delegation depth, and fail-closed binding to upstream evidence.
-
-P8-A repository evaluator evidence:
-
-- adversarial cases: **90**;
-- vulnerable ASR: **90/90**;
-- hardened ASR: **0/90**;
-- hardened FPR: **0/3**;
-- SafeTaskRate: **3/3**;
-- delegation graph SHA-256: `874a38e5df60b79c2a04ba451e6785b3712afe1e353951d3f0572f074f157b71`;
-- dataset SHA-256: `a389f31f79d1b2754a0689aa6acb0ea7ed125fe42679ddc0dd51ecaae87e1d11`;
-- fixture SHA-256: `9a095c128f9f24a2df963bdcd6077c72e2ab7953792f8183f4436d620c8e7e07`.
-
-P8-A does not claim production agent identity attestation, real agent-to-agent protocol enforcement, production IAM/RBAC, cryptographic delegation tokens, live tool-execution interception, arbitrary-agent behavioral guarantees, exhaustive agent-behavior coverage, formal delegation proof, or networked enforcement.
+P8-A binds multi-agent delegation to original-principal authority, tenant/provenance continuity, capability non-amplification, P7-B privilege evidence, P7-H control-plane routes, and P7-I invariants. Its repository evaluator contains 90 adversarial cases with the established 90/90 vulnerable ASR, 0/90 hardened ASR, 0/3 FPR, and 3/3 SafeTaskRate evidence.
 
 ## P8-B — agent memory and context-boundary security
 
-Status: **implemented and deterministically exercised in an isolated harness; hosted runner execution pending infrastructure**.
+Status: **complete for the current deterministic synthetic-lab scope**.
 
-P8-B adds `AgentMemoryContextSecurityAnalyzer` and an explicit security model for session memory, durable tenant memory, and system/security memory. Every memory object is bound to tenant/session scope, trust, classification, content/source digests, creating agent, original principal, optional P8-A delegation, parent-memory provenance, P7-C data paths, sanitization evidence, retention, revocation, and supersession state.
+P8-B models session, tenant, and system memory as explicit security boundaries with trusted writers/readers, tenant/session isolation, delegated writes, provenance chains, trust/classification transitions, sanitization evidence, poisoning persistence, retrieval-time trust derivation, and revocation/expiry/supersession. Its repository evaluator contains 126 adversarial cases and the established 126/126 vulnerable ASR, 0/126 hardened ASR, 0/3 FPR, and 3/3 SafeTaskRate evidence.
+
+## P8-C — agent goal, plan, and instruction-integrity security
+
+Status: **implemented and deterministically exercised in an isolated API-compatible harness; hosted runner execution pending infrastructure**.
+
+P8-C adds `AgentGoalPlanIntegrityAnalyzer`. It treats the goal and plan themselves as security-sensitive state rather than assuming that tool-level authorization is enough.
 
 The canonical fixture contains:
 
-- memory stores: **3**;
-- memory records: **6**;
-- write events: **6**;
-- retrieval events: **4**.
+- goals: **5**;
+- instructions: **9**;
+- plan steps: **7**;
+- plan mutations: **2**.
+
+The fixture spans tenant retrieval, delegated tool access, release inspection/deployment with rollback, and telemetry administration with rollback.
 
 The hardened boundary enforces:
 
-- exact memory-graph ID/version/SHA-256 and freshness;
-- exact P8-A, P7-C, and P7-I evidence digests and key verification flags;
-- exact store/memory/write/retrieval coverage;
-- trusted store/record/event owners;
-- policy-pinned store scope, tenant, reader/writer sets, classification ceiling, trust floor, retention, and P7-I invariants;
-- original-principal tenant continuity;
-- exact session binding for session memory;
-- no session injection into system memory;
-- writer authorization and policy-pinned writer maximum trust;
-- exact memory/write provenance continuity;
-- delegated-memory writes only when the bound P8-A delegation is allowed and matches writer/principal/tenant;
-- acyclic parent-memory provenance;
-- no silent trust upgrade or classification downgrade across parent/supersession transitions without allowlisted sanitization evidence;
-- explicit `UNTRUSTED_PERSISTENCE`, `POISON_PERSISTENCE`, and `MEMORY_LAUNDERING` derivation for unsafe durable writes;
-- P7-C exposure and P7-I invariant state as active memory-operation dependencies;
-- retrieval-time trust/classification labels derived from canonical records rather than caller assertions;
-- fail-closed retrieval of revoked, expired, or superseded memory; and
-- rejection of caller-declared write/retrieval decisions and risk maps that disagree with derived evidence.
+- exact goal/plan graph ID/version/SHA-256 and freshness;
+- exact P8-A, P8-B, and P7-I evidence digests and verification flags;
+- exact instruction/goal/step/mutation coverage;
+- policy-pinned instruction source, directive, trust, precedence, and allowed actions;
+- acyclic instruction provenance with chained SHA-256 evidence;
+- allowlisted evidence before an instruction may gain trust or precedence;
+- policy-pinned goal root instruction, original principal, tenant/session, delegation, action scope, and step bound;
+- delegated-goal continuity against the exact P8-A delegation decision/principal/tenant/capabilities;
+- plan-step action scope constrained by the root goal rather than low-authority memory/tool context;
+- exact action-to-capability and action-to-P7-I-invariant requirements;
+- referenced P8-B memory retrievals must remain allowed and in the same tenant/session context;
+- memory/tool/external instructions cannot launder themselves into higher-authority plan changes;
+- plan mutations require trusted actors and source instructions at least as authoritative as the root goal;
+- contiguous bounded plan sequences;
+- policy-owned irreversible action classification;
+- mandatory later rollback steps for irreversible actions;
+- high-precedence termination instructions block later plan execution; and
+- caller-declared denied steps/mutations, unsafe goals, and maximum risk cannot override evidence-derived results.
 
 ### Deterministic evidence
 
-The clean canonical graph produces:
+The clean fixture produces:
 
-- writes allowed: **6/6**;
-- retrievals allowed: **4/4**;
-- denied writes: **0**;
-- denied retrievals: **0**.
+- safe goals: **5/5**;
+- allowed steps: **7/7**;
+- allowed plan mutations: **2/2**;
+- maximum integrity risk: **0**.
 
-Representative truthful unsafe states include:
+The repository evaluator contains **133 adversarial cases** plus three truthful benign/denial contexts. An isolated API-compatible harness compiled the exact standalone P8-C implementation/evaluator/test files, passed **18 P8-C pytest tests**, and completed the deterministic evaluator:
 
-- a rewritten tool-derived memory that attempts to become `VERIFIED_SYSTEM` and less classified without sanitization → one denied write with `MEMORY_LAUNDERING`, `TRUST_UPGRADE`, and `CLASSIFICATION_DOWNGRADE`;
-- a revoked current profile → one denied retrieval with `REVOKED_MEMORY`;
-- a superseded profile → one denied retrieval with `SUPERSEDED_MEMORY`;
-- sibling-session retrieval → denied by `CROSS_SESSION`;
-- denied P8-A delegation, exposed P7-C path, or unsafe P7-I invariant → dependent memory operations denied.
-
-The P8-B repository evaluator contains **126 adversarial cases** plus three truthful benign/denial contexts. An isolated local harness executed the standalone P8-B implementation/evaluator/test files, passed **16 P8-B pytest tests**, and completed the deterministic evaluator:
-
-- vulnerable ASR: **126/126**;
-- hardened ASR: **0/126**;
+- vulnerable ASR: **133/133**;
+- hardened ASR: **0/133**;
 - hardened FPR: **0/3**;
 - SafeTaskRate: **3/3**;
-- memory graph SHA-256: `7bb96cd8d40a57419bd2ec4bf31fcbdd38db05d512f2eadff410f522886b54ff`;
-- adversarial dataset SHA-256: `f047bce2916ff0d745c0258b61db9205597afbfae80416a4f4bd01dc80b983fb`;
-- fixture SHA-256: `a151395b84d35ff3ac40755372478bbfbcfb9a1a7e2754a0db3966104a930d9b`.
+- goal/plan graph SHA-256: `4ffef28407a47d9a7d2ba3a6cdba49b96f6222e8fcfb0f4e7fa995dc979907de`;
+- adversarial dataset SHA-256: `cc53112d1512ede5ee2c347b789f41931d91a6f923fc1a1befc1d3d0e15f97c5`;
+- fixture SHA-256: `ba57043fa13a50eb38222e8a52625ecb6622df68a8d171a7e7fafd89348f7079`.
 
-The isolated harness uses API-compatible P8-A/P7-C/P7-I evidence objects. This is not a claim that full-repository pytest ran locally or that production memory integrations were exercised.
+The harness uses API-compatible P8-A/P8-B/P7-I evidence interfaces. This is not a claim that full-repository pytest ran locally or that production agent runtimes executed these controls.
 
-P8-B does not claim production vector-database enforcement, production memory-provider integration, live cache invalidation, cryptographic memory attestation, semantic proof that sanitized content is safe, formal noninterference, exhaustive poisoning coverage, production data-retention compliance, or networked enforcement.
+Representative truthful states include a release action moved beyond a system termination boundary (one denied step, risk 96) and a tool action whose required P7-I invariant is violated (one denied step, risk 76). Memory-derived context remains usable for an already-authorized retrieval action, but cannot expand that root goal into a privileged tool action.
+
+P8-C does not claim production agent-runtime enforcement, production prompt interception, semantic proof of intent, arbitrary-agent behavioral guarantees, exhaustive goal-hijack coverage, formal plan correctness, real rollback execution, or networked enforcement.
 
 ## Phase 8 status
 
 - P8-A: complete for current deterministic synthetic scope.
-- P8-B: implemented with deterministic local evidence; hosted workflow execution remains subject to the existing GitHub account runner-provisioning condition.
+- P8-B: complete for current deterministic synthetic scope.
+- P8-C: implemented with deterministic local evidence; hosted workflow execution remains subject to the existing GitHub account runner-provisioning condition.
 
 ## Next direction
 
-P8-C should broaden into **agent goal, plan, and instruction-integrity security**: trusted goal provenance, plan-step authorization, instruction precedence across system/user/tool/agent messages, delegated-goal continuity, prevention of instruction laundering across agents, plan mutation controls, termination/rollback boundaries, and detection of goal hijacking that remains within nominal tool permissions.
+P8-D should broaden into **agent tool-result, observation, and environment-integrity security**: bind tool outputs to the exact invocation/request, authenticate observation origin, detect replay/stale results, constrain side-effect acknowledgements, prevent environment-state spoofing, preserve tenant/task provenance across observations, and stop malicious tool output from becoming authoritative state simply because execution succeeded.
