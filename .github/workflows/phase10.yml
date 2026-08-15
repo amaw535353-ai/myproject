@@ -28,3 +28,5 @@ jobs:
         run: pytest
       - name: P10-A inference tenant, request, and runtime-state isolation evaluation
         run: python -m evals.p10a_inference_tenant_isolation
+      - name: P10-B dynamic batching, scheduler fairness, admission, and resource isolation evaluation
+        run: python -m evals.p10b_scheduler_security
