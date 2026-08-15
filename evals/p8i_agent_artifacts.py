@@ -12,11 +12,12 @@ from aegis.agentic.artifact_security import (
     ArchiveMember,
     ArchiveMemberType,
     ArtifactKind,
+    ArtifactOperation,
     ArtifactTrust,
     agent_artifact_manifest_digest,
 )
 from aegis.vulnerable.artifact_security import VulnerableDeclaredArtifactSafety
-from evals.p8i_fixture import ACTION_IDS, ARTIFACT_IDS, NOW, WORKSPACE_IDS, build_fixture, make_upstreams, sha
+from evals.p8i_fixture import ACTION_IDS, ARTIFACT_IDS, NOW, WORKSPACE_IDS, build_fixture, make_upstreams, rebind_manifest, sha
 
 CaseFn = Callable[[dict], dict]
 CASES: list[tuple[str, CaseFn]] = []
@@ -51,6 +52,7 @@ def _workspace_variant(f: dict, workspace_id: str, **changes) -> dict:
     return _regraph(f, replace(f["manifest"], workspaces=workspaces))
 
 
+# Request binding attacks.
 _add("request-graph-id", lambda f: {**f, "request": replace(f["request"], graph_id="other")})
 _add("request-graph-version", lambda f: {**f, "request": replace(f["request"], graph_version="999")})
 _add("request-graph-sha", lambda f: {**f, "request": replace(f["request"], graph_sha256=sha("wrong-graph"))})
@@ -61,6 +63,7 @@ _add("request-action-order", lambda f: {**f, "request": replace(f["request"], ac
 _add("request-declared-denial-forgery", lambda f: {**f, "request": replace(f["request"], declared_denied_action_ids=(ACTION_IDS[0],))})
 _add("request-result-forgery", lambda f: {**f, "request": replace(f["request"], declared_result_sha256_by_artifact={**f["request"].declared_result_sha256_by_artifact, ARTIFACT_IDS[0]: sha("forged-result")})})
 
+# Manifest identity/freshness/upstream pins.
 _add("manifest-graph-id", lambda f: {**f, "manifest": replace(f["manifest"], graph_id="other")})
 _add("manifest-version", lambda f: {**f, "manifest": replace(f["manifest"], version="999")})
 _add("manifest-schema", lambda f: {**f, "manifest": replace(f["manifest"], schema_version="other")})
@@ -70,6 +73,7 @@ _add("manifest-p8c-pin", lambda f: _regraph(f, replace(f["manifest"], p8c_assess
 _add("manifest-p8f-pin", lambda f: _regraph(f, replace(f["manifest"], p8f_assessment_evidence_sha256=sha("other-p8f"))))
 _add("manifest-p8h-pin", lambda f: _regraph(f, replace(f["manifest"], p8h_assessment_evidence_sha256=sha("other-p8h"))))
 
+# Upstream evidence substitution and verification downgrades.
 for name, key in (("p8c", "p8c"), ("p8f", "p8f"), ("p8h", "p8h")):
     _add(f"upstream-{name}-digest", lambda f, key=key: {**f, key: SimpleNamespace(**{**vars(f[key]), "assessment_evidence_sha256": sha(f"wrong-{key}")})})
     if key == "p8c":
@@ -82,6 +86,7 @@ for name, key in (("p8c", "p8c"), ("p8f", "p8f"), ("p8h", "p8h")):
         _add("upstream-p8h-verification", lambda f: {**f, "p8h": SimpleNamespace(**{**vars(f["p8h"]), "exact_state_transition_graph_binding_verified": False})})
         _add("upstream-p8h-caller-trust", lambda f: {**f, "p8h": SimpleNamespace(**{**vars(f["p8h"]), "caller_declared_state_safety_trusted": True})})
 
+# Coverage and ownership.
 _add("omit-workspace", lambda f: _regraph(f, replace(f["manifest"], workspaces=f["manifest"].workspaces[:-1])))
 _add("duplicate-workspace", lambda f: _regraph(f, replace(f["manifest"], workspaces=f["manifest"].workspaces + (f["manifest"].workspaces[0],))))
 _add("omit-artifact", lambda f: _regraph(f, replace(f["manifest"], artifacts=f["manifest"].artifacts[:-1])))
@@ -92,6 +97,7 @@ _add("untrusted-workspace-owner", lambda f: _workspace_variant(f, WORKSPACE_IDS[
 _add("untrusted-artifact-owner", lambda f: _artifact_variant(f, ARTIFACT_IDS[0], owner_id="attacker"))
 _add("untrusted-action-owner", lambda f: _action_variant(f, ACTION_IDS[0], owner_id="attacker"))
 
+# Workspace and artifact policy drift.
 _add("workspace-tenant-drift", lambda f: _workspace_variant(f, WORKSPACE_IDS[0], tenant_id="tenant-B"))
 _add("workspace-root-drift", lambda f: _workspace_variant(f, WORKSPACE_IDS[0], root_path="/tmp/attacker"))
 _add("workspace-write-prefix-drift", lambda f: _workspace_variant(f, WORKSPACE_IDS[0], allowed_write_prefixes=(".",)))
@@ -106,6 +112,7 @@ _add("artifact-executable-drift", lambda f: _artifact_variant(f, ARTIFACT_IDS[0]
 _add("artifact-symlink-escape", lambda f: _artifact_variant(f, ARTIFACT_IDS[0], symlink_target="../../../etc/passwd"))
 _add("artifact-hardlink-escape", lambda f: _artifact_variant(f, ARTIFACT_IDS[0], hardlink_target="../../../etc/passwd"))
 
+# Per-action path, tenant, base-state, provenance, and upstream safety variants.
 for action_id in ACTION_IDS:
     _add(f"{action_id}-path-traversal", lambda f, action_id=action_id: _action_variant(f, action_id, target_relative_path="../escape"))
     _add(f"{action_id}-absolute-path", lambda f, action_id=action_id: _action_variant(f, action_id, target_relative_path="/etc/passwd"))
@@ -114,6 +121,7 @@ for action_id in ACTION_IDS:
     _add(f"{action_id}-base-mismatch", lambda f, action_id=action_id: _action_variant(f, action_id, expected_base_sha256=sha("stale-base")))
     _add(f"{action_id}-actor-mismatch", lambda f, action_id=action_id: _action_variant(f, action_id, actor_agent_id="agent-attacker"))
 
+# Denied plan/state evidence for representative actions.
 for step_id in ("step-source", "step-deps", "step-ci", "step-archive", "step-release", "step-build"):
     def _deny_step(f, step_id=step_id):
         u = make_upstreams(denied_steps=frozenset({step_id}))
@@ -126,6 +134,7 @@ for transition_id in ("transition-source", "transition-deps", "transition-ci", "
         return {**f, **u}
     _add(f"deny-{transition_id}", _deny_transition)
 
+# Approval stripping on all sensitive actions.
 for action_id in (
     "artifact-action-deps",
     "artifact-action-lock",
@@ -137,6 +146,7 @@ for action_id in (
 ):
     _add(f"{action_id}-approval-stripped", lambda f, action_id=action_id: _action_variant(f, action_id, approval_action_id=None))
 
+# Link/archive/persistence-specific attacks.
 _add("action-symlink-escape", lambda f: _action_variant(f, "artifact-action-source", proposed_symlink_target="../../../etc/passwd"))
 _add("action-hardlink-escape", lambda f: _action_variant(f, "artifact-action-source", proposed_hardlink_target="../../../etc/passwd"))
 _add("archive-member-traversal", lambda f: _action_variant(f, "artifact-action-archive-extract", archive_members=(ArchiveMember("../../etc/passwd", ArchiveMemberType.FILE, 10),)))
