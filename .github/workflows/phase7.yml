@@ -34,3 +34,5 @@ jobs:
         run: python -m evals.p7c_data_exfiltration
       - name: P7-D secrets credential trust-root exposure evaluation
         run: python -m evals.p7d_secret_exposure_run
+      - name: P7-E external dependency service-egress trust-path evaluation
+        run: python -m evals.p7e_dependency_trust
