@@ -107,5 +107,28 @@ from .checkpoint_integrity_types import (
     VerifiedTrainingCheckpointAssessment,
     training_checkpoint_manifest_digest,
 )
+from .evaluation_governance_security import EvaluationBenchmarkGovernanceAnalyzer
+from .evaluation_governance_types import (
+    P9F_ASSESSMENT_MODE,
+    P9F_ASSESSMENT_SCHEMA_VERSION,
+    P9F_POLICY_VERSION,
+    P9F_SCHEMA_VERSION,
+    BenchmarkRecordEvidence,
+    BenchmarkSourceEvidence,
+    EvaluationBenchmarkManifest,
+    EvaluationBenchmarkPolicy,
+    EvaluationBenchmarkRequest,
+    EvaluationDecision,
+    EvaluationProtocolEvidence,
+    EvaluationRejectReason,
+    EvaluationResultEvidence,
+    EvaluationRisk,
+    EvaluationSecurityRejected,
+    VerifiedEvaluationBenchmarkAssessment,
+    benchmark_snapshot_digest,
+    evaluation_benchmark_manifest_digest,
+    evaluation_result_digest,
+    training_exposure_digest,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]

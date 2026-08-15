@@ -36,3 +36,5 @@ jobs:
         run: python -m evals.p9d_training_execution_provenance
       - name: P9-E checkpoint/resume integrity and rollback-safe lineage evaluation
         run: python -m evals.p9e_checkpoint_integrity
+      - name: P9-F evaluation leakage and benchmark-contamination governance evaluation
+        run: python -m evals.p9f_evaluation_governance
