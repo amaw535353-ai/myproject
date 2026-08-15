@@ -23,5 +23,27 @@ from .data_provenance_types import (
     training_dataset_manifest_digest,
     transform_evidence_digest,
 )
+from .data_poisoning_security import TrainingDataPoisoningAnalyzer
+from .data_poisoning_types import (
+    P9B_ASSESSMENT_MODE,
+    P9B_ASSESSMENT_SCHEMA_VERSION,
+    P9B_POLICY_VERSION,
+    P9B_SCHEMA_VERSION,
+    ContributorEvidence,
+    ContributorTrust,
+    LabelReviewEvidence,
+    PoisoningDecision,
+    PoisoningRejectReason,
+    PoisoningRisk,
+    ReviewDecision,
+    TrainingDataPoisoningRejected,
+    TrainingPoisoningManifest,
+    TrainingPoisoningPolicy,
+    TrainingPoisoningRequest,
+    TrainingRecordSecurityEvidence,
+    VerifiedTrainingPoisoningAssessment,
+    review_evidence_digest,
+    training_poisoning_manifest_digest,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
