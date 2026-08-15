@@ -11,6 +11,7 @@ FOCUSED={
 'p9f':('tests/security/test_p9f_evaluation_governance.py','evals.p9f_evaluation_governance'),
 'p9g':('tests/security/test_p9g_sensitive_data_governance.py','evals.p9g_sensitive_data_governance'),
 'p9h':('tests/security/test_p9h_model_promotion.py','evals.p9h_model_promotion'),
+'p9i':('tests/security/test_p9i_phase9_exit_gate.py','evals.p9i_phase9_exit_gate'),
 }
 def run(args): subprocess.run(args,cwd=ROOT,check=True)
 def main():
