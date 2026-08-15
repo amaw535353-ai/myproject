@@ -115,5 +115,25 @@ from .dependency_trust import (
     dependency_trust_manifest_digest,
     dependency_trust_path_identifier,
 )
+from .resilience_security import (
+    P7F_ASSESSMENT_MODE,
+    P7F_ASSESSMENT_SCHEMA_VERSION,
+    P7F_RESILIENCE_MANIFEST_SCHEMA_VERSION,
+    P7F_RESILIENCE_POLICY_VERSION,
+    DependencyFailureScenario,
+    DependencyFailureSecurityAnalyzer,
+    DependencyFailureState,
+    FailureScenarioSecurityFact,
+    FallbackMode,
+    FallbackStrategy,
+    ResilienceSecurityManifest,
+    ResilienceSecurityPolicy,
+    ResilienceSecurityRejectReason,
+    ResilienceSecurityRejected,
+    ResilienceSecurityRequest,
+    VerifiedResilienceSecurityAssessment,
+    canonical_resilience_security_manifest_bytes,
+    resilience_security_manifest_digest,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
