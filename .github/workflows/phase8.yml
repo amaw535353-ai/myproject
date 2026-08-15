@@ -42,3 +42,5 @@ jobs:
         run: python -m evals.p8g_agent_messages
       - name: P8-H agent state-machine concurrency race evaluation
         run: python -m evals.p8h_state_machine
+      - name: P8-I agent artifact workspace generated-code integrity evaluation
+        run: python -m evals.p8i_agent_artifacts
