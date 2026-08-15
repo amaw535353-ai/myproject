@@ -1,92 +1,80 @@
 # Phase 9 progress — secure AI training and dataset lifecycle
 
-Phase 9 moves AegisDesk into a breadth domain that earlier phases only touched indirectly: **training-data, fine-tuning, and ML training-pipeline security**. Phase 5 secured model artifacts and serving supply-chain boundaries after a model exists; Phase 9 begins earlier in the lifecycle by treating training data and training transformations as security-sensitive provenance.
+Phase 9 moves AegisDesk into training-data, fine-tuning, and ML training-pipeline security. Phase 5 secured model artifacts and serving supply-chain boundaries after a model exists; Phase 9 begins earlier in the lifecycle and treats data provenance, labeling, contributor trust, training execution, checkpointing, evaluation governance, and promotion as security-sensitive evidence.
 
 ## P9-A — training-dataset provenance, immutable snapshots, and holdout isolation
 
 Status: **implemented and deterministically exercised in an isolated P9-A harness; hosted runner execution remains an external infrastructure dependency**.
 
-P9-A adds `TrainingDatasetProvenanceAnalyzer`. The hardened path does not accept a dataset merely because a caller labels it curated or safe. It binds a training dataset to exact source snapshots, immutable record digests, source-record identities, split membership, preprocessing-transform provenance, and a deterministic final dataset digest.
+P9-A adds `TrainingDatasetProvenanceAnalyzer`. It binds exact source snapshots, record digests and source keys, train/validation/test membership, preprocessing-transform provenance, and the final dataset SHA-256. Its focused evidence remains: 21 tests passed, 157 adversarial cases, vulnerable ASR 157/157, hardened ASR 0/157, hardened FPR 0/4, SafeTaskRate 4/4.
 
-The canonical fixture contains:
+P9-A SHA-256 bindings are deterministic integrity evidence, not source authentication, and its earlier production non-claims remain unchanged.
 
-- **3** source snapshots;
-- **12** exact record identities;
-- **6 training / 3 validation / 3 test** records;
-- **3** deterministic preprocessing transforms; and
-- zero network operations in the modeled transform path.
+## P9-B — data poisoning, label integrity, and contributor/trust weighting
+
+Status: **implemented and deterministically exercised in an isolated API-compatible P9-B harness; hosted runner execution remains an external infrastructure dependency**.
+
+P9-B adds `TrainingDataPoisoningAnalyzer`. It consumes exact P9-A assessment evidence rather than rebuilding provenance. The hardened path binds the P9-A assessment digest and final dataset digest, requires intact P9-A provenance/split/transform facts, and then evaluates the training records selected for inclusion.
+
+The canonical fixture contains **8 training-record security records, 3 contributors, and 2 independent review records**. Two records come from a lower-trust reviewed contributor and therefore require payload-bound review evidence. Contributor weights, expected labels, record payload/source identity, anomaly thresholds, duplicate-cluster limits, poisoning-signal policy, and the final included-record set are policy owned.
 
 The hardened boundary enforces:
 
-- exact manifest, dataset ID, dataset version, schema, and SHA-256 binding;
-- trusted source-owner membership and owner-specific source URI prefixes;
-- immutable policy-pinned source revision and snapshot SHA-256 values;
-- source observation freshness relative to the manifest;
-- exact record coverage;
-- per-record payload SHA-256, source identity, source-record key, and parent-record binding;
-- exact split coverage and assignment;
-- duplicate/overlapping split denial;
-- explicit validation/test holdout isolation from the training split;
-- exact transform coverage/order;
-- policy-pinned transform kind, owner, and configuration SHA-256;
-- predecessor-transform hash continuity;
-- deterministic input/output dataset-digest chaining;
-- unexpected transform network-side-effect denial;
-- exact final dataset digest pinning; and
-- rejection of caller-declared source/count/split/final-digest/safety summaries that disagree with derived evidence.
+- exact P9-B manifest/dataset/schema/SHA-256 and freshness;
+- exact P9-A assessment SHA-256 and final-dataset SHA-256 binding;
+- intact upstream P9-A manifest/source/record/split/transform evidence and zero modeled network operations;
+- exact training-record coverage, payload digest, source identity, contributor identity, and expected label;
+- policy-owned contributor trust tier and trust weight;
+- contributor concentration limits;
+- minimum label-confidence thresholds;
+- anomaly-score and explicit poisoning-signal gates;
+- duplicate-cluster amplification limits;
+- trusted independent review below the policy-owned contributor-weight threshold;
+- exact review record/payload/label/evidence-hash binding;
+- rejection of conflicting/rejecting reviews;
+- deterministic quarantine requirements and unnecessary-quarantine detection;
+- exact derivation of the final included-record set; and
+- rejection of caller-declared inclusion/quarantine/risk/safety/label-integrity summaries that disagree with derived evidence.
 
-The matched vulnerable baseline `VulnerableCallerDeclaredTrainingDataTrust` accepts caller assertions that training data is safe and provenance-complete.
+The matched vulnerable baseline `VulnerableCallerDeclaredTrainingDataSafety` trusts caller-declared training-data safety and label-integrity booleans.
 
 ### Focused deterministic evidence
 
-The exact isolated P9-A implementation/evaluator/test files pass:
+An isolated API-compatible harness executed the exact P9-B implementation/evaluator/test files against a P9-A assessment interface matching the repository dataclass:
 
-- tests: **21 passed**;
-- adversarial cases: **157**;
-- vulnerable ASR: **157/157**;
-- hardened ASR: **0/157**;
+- tests: **19 passed**;
+- adversarial cases: **112**;
+- vulnerable ASR: **112/112**;
+- hardened ASR: **0/112**;
 - hardened FPR: **0/4**;
 - SafeTaskRate: **4/4**;
-- training dataset manifest SHA-256: `5583a2a7bcebb464e1b305db178d57c7b6f74c706977701c8a1971fa62604eb6`;
-- adversarial dataset SHA-256: `2d1123262971c1eb32cf9b7eb84a4ae241acac8c2a3a1340ff88ca47b45c2116`;
-- fixture/evaluator SHA-256: `1fd9de08c533e8569c3d8265c261bab3a2f9a1a9c72f0ca1b4f264b5f58269ec`;
-- clean assessment SHA-256: `b47663cd718ebe3493d2a0985301403a8925628b8d49a384b9d098f1822632c9`.
+- P9-B manifest SHA-256: `11277f13642c4302973f479b2ebf9c8e228058e88e638f8e33d131ce9532eabb`;
+- adversarial dataset SHA-256: `4523cbe3e021d10ff14f4f3bd67a103cdbab5311260e8147c25e2ce84c082340`;
+- fixture/assessment evidence SHA-256: `6f1141de704927d761c4d39ff019d719d5615a68555d2adda1e3c56c38f7d7b9`;
+- clean assessment SHA-256: `084afbd8c147ba60a414fee1bf0c32bf0c9cfcb6f4178ab237fb3a4b3483b193`.
 
-This is focused local P9-A execution. It is **not** a claim that full-repository pytest, GitHub-hosted Actions, a production data lake, a production trainer, or a production MLOps control plane executed successfully in the same run.
+This is focused P9-B evidence, not a full-repository pytest claim. `scripts/verify_phase9.py --focused-p9b` is the explicit focused local path. The default script path remains reserved for a real full local repository execution.
 
-### Verification-state discipline
+### Hosted CI boundary
 
-`scripts/verify_phase9.py --focused-p9a` provides a reproducible focused local path and emits `LOCAL_FOCUSED_PASS` only after the P9-A tests and evaluator execute successfully. The default `scripts/verify_phase9.py` path is reserved for a real full local repository test execution and should not be reported as passed unless it actually runs.
-
-Hosted CI remains separate evidence. A GitHub job that is created but executes zero steps because a runner is not provisioned is recorded as infrastructure-blocked, not as a security-test failure and not as a CI pass.
+`.github/workflows/phase9.yml` now runs full `pytest`, P9-A, and P9-B when a GitHub-hosted runner is actually provisioned. A GitHub job with zero executed steps remains classified as infrastructure-blocked rather than a security-test failure or a hosted CI pass.
 
 ### Claim boundary
 
-P9-A SHA-256 bindings are deterministic integrity evidence in the lab; they are **not source authentication**. P9-A does not claim:
-
-- cryptographic source signatures or transparency-log inclusion;
-- production data-lake/object-store integration;
-- production dataset access-control enforcement;
-- production training-job attestation;
-- semantic poisoning/backdoor detection;
-- privacy/PII/consent/license compliance;
-- benchmark-contamination detection beyond exact modeled split membership;
-- proof that preprocessing code actually produced the declared output bytes;
-- distributed append-only lineage storage;
-- trusted timestamps; or
-- formal end-to-end training-pipeline verification.
+P9-B does **not** claim semantic poisoning or backdoor detection, production data-quality/labeling-platform integration, cryptographically authenticated human review, Byzantine-resilient contributor reputation, statistically robust poisoning detection, training-time influence analysis, causal poisoning attribution, or proof that a trained model is safe. Synthetic anomaly/signal values are deterministic control inputs, not validated detector outputs.
 
 No runtime dependency is added.
 
 ## Phase 9 roadmap
 
-P9-A establishes the provenance substrate. Later milestones should broaden training security rather than overload P9-A:
-
-- **P9-B:** data poisoning, label integrity, and contributor/trust weighting;
-- **P9-C:** fine-tuning/LoRA/adapter authorization and base-model binding;
-- **P9-D:** training-job identity, code/config/environment provenance, and secret/capability boundaries;
-- **P9-E:** training checkpoint/resume integrity and rollback-safe lineage;
-- **P9-F:** evaluation-set leakage and benchmark-contamination governance;
-- **P9-G:** sensitive-data/PII/canary governance for training inputs and outputs;
-- **P9-H:** training-to-model-registry promotion evidence binding into Phase 5 provenance; and
+- **P9-A:** dataset provenance and holdout isolation — complete for current synthetic scope.
+- **P9-B:** data poisoning, label integrity, and contributor/trust weighting — complete for current synthetic scope.
+- **P9-C:** fine-tuning/LoRA/adapter authorization and base-model binding.
+- **P9-D:** training-job identity, code/config/environment provenance, and secret/capability boundaries.
+- **P9-E:** training checkpoint/resume integrity and rollback-safe lineage.
+- **P9-F:** evaluation-set leakage and benchmark-contamination governance.
+- **P9-G:** sensitive-data/PII/canary governance for training inputs and outputs.
+- **P9-H:** training-to-model-registry promotion evidence binding into Phase 5 provenance.
 - **P9-I:** integrated training compromise exercise and machine-readable Phase 9 exit gate.
+
+The next milestone is **P9-C**, using exact P9-A/P9-B evidence to secure fine-tune/LoRA/adapter authorization, base-model identity, permitted training targets, and adapter-to-base compatibility without claiming a real trainer or GPU runtime.
