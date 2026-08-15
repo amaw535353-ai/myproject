@@ -38,3 +38,5 @@ jobs:
         run: python -m evals.p9e_checkpoint_integrity
       - name: P9-F evaluation leakage and benchmark-contamination governance evaluation
         run: python -m evals.p9f_evaluation_governance
+      - name: P9-G sensitive-data, PII, secret, and canary governance evaluation
+        run: python -m evals.p9g_sensitive_data_governance
