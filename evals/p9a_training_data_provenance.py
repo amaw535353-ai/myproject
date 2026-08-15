@@ -14,6 +14,7 @@ from aegis.training import (
     TrainingDatasetProvenanceAnalyzer,
     TransformKind,
     deterministic_transform_output_digest,
+    training_dataset_manifest_digest,
 )
 from aegis.vulnerable.training_data_provenance import VulnerableCallerDeclaredTrainingDataTrust
 from evals.p9a_fixture import (
@@ -105,6 +106,7 @@ def _drop_from_split(record_id: str) -> Attack:
 def _build_cases() -> list[tuple[str, Attack]]:
     cases: list[tuple[str, Attack]] = []
 
+    # Outer evidence/request binding and freshness.
     def manifest_unsealed(f: Fixture) -> Fixture:
         out = dict(f)
         out["manifest"] = replace(f["manifest"], created_at_epoch=NOW - 1)
@@ -130,6 +132,7 @@ def _build_cases() -> list[tuple[str, Attack]]:
         ]
     )
 
+    # Source substitution, trust, URI, freshness and coverage.
     for i, source_id in enumerate(SOURCE_IDS):
         cases.extend(
             [
@@ -162,6 +165,7 @@ def _build_cases() -> list[tuple[str, Attack]]:
         return rebind_manifest(f, replace(manifest, source_snapshots=manifest.source_snapshots + (extra,)))
     cases.append(("source-extra-unknown", add_unknown_source))
 
+    # Per-record immutable identity, source/key binding and ancestry.
     for i, record_id in enumerate(RECORD_IDS):
         current_source = "src-helpdesk" if i < 4 else ("src-security" if i < 8 else "src-synthetic")
         other_source = next(source_id for source_id in SOURCE_IDS if source_id != current_source)
@@ -192,6 +196,7 @@ def _build_cases() -> list[tuple[str, Attack]]:
         return rebind_manifest(f, replace(manifest, records=manifest.records + (extra,)))
     cases.append(("record-coverage-extra", add_record))
 
+    # Exact split assignment, complete coverage and holdout isolation.
     expected_split = {}
     for rid in TRAIN_IDS:
         expected_split[rid] = DatasetSplit.TRAIN
@@ -210,6 +215,7 @@ def _build_cases() -> list[tuple[str, Attack]]:
     for record_id in VALIDATION_IDS + TEST_IDS:
         cases.append((f"holdout-overlap-train-{record_id}", _overlap_into_train(record_id)))
 
+    # Transform provenance and deterministic chain.
     for i, transform_id in enumerate(("transform-normalize", "transform-dedupe", "transform-canonicalize")):
         alternate_kind = TransformKind.CANONICALIZE_FIELDS if i != 2 else TransformKind.NORMALIZE_TEXT
         cases.extend(
@@ -264,6 +270,7 @@ def _build_cases() -> list[tuple[str, Attack]]:
         return rebind_manifest(f, replace(manifest, final_dataset_sha256=h("substituted-final-dataset")))
     cases.append(("final-dataset-digest", final_digest_attack))
 
+    # Malformed schema and duplicate structural identities.
     def wrong_schema(f: Fixture) -> Fixture:
         manifest = replace(f["manifest"], schema_version="caller-schema-v0")
         return rebind_manifest(f, manifest)
@@ -290,6 +297,7 @@ def _build_cases() -> list[tuple[str, Attack]]:
         return rebind_manifest(f, replace(manifest, records=tuple(records)))
     cases.append(("manifest-duplicate-source-record-key", duplicate_source_key))
 
+    # Trust-policy drift cases: policy stays trusted input, but weakening a required pin changes derived safety.
     for owner in ("curated-helpdesk", "security-curation", "aegis-synthetic"):
         def remove_owner(f: Fixture, current=owner) -> Fixture:
             out = dict(f)
@@ -298,6 +306,7 @@ def _build_cases() -> list[tuple[str, Attack]]:
             return out
         cases.append((f"policy-remove-trusted-owner-{owner}", remove_owner))
 
+    # Keep a stable, intentional corpus size so evidence drift is visible.
     return cases
 
 
