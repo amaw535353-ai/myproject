@@ -20,6 +20,10 @@ FOCUSED = {
         "tests/security/test_p10c_cache_lifecycle.py",
         "evals.p10c_cache_lifecycle",
     ),
+    "p10d": (
+        "tests/security/test_p10d_speculative_serving.py",
+        "evals.p10d_speculative_serving",
+    ),
 }
 
 
