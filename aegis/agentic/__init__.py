@@ -197,5 +197,31 @@ from .state_machine_security import (
     agent_state_transition_manifest_digest,
     canonical_agent_state_transition_manifest_bytes,
 )
+from .artifact_security import (
+    P8I_ARTIFACT_POLICY_VERSION,
+    P8I_ARTIFACT_SCHEMA_VERSION,
+    P8I_ASSESSMENT_MODE,
+    P8I_ASSESSMENT_SCHEMA_VERSION,
+    AgentArtifactManifest,
+    AgentArtifactPolicy,
+    AgentArtifactRequest,
+    AgentArtifactSecurityRejected,
+    AgentArtifactWorkspaceSecurityAnalyzer,
+    ArchiveMember,
+    ArchiveMemberType,
+    ArtifactAction,
+    ArtifactActionFact,
+    ArtifactDecision,
+    ArtifactKind,
+    ArtifactOperation,
+    ArtifactRejectReason,
+    ArtifactRisk,
+    ArtifactTrust,
+    VerifiedAgentArtifactAssessment,
+    WorkspaceArtifact,
+    WorkspaceRoot,
+    agent_artifact_manifest_digest,
+    canonical_agent_artifact_manifest_bytes,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
