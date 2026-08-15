@@ -34,3 +34,5 @@ jobs:
         run: python -m evals.p8c_goal_plan_integrity
       - name: P8-D agent tool observation environment-integrity evaluation
         run: python -m evals.p8d_tool_observation_integrity
+      - name: P8-E agent execution budget runaway-resource evaluation
+        run: python -m evals.p8e_execution_budget
