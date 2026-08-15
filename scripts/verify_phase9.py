@@ -12,6 +12,7 @@ def main()->int:
     group.add_argument('--focused-p9c',action='store_true',help='Run only P9-C security tests/evaluator.')
     group.add_argument('--focused-p9d',action='store_true',help='Run only P9-D security tests/evaluator.')
     group.add_argument('--focused-p9e',action='store_true',help='Run only P9-E security tests/evaluator.')
+    group.add_argument('--focused-p9f',action='store_true',help='Run only P9-F security tests/evaluator.')
     args=parser.parse_args()
     if args.focused_p9a:
         run_command([sys.executable,'-m','pytest','-q','tests/security/test_p9a_training_data_provenance.py'])
@@ -33,6 +34,10 @@ def main()->int:
         run_command([sys.executable,'-m','pytest','-q','tests/security/test_p9e_checkpoint_integrity.py'])
         run_command([sys.executable,'-m','evals.p9e_checkpoint_integrity'])
         scope='p9e_checkpoint_integrity'; status='LOCAL_FOCUSED_PASS'
+    elif args.focused_p9f:
+        run_command([sys.executable,'-m','pytest','-q','tests/security/test_p9f_evaluation_governance.py'])
+        run_command([sys.executable,'-m','evals.p9f_evaluation_governance'])
+        scope='p9f_evaluation_governance'; status='LOCAL_FOCUSED_PASS'
     else:
         run_command([sys.executable,'-m','pytest'])
         run_command([sys.executable,'-m','evals.p9a_training_data_provenance'])
@@ -40,6 +45,7 @@ def main()->int:
         run_command([sys.executable,'-m','evals.p9c_fine_tuning_admission'])
         run_command([sys.executable,'-m','evals.p9d_training_execution_provenance'])
         run_command([sys.executable,'-m','evals.p9e_checkpoint_integrity'])
+        run_command([sys.executable,'-m','evals.p9f_evaluation_governance'])
         scope='phase9_repository'; status='LOCAL_FULL_PASS'
     print(json.dumps({'phase':'P9','scope':scope,'verification_status':status,'hosted_ci_execution_verified':False,'production_validation_claimed':False},sort_keys=True))
     return 0
