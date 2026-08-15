@@ -91,5 +91,29 @@ from .secrets_exposure import (
     secret_exposure_manifest_digest,
     secret_exposure_path_identifier,
 )
+from .dependency_trust import (
+    P7E_ASSESSMENT_MODE,
+    P7E_ASSESSMENT_SCHEMA_VERSION,
+    P7E_DEPENDENCY_MANIFEST_SCHEMA_VERSION,
+    P7E_DEPENDENCY_POLICY_VERSION,
+    AuthenticationMode,
+    DependencyCriticality,
+    DependencyTrustManifest,
+    DependencyTrustPolicy,
+    DependencyTrustRejectReason,
+    DependencyTrustRejected,
+    DependencyTrustRequest,
+    DependencyType,
+    EgressDataClass,
+    ExternalDependency,
+    ExternalDependencyTrustAnalyzer,
+    ServiceEgressRoute,
+    ThirdPartyTrustPathFact,
+    TransportMode,
+    VerifiedDependencyTrustAssessment,
+    canonical_dependency_trust_manifest_bytes,
+    dependency_trust_manifest_digest,
+    dependency_trust_path_identifier,
+)
 
 __all__ = [name for name in globals() if not name.startswith("_")]
