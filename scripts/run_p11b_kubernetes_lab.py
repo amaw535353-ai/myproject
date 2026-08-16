@@ -5,7 +5,6 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
-import sys
 import tempfile
 import time
 
@@ -24,28 +23,52 @@ def kubectl(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
     return subprocess.run(["kubectl", *args], cwd=ROOT, check=check, text=True, capture_output=True)
 
 
-def auth_can_i(verb: str, resource: str, namespace: str, sa: str, resource_name: str | None = None) -> bool:
-    args = ["auth", "can-i", verb, resource, "--as", f"system:serviceaccount:{namespace}:{sa}"]
+def auth_can_i(
+    verb: str,
+    resource: str,
+    subject_namespace: str,
+    sa: str,
+    target_namespace: str | None = None,
+    resource_name: str | None = None,
+) -> bool:
+    args = [
+        "auth",
+        "can-i",
+        verb,
+        resource,
+        "--as",
+        f"system:serviceaccount:{subject_namespace}:{sa}",
+    ]
     if resource_name:
         args.extend(["--resource-name", resource_name])
-    if namespace:
-        args.extend(["-n", namespace])
+    if target_namespace:
+        args.extend(["-n", target_namespace])
     return kubectl(*args).stdout.strip().lower() == "yes"
 
 
-def server_dry_run_rejected(namespace: str, name: str, spec: dict) -> bool:
+def server_dry_run_rejected(
+    namespace: str,
+    name: str,
+    *,
+    container_overrides: dict | None = None,
+    pod_overrides: dict | None = None,
+) -> bool:
+    container = {
+        "name": "probe",
+        "image": "registry.k8s.io/pause:3.10",
+    }
+    container.update(container_overrides or {})
+    pod_spec = {
+        "restartPolicy": "Never",
+        "containers": [container],
+    }
+    pod_spec.update(pod_overrides or {})
     doc = {
         "apiVersion": "v1",
         "kind": "Pod",
         "metadata": {"name": name, "namespace": namespace},
-        "spec": {"restartPolicy": "Never", "containers": [{"name": "probe", "image": "registry.k8s.io/pause:3.10", **spec}]},
+        "spec": pod_spec,
     }
-    if "hostNetwork" in spec:
-        doc["spec"]["hostNetwork"] = spec.pop("hostNetwork")
-    if "hostPID" in spec:
-        doc["spec"]["hostPID"] = spec.pop("hostPID")
-    if "volumes" in spec:
-        doc["spec"]["volumes"] = spec.pop("volumes")
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
         json.dump(doc, f)
         path = f.name
@@ -89,13 +112,27 @@ def load_runtime(path: Path) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="P11-B live Kubernetes enforcement mastery gate")
-    parser.add_argument("--runtime-evidence", type=Path, required=True, help="JSON produced by the live network/token/containment exercise")
+    parser.add_argument(
+        "--runtime-evidence",
+        type=Path,
+        required=True,
+        help="JSON produced by the live network/token/containment exercise",
+    )
     parser.add_argument("--namespace", default=DEFAULT_NAMESPACE)
     parser.add_argument("--service-account", default=DEFAULT_SA)
     args = parser.parse_args()
 
     if shutil.which("kubectl") is None:
-        print(json.dumps({"phase": "P11-B", "status": "LIVE_KUBERNETES_UNAVAILABLE", "live_kubernetes_cluster_validated": False}, sort_keys=True))
+        print(
+            json.dumps(
+                {
+                    "phase": "P11-B",
+                    "status": "LIVE_KUBERNETES_UNAVAILABLE",
+                    "live_kubernetes_cluster_validated": False,
+                },
+                sort_keys=True,
+            )
+        )
         return 2
 
     runtime = load_runtime(args.runtime_evidence)
@@ -113,17 +150,66 @@ def main() -> int:
         namespace=args.namespace,
         service_account=args.service_account,
         psa_enforce_level=psa,
-        admission_rejected_privileged=server_dry_run_rejected(args.namespace, "p11b-privileged", {"securityContext": {"privileged": True}}),
-        admission_rejected_host_namespaces=server_dry_run_rejected(args.namespace, "p11b-hostns", {"hostNetwork": True, "hostPID": True}),
-        admission_rejected_host_path=server_dry_run_rejected(args.namespace, "p11b-hostpath", {"volumeMounts": [{"name": "host", "mountPath": "/host"}], "volumes": [{"name": "host", "hostPath": {"path": "/"}}]}),
-        admission_rejected_added_capabilities=server_dry_run_rejected(args.namespace, "p11b-cap", {"securityContext": {"capabilities": {"add": ["NET_ADMIN"]}}}),
-        admission_rejected_privilege_escalation=server_dry_run_rejected(args.namespace, "p11b-pe", {"securityContext": {"allowPrivilegeEscalation": True}}),
-        intended_configmap_get_allowed=auth_can_i("get", "configmaps", args.namespace, args.service_account, "aegisdesk-runtime-config"),
-        secret_list_denied=not auth_can_i("list", "secrets", args.namespace, args.service_account),
-        pod_create_denied=not auth_can_i("create", "pods", args.namespace, args.service_account),
-        rolebinding_create_denied=not auth_can_i("create", "rolebindings.rbac.authorization.k8s.io", args.namespace, args.service_account),
-        clusterrolebinding_create_denied=not auth_can_i("create", "clusterrolebindings.rbac.authorization.k8s.io", "", args.service_account),
-        cross_namespace_secret_get_denied=not auth_can_i("get", "secrets", "default", args.service_account),
+        admission_rejected_privileged=server_dry_run_rejected(
+            args.namespace,
+            "p11b-privileged",
+            container_overrides={"securityContext": {"privileged": True}},
+        ),
+        admission_rejected_host_namespaces=server_dry_run_rejected(
+            args.namespace,
+            "p11b-hostns",
+            pod_overrides={"hostNetwork": True, "hostPID": True},
+        ),
+        admission_rejected_host_path=server_dry_run_rejected(
+            args.namespace,
+            "p11b-hostpath",
+            container_overrides={"volumeMounts": [{"name": "host", "mountPath": "/host"}]},
+            pod_overrides={"volumes": [{"name": "host", "hostPath": {"path": "/"}}]},
+        ),
+        admission_rejected_added_capabilities=server_dry_run_rejected(
+            args.namespace,
+            "p11b-cap",
+            container_overrides={"securityContext": {"capabilities": {"add": ["NET_ADMIN"]}}},
+        ),
+        admission_rejected_privilege_escalation=server_dry_run_rejected(
+            args.namespace,
+            "p11b-pe",
+            container_overrides={"securityContext": {"allowPrivilegeEscalation": True}},
+        ),
+        intended_configmap_get_allowed=auth_can_i(
+            "get",
+            "configmaps",
+            args.namespace,
+            args.service_account,
+            target_namespace=args.namespace,
+            resource_name="aegisdesk-runtime-config",
+        ),
+        secret_list_denied=not auth_can_i(
+            "list", "secrets", args.namespace, args.service_account, target_namespace=args.namespace
+        ),
+        pod_create_denied=not auth_can_i(
+            "create", "pods", args.namespace, args.service_account, target_namespace=args.namespace
+        ),
+        rolebinding_create_denied=not auth_can_i(
+            "create",
+            "rolebindings.rbac.authorization.k8s.io",
+            args.namespace,
+            args.service_account,
+            target_namespace=args.namespace,
+        ),
+        clusterrolebinding_create_denied=not auth_can_i(
+            "create",
+            "clusterrolebindings.rbac.authorization.k8s.io",
+            args.namespace,
+            args.service_account,
+        ),
+        cross_namespace_secret_get_denied=not auth_can_i(
+            "get",
+            "secrets",
+            args.namespace,
+            args.service_account,
+            target_namespace="default",
+        ),
         automount_service_account_token_disabled=bool(runtime["automount_service_account_token_disabled"]),
         projected_token_used=bool(runtime["projected_token_used"]),
         token_audience=str(runtime["token_audience"]),
