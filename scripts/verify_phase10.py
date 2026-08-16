@@ -36,6 +36,10 @@ FOCUSED = {
         "tests/security/test_p10g_streaming_security.py",
         "evals.p10g_streaming_security",
     ),
+    "p10h": (
+        "tests/security/test_p10h_replica_routing.py",
+        "evals.p10h_replica_routing",
+    ),
 }
 
 
@@ -52,6 +56,10 @@ def run_p10g_loopback() -> None:
             "/tmp/p10g-loopback-report.json",
         ]
     )
+
+
+def run_p10h_replica_lab() -> None:
+    run([sys.executable, "scripts/run_p10h_replica_lab.py"])
 
 
 def main() -> int:
@@ -73,6 +81,8 @@ def main() -> int:
         run([sys.executable, "-m", evaluator])
         if selected == "p10g":
             run_p10g_loopback()
+        if selected == "p10h":
+            run_p10h_replica_lab()
         scope = f"{selected}_focused"
         status = "LOCAL_FOCUSED_PASS"
     else:
@@ -80,6 +90,7 @@ def main() -> int:
         for _, evaluator in FOCUSED.values():
             run([sys.executable, "-m", evaluator])
         run_p10g_loopback()
+        run_p10h_replica_lab()
         scope = "phase10_repository"
         status = "LOCAL_FULL_PASS"
     print(
