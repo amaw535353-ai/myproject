@@ -1,3 +1,4 @@
+from .kubernetes_enforcement import *
 from .workload_security import PlatformWorkloadSecurityAnalyzer
 from .workload_security_types import *
 
