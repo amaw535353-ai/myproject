@@ -14,5 +14,7 @@ from .streaming_security import InferenceStreamingSecurityAnalyzer
 from .streaming_security_types import *
 from .replica_routing_security import InferenceReplicaRoutingAnalyzer
 from .replica_routing_types import *
+from .incident_response_security import InferenceIncidentResponseAnalyzer
+from .incident_response_types import *
 
 __all__ = [name for name in globals() if not name.startswith("_")]

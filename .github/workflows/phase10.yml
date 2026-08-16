@@ -48,3 +48,9 @@ jobs:
         run: python -m evals.p10h_replica_routing
       - name: P10-H real localhost multi-process replica failover lab
         run: python scripts/run_p10h_replica_lab.py
+      - name: P10-I incident detection, containment, recovery, forensics, and exit-gate evaluation
+        run: python -m evals.p10i_incident_response
+      - name: P10-I real localhost compromise and recovery lab
+        run: python scripts/run_p10i_ir_lab.py --output /tmp/p10i-ir-report.json
+      - name: P10-I machine-readable Phase 10 exit gate
+        run: python scripts/emit_p10i_exit_gate.py --output /tmp/p10i-exit-gate.json
