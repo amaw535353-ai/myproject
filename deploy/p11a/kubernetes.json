@@ -1,0 +1,373 @@
+{
+  "apiVersion": "v1",
+  "items": [
+    {
+      "apiVersion": "v1",
+      "kind": "Namespace",
+      "metadata": {
+        "labels": {
+          "aegisdesk.io/tenant": "acme",
+          "pod-security.kubernetes.io/audit": "restricted",
+          "pod-security.kubernetes.io/enforce": "restricted",
+          "pod-security.kubernetes.io/warn": "restricted"
+        },
+        "name": "tenant-acme-inference"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "automountServiceAccountToken": false,
+      "kind": "ServiceAccount",
+      "metadata": {
+        "name": "aegisdesk-inference",
+        "namespace": "tenant-acme-inference"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "data": {
+        "MODE": "hardened",
+        "TENANT": "acme"
+      },
+      "kind": "ConfigMap",
+      "metadata": {
+        "name": "aegisdesk-runtime-config",
+        "namespace": "tenant-acme-inference"
+      }
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "Role",
+      "metadata": {
+        "name": "aegisdesk-runtime-config-reader",
+        "namespace": "tenant-acme-inference"
+      },
+      "rules": [
+        {
+          "apiGroups": [
+            ""
+          ],
+          "resourceNames": [
+            "aegisdesk-runtime-config"
+          ],
+          "resources": [
+            "configmaps"
+          ],
+          "verbs": [
+            "get"
+          ]
+        }
+      ]
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "RoleBinding",
+      "metadata": {
+        "name": "rbac-runtime-config-reader",
+        "namespace": "tenant-acme-inference"
+      },
+      "roleRef": {
+        "apiGroup": "rbac.authorization.k8s.io",
+        "kind": "Role",
+        "name": "aegisdesk-runtime-config-reader"
+      },
+      "subjects": [
+        {
+          "kind": "ServiceAccount",
+          "name": "aegisdesk-inference",
+          "namespace": "tenant-acme-inference"
+        }
+      ]
+    },
+    {
+      "apiVersion": "networking.k8s.io/v1",
+      "kind": "NetworkPolicy",
+      "metadata": {
+        "name": "netpol-inference-acme",
+        "namespace": "tenant-acme-inference"
+      },
+      "spec": {
+        "egress": [
+          {
+            "ports": [
+              {
+                "port": 53,
+                "protocol": "UDP"
+              },
+              {
+                "port": 53,
+                "protocol": "TCP"
+              }
+            ],
+            "to": [
+              {
+                "namespaceSelector": {
+                  "matchLabels": {
+                    "kubernetes.io/metadata.name": "kube-system"
+                  }
+                },
+                "podSelector": {
+                  "matchLabels": {
+                    "k8s-app": "kube-dns"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "ports": [
+              {
+                "port": 443,
+                "protocol": "TCP"
+              }
+            ],
+            "to": [
+              {
+                "podSelector": {
+                  "matchLabels": {
+                    "aegisdesk.io/role": "policy-enforcer"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "ports": [
+              {
+                "port": 6333,
+                "protocol": "TCP"
+              }
+            ],
+            "to": [
+              {
+                "podSelector": {
+                  "matchLabels": {
+                    "aegisdesk.io/role": "qdrant"
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "ingress": [
+          {
+            "from": [
+              {
+                "namespaceSelector": {
+                  "matchLabels": {
+                    "aegisdesk.io/system": "routing"
+                  }
+                },
+                "podSelector": {
+                  "matchLabels": {
+                    "aegisdesk.io/role": "router"
+                  }
+                }
+              }
+            ],
+            "ports": [
+              {
+                "port": 8000,
+                "protocol": "TCP"
+              }
+            ]
+          }
+        ],
+        "podSelector": {
+          "matchLabels": {
+            "aegisdesk.io/workload-id": "inference-workload-acme-001"
+          }
+        },
+        "policyTypes": [
+          "Ingress",
+          "Egress"
+        ]
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "name": "aegisdesk-inference",
+        "namespace": "tenant-acme-inference"
+      },
+      "spec": {
+        "replicas": 2,
+        "selector": {
+          "matchLabels": {
+            "aegisdesk.io/workload-id": "inference-workload-acme-001"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "aegisdesk.io/tenant": "acme",
+              "aegisdesk.io/workload-id": "inference-workload-acme-001",
+              "app.kubernetes.io/name": "aegisdesk-inference"
+            }
+          },
+          "spec": {
+            "automountServiceAccountToken": false,
+            "containers": [
+              {
+                "image": "registry.example/aegisdesk/inference@sha256:f6cca202ed66e3886e5d9bae3923f249136309a2a8a69759470a167c9bac8f32",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "inference",
+                "ports": [
+                  {
+                    "containerPort": 8000,
+                    "name": "http",
+                    "protocol": "TCP"
+                  }
+                ],
+                "resources": {
+                  "limits": {
+                    "cpu": "2",
+                    "memory": "2Gi"
+                  },
+                  "requests": {
+                    "cpu": "250m",
+                    "memory": "512Mi"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "appArmorProfile": {
+                    "type": "RuntimeDefault"
+                  },
+                  "capabilities": {
+                    "add": [],
+                    "drop": [
+                      "ALL"
+                    ]
+                  },
+                  "privileged": false,
+                  "readOnlyRootFilesystem": true,
+                  "runAsGroup": 20001,
+                  "runAsNonRoot": true,
+                  "runAsUser": 20001,
+                  "seccompProfile": {
+                    "type": "RuntimeDefault"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/tmp",
+                    "name": "tmp"
+                  },
+                  {
+                    "mountPath": "/var/run/aegisdesk",
+                    "name": "runtime"
+                  },
+                  {
+                    "mountPath": "/var/run/secrets/model-registry",
+                    "name": "model-registry-token",
+                    "readOnly": true
+                  },
+                  {
+                    "mountPath": "/var/run/secrets/workload-identity",
+                    "name": "workload-identity-token",
+                    "readOnly": true
+                  }
+                ]
+              },
+              {
+                "image": "registry.example/aegisdesk/policy-sidecar@sha256:db5c6ebbe030f8a9de3e97d9fb403b14462946811973ba17ec78cfb2c48b16c6",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "policy-sidecar",
+                "resources": {
+                  "limits": {
+                    "cpu": "250m",
+                    "memory": "256Mi"
+                  },
+                  "requests": {
+                    "cpu": "50m",
+                    "memory": "64Mi"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "appArmorProfile": {
+                    "type": "RuntimeDefault"
+                  },
+                  "capabilities": {
+                    "add": [],
+                    "drop": [
+                      "ALL"
+                    ]
+                  },
+                  "privileged": false,
+                  "readOnlyRootFilesystem": true,
+                  "runAsGroup": 20001,
+                  "runAsNonRoot": true,
+                  "runAsUser": 20001,
+                  "seccompProfile": {
+                    "type": "RuntimeDefault"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/tmp",
+                    "name": "tmp"
+                  }
+                ]
+              }
+            ],
+            "enableServiceLinks": false,
+            "securityContext": {
+              "fsGroup": 20001,
+              "fsGroupChangePolicy": "OnRootMismatch",
+              "runAsGroup": 20001,
+              "runAsNonRoot": true,
+              "runAsUser": 20001,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "serviceAccountName": "aegisdesk-inference",
+            "shareProcessNamespace": false,
+            "terminationGracePeriodSeconds": 20,
+            "volumes": [
+              {
+                "emptyDir": {
+                  "sizeLimit": "64Mi"
+                },
+                "name": "tmp"
+              },
+              {
+                "emptyDir": {
+                  "medium": "Memory",
+                  "sizeLimit": "32Mi"
+                },
+                "name": "runtime"
+              },
+              {
+                "name": "model-registry-token",
+                "secret": {
+                  "defaultMode": 288,
+                  "secretName": "aegisdesk-model-registry-token"
+                }
+              },
+              {
+                "name": "workload-identity-token",
+                "projected": {
+                  "defaultMode": 288,
+                  "sources": [
+                    {
+                      "serviceAccountToken": {
+                        "audience": "aegisdesk-inference-runtime",
+                        "expirationSeconds": 300,
+                        "path": "token"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "kind": "List"
+}
