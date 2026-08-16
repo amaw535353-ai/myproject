@@ -32,3 +32,7 @@ jobs:
         run: python scripts/check_p11a_k8s_manifests.py
       - name: P11-A real Linux least-privilege workload isolation lab
         run: python scripts/run_p11a_linux_sandbox_lab.py
+      - name: P11-B Kubernetes enforcement deterministic evaluation
+        run: python -m evals.p11b_kubernetes_enforcement
+      - name: P11-B live-harness compile validation
+        run: python -m compileall -q aegis/platform/kubernetes_enforcement.py scripts/run_p11b_kubernetes_lab.py
