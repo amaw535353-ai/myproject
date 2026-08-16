@@ -44,3 +44,7 @@ jobs:
         run: python -m evals.p10g_streaming_security
       - name: P10-G real loopback streaming runtime lab
         run: python scripts/run_p10g_streaming_lab.py --output /tmp/p10g-loopback-report.json
+      - name: P10-H replica autoscaling, failover, routing consistency, and lineage evaluation
+        run: python -m evals.p10h_replica_routing
+      - name: P10-H real localhost multi-process replica failover lab
+        run: python scripts/run_p10h_replica_lab.py
