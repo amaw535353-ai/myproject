@@ -38,3 +38,5 @@ jobs:
         run: python -m pytest -q tests/security/test_p11b_kubernetes_security.py
       - name: P11-C provider-neutral cloud security contract
         run: python -m pytest -q tests/security/test_p11c_cloud_security.py && python -m evals.p11c_cloud_security
+      - name: P11-D deployed serving security contract
+        run: python -m pytest -q tests/security/test_p11d_serving_security.py && python -m evals.p11d_serving_security

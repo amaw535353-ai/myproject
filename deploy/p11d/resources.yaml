@@ -1,0 +1,180 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: p11d
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.33
+---
+apiVersion: v1
+kind: Service
+metadata: {name: gateway, namespace: p11d}
+spec:
+  selector: {app: gateway}
+  ports: [{name: http, port: 8080, targetPort: 8080}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: backend, namespace: p11d}
+spec:
+  selector: {app: backend}
+  ports: [{name: mtls, port: 8443, targetPort: 8443}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: backend, namespace: p11d}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: backend}}
+  template:
+    metadata: {labels: {app: backend}}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 15
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+      - name: backend
+        image: aegisdesk-p11d:local
+        imagePullPolicy: Never
+        command: ["python", "-m", "apps.p11d_serving_backend"]
+        env: [{name: P11D_DRAIN_TOKEN, valueFrom: {secretKeyRef: {name: drain-capability, key: token}}}]
+        ports: [{name: mtls, containerPort: 8443}, {name: health, containerPort: 8081}]
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities: {drop: ["ALL"]}
+        resources:
+          requests: {cpu: 20m, memory: 48Mi}
+          limits: {cpu: 250m, memory: 128Mi}
+        readinessProbe:
+          httpGet: {path: /readyz, port: health}
+          initialDelaySeconds: 2
+          timeoutSeconds: 3
+          periodSeconds: 2
+          failureThreshold: 1
+        livenessProbe:
+          httpGet: {path: /healthz, port: health}
+          initialDelaySeconds: 3
+          timeoutSeconds: 3
+          periodSeconds: 5
+          failureThreshold: 6
+        lifecycle:
+          preStop:
+            exec:
+              command: ["python", "-c", "import os,urllib.request; r=urllib.request.Request('http://127.0.0.1:8081/internal/drain', method='POST', headers={'X-Drain-Token':os.environ['P11D_DRAIN_TOKEN']}); urllib.request.urlopen(r, timeout=2)"]
+        volumeMounts:
+        - {name: pki, mountPath: /pki, readOnly: true}
+        - {name: tmp, mountPath: /tmp}
+      volumes:
+      - {name: pki, secret: {secretName: backend-pki, defaultMode: 0440}}
+      - {name: tmp, emptyDir: {}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: gateway, namespace: p11d}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: gateway}}
+  template:
+    metadata: {labels: {app: gateway}}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 15
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+      - name: gateway
+        image: aegisdesk-p11d:local
+        imagePullPolicy: Never
+        command: ["python", "-m", "uvicorn", "apps.p11d_serving_gateway:app", "--host", "0.0.0.0", "--port", "8080", "--no-proxy-headers"]
+        env: [{name: P11D_DRAIN_TOKEN, valueFrom: {secretKeyRef: {name: drain-capability, key: token}}}]
+        ports: [{containerPort: 8080}]
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities: {drop: ["ALL"]}
+        resources:
+          requests: {cpu: 20m, memory: 48Mi}
+          limits: {cpu: 250m, memory: 128Mi}
+        readinessProbe: {httpGet: {path: /readyz, port: 8080}, periodSeconds: 2}
+        livenessProbe: {httpGet: {path: /healthz, port: 8080}, periodSeconds: 5}
+        volumeMounts:
+        - {name: pki, mountPath: /pki, readOnly: true}
+        - {name: tmp, mountPath: /tmp}
+      volumes:
+      - {name: pki, secret: {secretName: gateway-pki, defaultMode: 0440}}
+      - {name: tmp, emptyDir: {}}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: serving
+  namespace: p11d
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  tls: [{hosts: [serve.p11d.local], secretName: ingress-tls}]
+  rules:
+  - host: serve.p11d.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend: {service: {name: gateway, port: {number: 8080}}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: default-deny, namespace: p11d}
+spec: {podSelector: {}, policyTypes: [Ingress, Egress]}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: gateway-policy, namespace: p11d}
+spec:
+  podSelector: {matchLabels: {app: gateway}}
+  policyTypes: [Ingress, Egress]
+  ingress:
+  - from:
+    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+    ports: [{protocol: TCP, port: 8080}]
+  egress:
+  - to: [{podSelector: {matchLabels: {app: backend}}}]
+    ports: [{protocol: TCP, port: 8443}]
+  - to:
+    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+    ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: backend-policy, namespace: p11d}
+spec:
+  podSelector: {matchLabels: {app: backend}}
+  policyTypes: [Ingress, Egress]
+  ingress:
+  - from: [{podSelector: {matchLabels: {app: gateway}}}]
+    ports: [{protocol: TCP, port: 8443}]
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: attacker, namespace: p11d, labels: {app: attacker}}
+spec:
+  automountServiceAccountToken: false
+  restartPolicy: Never
+  securityContext: {runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001, seccompProfile: {type: RuntimeDefault}}
+  containers:
+  - name: attacker
+    image: aegisdesk-p11d:local
+    imagePullPolicy: Never
+    command: ["python", "-c", "import time; time.sleep(3600)"]
+    securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: ["ALL"]}}
+    resources: {requests: {cpu: 5m, memory: 16Mi}, limits: {cpu: 50m, memory: 48Mi}}
