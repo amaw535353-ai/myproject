@@ -20,6 +20,21 @@ def digest(value: object) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+SENSITIVE_EVIDENCE_PATTERNS = tuple(re.compile(pattern, re.IGNORECASE) for pattern in (
+    r"-----BEGIN (?:RSA |EC )?PRIVATE KEY-----",
+    r"authorization\s*:\s*bearer(?:\s|$)",
+    r"bearer\s+eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}",
+    r"eyJ[A-Za-z0-9_-]{16,}\.eyJ[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}",
+))
+
+
+def evidence_is_sensitive_material_free(payload: object, *, forbidden_values: tuple[str, ...] = ()) -> bool:
+    serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    if any(pattern.search(serialized) for pattern in SENSITIVE_EVIDENCE_PATTERNS):
+        return False
+    return not any(value and value in serialized for value in forbidden_values)
+
+
 RESERVED_HEADERS = {
     "x-internal-principal", "x-workload-identity", "x-forwarded-client-cert",
     "x-verified-tenant",

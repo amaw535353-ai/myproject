@@ -6,6 +6,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+from evals.p11d_fixture import DEFERRED_MASTERY_ITEMS
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -66,6 +68,22 @@ def run_p11d() -> None:
     raise SystemExit(proc.returncode)
 
 
+def default_summary(scope: str = "phase11_repository", status: str = "LOCAL_FULL_PASS",
+                    *, p11b_contract_validated: bool = True) -> dict:
+    return {
+        "phase": "P11", "scope": scope, "verification_status": status,
+        "local_linux_workload_isolation_validated": True,
+        "kubernetes_manifests_statically_validated": True,
+        "p11b_deterministic_contract_validated": p11b_contract_validated,
+        "live_kubernetes_cluster_validated": False,
+        "live_local_cloud_security_validated": False,
+        "live_local_serving_security_validated": False,
+        "production_validation_claimed": False,
+        "professional_mastery_complete": False,
+        "deferred_mastery_items": list(DEFERRED_MASTERY_ITEMS),
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Reproducible local Phase 11 verification")
     parser.add_argument("--focused-p11a", action="store_true")
@@ -100,18 +118,7 @@ def main() -> int:
         scope = "phase11_repository"
         status = "LOCAL_FULL_PASS"
 
-    print(json.dumps({
-        "phase": "P11",
-        "scope": scope,
-        "verification_status": status,
-        "local_linux_workload_isolation_validated": True,
-        "kubernetes_manifests_statically_validated": True,
-        "p11b_deterministic_contract_validated": args.focused_p11b or args.focused_p11c or not args.focused_p11a,
-        "live_kubernetes_cluster_validated": False,
-        "production_validation_claimed": False,
-        "professional_mastery_complete": False,
-        "deferred_mastery_items": ["p10f-live-nvidia-gpu-mig-cuda", "p11b-production-kubernetes", "p11b-production-cni", "p11b-cloud-iam-workload-identity", "p11b-multi-node-production-behavior", "p11b-container-escape-kernel-compromise-resistance", "p11b-production-soc-ir-maturity"],
-    }, sort_keys=True))
+    print(json.dumps(default_summary(scope, status, p11b_contract_validated=(args.focused_p11b or args.focused_p11c or not args.focused_p11a)), sort_keys=True))
     return 0
 
 

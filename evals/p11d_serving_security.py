@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 import json
 
-from aegis.platform.serving_security import digest
+from aegis.platform.serving_security import digest, evidence_is_sensitive_material_free
 from evals.p11d_fixture import DEFERRED_MASTERY_ITEMS, GROUPS, LIVE_DATA_NAMES, LIVE_GATE_NAMES, SCHEMA_VERSION, fixture, fixture_manifests_sha256
 
 
@@ -35,8 +35,7 @@ def assess(raw: dict) -> dict:
            "fixture_manifests_sha256": raw["fixture_manifests_sha256"], "raw_observations": copy.deepcopy(obs),
            "live_local_serving_security_validated": live, "production_serving_validation_claimed": False,
            "professional_mastery_complete": False, "deferred_mastery_items": list(DEFERRED_MASTERY_ITEMS)}
-    serialized = json.dumps(out, sort_keys=True).lower()
-    if "private key-----" in serialized or "authorization: bearer" in serialized: raise EvidenceRejected("sensitive material")
+    if not evidence_is_sensitive_material_free(out): raise EvidenceRejected("sensitive material")
     out["assessment_sha256"] = digest(out)
     return out
 

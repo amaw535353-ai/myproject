@@ -11,7 +11,7 @@ from aegis.platform.serving_security import DrainState, ServingDenied
 
 app = FastAPI(title="AegisDesk P11-D mTLS backend")
 state = DrainState()
-ADMIN_TOKEN = os.environ.get("P11D_DRAIN_TOKEN", "local-drain-capability")
+ADMIN_TOKEN = os.environ["P11D_DRAIN_TOKEN"]
 
 
 class Infer(BaseModel):

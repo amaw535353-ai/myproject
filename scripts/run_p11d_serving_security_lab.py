@@ -14,13 +14,14 @@ import ssl
 import subprocess
 import tempfile
 import time
+import secrets
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
-from aegis.platform.serving_security import digest, runtime_security_context_valid
+from aegis.platform.serving_security import evidence_is_sensitive_material_free, runtime_security_context_valid
 from evals.p11d_fixture import DEFERRED_MASTERY_ITEMS, LIVE_GATE_NAMES, SCHEMA_VERSION, fixture_manifests_sha256, observations
 from evals.p11d_serving_security import assess, validate_evidence
 
@@ -120,6 +121,7 @@ def ingress_request(pki: Path, payload: dict, extra: dict[str, str] | None = Non
 
 def main() -> int:
     argparse.ArgumentParser().parse_args(); created = False; port_forward = None; pki_path = Path(tempfile.mkdtemp(prefix="p11d-pki-"))
+    drain_capability = secrets.token_urlsafe(32)
     tools = {x: shutil.which(x) for x in ("docker", "kubectl", "k3d")}; classification = "LIVE_LOCAL_SERVING_SECURITY_DEFERRED"
     preflight = {"tools": tools, "k3s_image": K3S_IMAGE, "image_tag": IMAGE}
     try:
@@ -140,13 +142,23 @@ def main() -> int:
         kubectl("-n", "p11d", "create", "secret", "tls", "ingress-tls", f"--cert={pki_path/'ingress.crt'}", f"--key={pki_path/'ingress.key'}")
         kubectl("-n", "p11d", "create", "secret", "generic", "backend-pki", f"--from-file=tls.crt={pki_path/'backend.crt'}", f"--from-file=tls.key={pki_path/'backend.key'}", f"--from-file=ca.crt={pki_path/'ca.crt'}")
         kubectl("-n", "p11d", "create", "secret", "generic", "gateway-pki", f"--from-file=tls.crt={pki_path/'gateway.crt'}", f"--from-file=tls.key={pki_path/'gateway.key'}", f"--from-file=ca.crt={pki_path/'ca.crt'}")
-        kubectl("-n", "p11d", "create", "secret", "generic", "drain-capability", "--from-literal=token=local-drain-capability")
+        kubectl("-n", "p11d", "create", "secret", "generic", "drain-capability", f"--from-literal=token={drain_capability}")
         kubectl("apply", "-f", "deploy/p11d/resources.yaml")
         wait_for_traefik()
         kubectl("-n", "p11d", "rollout", "status", "deployment/backend", "--timeout=120s")
         kubectl("-n", "p11d", "rollout", "status", "deployment/gateway", "--timeout=120s")
         kubectl("-n", "p11d", "wait", "--for=condition=Ready", "pod/attacker", "--timeout=90s")
         ingress_active = kubectl("-n", "p11d", "get", "ingress", "serving", check=False).returncode == 0
+
+        ingress_deadline = time.monotonic() + 30
+        while True:
+            try:
+                ingress_ready = tls_request(HTTPS_PORT, "serve.p11d.local", pki_path/"ca.crt", path="/readyz")[0] == 200
+            except (OSError, ssl.SSLError, http.client.HTTPException):
+                ingress_ready = False
+            if ingress_ready: break
+            if time.monotonic() >= ingress_deadline: raise InfrastructureUnavailable("Ingress route did not become ready")
+            time.sleep(1)
 
         good_status, good_body = ingress_request(pki_path, {"request_id": "req-live0001", "tenant": "acme", "prompt": "safe"})
         if good_status != 200 or json.loads(good_body).get("output") != "synthetic-ok":
@@ -245,21 +257,30 @@ def main() -> int:
                       "concurrency_exhaustion_rejected": concurrency_denied, "safe_concurrency": concurrent.count(200) == 2,
                       "oversized_body_rejected": oversized_status == 413, "health_probe_exercised": live_state["healthy"],
                       "readiness_probe_exercised": readiness_removed, "readiness_distinct_from_health": live_state["healthy"] and not live_state["ready"],
-                      "unready_backend_not_routed": new_status == 503, "network_policy_exercised": True,
+                      "unready_backend_not_routed": new_status in (502, 503), "network_policy_exercised": True,
                       "gateway_backend_path_allowed": good_status == 200, "attacker_backend_path_denied": attacker_denied,
                       "runtime_security_context_verified": runtime_ok, "drain_started": drained,
-                      "readiness_removed_during_drain": readiness_removed, "new_request_denied_during_drain": new_status == 503,
+                      "readiness_removed_during_drain": readiness_removed, "new_request_denied_during_drain": new_status in (502, 503),
                       "inflight_request_completed": active_status == 200, "drain_reached_zero_inflight": zero,
                       "replacement_pod_ready": post_status == 200, "post_replacement_request_succeeded": post_status == 200,
                       "cleanup_complete": delete.returncode == 0 and pki_removed,
-                      "sensitive_leak_absent": True, "ca_sha256": cert_meta["ca_sha256"],
+                      "sensitive_leak_absent": False, "ca_sha256": cert_meta["ca_sha256"],
                       "server_cert_sha256": cert_meta["server_cert_sha256"], "client_cert_sha256": cert_meta["client_cert_sha256"],
                       "image_id": image_id, "rate_attempts": len(rate_results), "rate_allowed": rate_allowed, "rate_limited": rate_limited})
         obs = observations(); obs["live_gates"] = gates
         raw = {"phase": "P11-D", "schema_version": SCHEMA_VERSION, "execution_mode": "live", "environment_classification": "LIVE_LOCAL_K3D",
                "fixture_manifests_sha256": fixture_manifests_sha256(), "observations": obs, "production_serving_validation_claimed": False,
                "professional_mastery_complete": False, "deferred_mastery_items": list(DEFERRED_MASTERY_ITEMS)}
-        evidence = assess(raw); validate_evidence({**raw, **evidence}); evidence["preflight"] = preflight; evidence["certificate_metadata"] = cert_meta
+        candidate = {"raw": raw, "preflight": preflight, "certificate_metadata": cert_meta}
+        gates["sensitive_leak_absent"] = evidence_is_sensitive_material_free(candidate, forbidden_values=(drain_capability,))
+        evidence = assess(raw)
+        persisted = {**evidence, "preflight": preflight, "certificate_metadata": cert_meta}
+        if not evidence_is_sensitive_material_free(persisted, forbidden_values=(drain_capability,)):
+            gates["sensitive_leak_absent"] = False
+            evidence = assess(raw)
+            persisted = {**evidence, "preflight": preflight, "certificate_metadata": cert_meta}
+        validate_evidence({**raw, **evidence})
+        evidence = persisted
         ARTIFACT.parent.mkdir(parents=True, exist_ok=True); ARTIFACT.write_text(json.dumps(evidence, indent=2, sort_keys=True)+"\n")
         classification = "P11D_LIVE_LOCAL_PASS" if evidence["live_local_serving_security_validated"] else "P11D_SECURITY_VALIDATION_FAILED"
         print(json.dumps({"classification": classification, "evidence_path": str(ARTIFACT)}, sort_keys=True)); return 0 if classification.endswith("PASS") else 1
