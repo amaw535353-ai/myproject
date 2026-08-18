@@ -82,6 +82,16 @@ python scripts/verify_phase11.py --focused-p11b
 
 The verifier attempts a real single-server k3d/K3s cluster. Tooling or cluster-creation failure is deferred, never a pass; local evidence makes no production Kubernetes, cloud IAM, multi-node, kernel/container-escape, GPU, or production SOC/IR claim.
 
+P11-C extends this with a provider-neutral live-local cloud identity and cryptographic control plane:
+
+```bash
+python -m pytest -q tests/security/test_p11c_cloud_security.py
+python -m evals.p11c_cloud_security
+python scripts/verify_phase11.py --focused-p11c
+```
+
+The live lab uses a real short-lived K3s ServiceAccount token and TokenReview API, then exercises local IAM, AES-GCM envelope encryption, encrypted secret rotation, metadata capabilities, identity fencing, key rotation, replacement identity, recovery, and a sanitized hash-chained audit trail. It does not contact cloud metadata or claim AWS, GCP, Azure, production-cloud, or HSM validation.
+
 ```bash
 python -m pip install -e ".[dev]"
 pytest

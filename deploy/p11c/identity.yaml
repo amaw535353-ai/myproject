@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tenant-acme
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: inference
+  namespace: tenant-acme
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tenant-other
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: attacker
+  namespace: tenant-other
+automountServiceAccountToken: false
