@@ -197,3 +197,7 @@ All organizations, identities, records, credentials, canaries, poison documents,
 ## P11-D live-local serving security
 
 P11-D adds a deterministic serving-security contract and a bounded live-local K3s lab. The live request traverses trusted HTTPS through Traefik Ingress to a hardened gateway and reaches a synthetic backend over SAN-validated mTLS. The lab exercises request/header policy, rate and concurrency limits, health/readiness, graceful drain and replacement, NetworkPolicy, pod runtime hardening, ephemeral PKI cleanup, and canonical evidence. Run `python scripts/verify_phase11.py --focused-p11d`. Production serving and PKI claims remain explicitly out of scope.
+
+## P11-E live-local supply-chain security
+
+P11-E composes P5 provenance and lifecycle controls with a real local image build, Syft SBOM, Grype scan, Cosign digest signature, signed provenance, disposable OCI registry, fail-closed Kubernetes validating admission webhook, and a non-executing signed-model content/quarantine/recovery exercise. Run `python scripts/verify_phase11.py --focused-p11e`. It makes no production registry, CI/CD provenance, SLSA, transparency-log, HSM, comprehensive model-scanner, or hardware-attestation claim.
