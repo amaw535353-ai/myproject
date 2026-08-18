@@ -6,7 +6,7 @@ Phase 11 shifts the program from portfolio-oriented evidence toward professional
 
 - **P11-A:** workload identity, non-root/container privilege boundaries, secrets, network policy, namespaced RBAC, image trust, and Linux runtime isolation — **implementation complete; local Linux mastery gate passed; Kubernetes manifests statically validated; live Kubernetes cluster deferred**.
 - **P11-B:** live Pod Security Admission, authorization API, and baseline-first NetworkPolicy enforcement — **LIVE-LOCAL PASS**.
-- **P11-C:** provider-neutral workload identity, IAM, KMS/envelope encryption, secret rotation, metadata protections, and incident response — **deterministic contract implemented; live-local gate is the current validation target**.
+- **P11-C:** provider-neutral workload identity, IAM, KMS/envelope encryption, secret rotation, metadata protections, and incident response — **deterministic contract implemented; end-to-end live-local validation uses the Kubernetes-derived broker credential**.
 - **P11-D:** deployed model-serving hardening: ingress, TLS identity, service mesh or equivalent mTLS, rate limits, health/readiness, graceful shutdown, and runtime policy enforcement.
 - **P11-E:** container and model supply-chain security: provenance, SBOM, signature verification, registry policy, dependency/image scanning, and poisoned-artifact response.
 - **P11-F:** AI-security telemetry and SIEM detection engineering across application, model-serving, identity, network, and platform events.
@@ -41,19 +41,20 @@ The live harness creates its own bounded cluster, submits admission cases to the
 
 **Deterministic validation** covers cryptographically verified synthetic workload tokens, least-privilege IAM, AES-GCM envelope encryption, key lifecycle, encrypted versioned secrets, metadata capabilities, audit chaining, and attack → observe → contain → rotate → recover.
 
-**Live local validation** uses a real K3s ServiceAccount token and TokenReview API as identity input to the provider-neutral local control plane. **Production cloud validation** remains unclaimed; no AWS, GCP, Azure, production KMS/HSM, metadata service, federation, or cloud incident-response system is exercised.
+**Live local validation** follows real K3s ServiceAccount token → Kubernetes TokenReview → verified broker credential → IAM/KMS/secrets/metadata → compromise → revocation and rotation → new Kubernetes token → TokenReview → newer replacement broker credential → safe recovery. The cluster binding comes from the Kubernetes API and credential expiry is bounded by the reviewed token's actual expiry. This path is executable local evidence and is not supplied by the deterministic fixture.
+
+**Production cloud validation** remains unclaimed; no AWS, GCP, Azure, production KMS/HSM, metadata service, federation, or cloud incident-response system is exercised.
 
 ## Mastery debt carried forward
 
-- `p10f-live-nvidia-gpu-mig-cuda` — live NVIDIA GPU/MIG/CUDA operations unavailable.
-- `p11b-production-kubernetes`
-- `p11b-production-cni`
-- `p11b-cloud-iam-workload-identity`
-- `p11b-multi-node-production-behavior`
-- `p11b-container-escape-kernel-compromise-resistance`
-- `p11b-production-soc-ir-maturity`
+- `p10f-live-nvidia-gpu-mig-cuda`
+- `p11c-production-cloud-federation`
+- `p11c-production-cloud-iam-kms-secrets-metadata`
+- `p11c-production-hsm-key-custody`
+- `p11c-multi-account-project-production-behavior`
+- `p11c-production-cloud-incident-response`
 
-Neither item is converted into a mastery claim by deterministic, static, synthetic, or CPU/Linux-only evidence.
+None of these items is converted into a mastery claim by deterministic, static, synthetic, or live-local evidence.
 
 ## Claim boundary
 

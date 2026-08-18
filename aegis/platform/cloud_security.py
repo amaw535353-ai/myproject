@@ -101,9 +101,11 @@ class Credential:
 
 
 class IdentityBroker:
-    def __init__(self, audit: AuditTrail, verifier: Callable[[str], dict]) -> None:
+    MAX_CREDENTIAL_TTL_SECONDS = 120
+
+    def __init__(self, audit: AuditTrail, verifier: Callable[[str], dict], *, expected_cluster: str = "local-k3d") -> None:
         self.audit, self.verifier = audit, verifier
-        self.expected = ("local-k3d", "tenant-acme", "inference", "acme", "aegisdesk-cloud-broker")
+        self.expected = (expected_cluster, "tenant-acme", "inference", "acme", "aegisdesk-cloud-broker")
         self.generation: dict[str, int] = {}
         self.revoked: set[str] = set()
         self.credentials: dict[str, Credential] = {}
@@ -123,7 +125,8 @@ class IdentityBroker:
             raise SecurityDenied("IDENTITY_REVOKED")
         generation = self.generation.get(subject, 1)
         raw = _b64(os.urandom(24))
-        cred = Credential(raw, subject, claims["tenant"], generation, int(time.time()) + 120)
+        cred = Credential(raw, subject, claims["tenant"], generation,
+                          min(int(claims["expiry"]), int(time.time()) + self.MAX_CREDENTIAL_TTL_SECONDS))
         self.credentials[digest(raw)] = cred
         self.audit.record(principal_id=subject, tenant_id=claims["tenant"], action="sts:Exchange",
                           resource_id=subject, decision="ALLOW", reason_code="VERIFIED_IDENTITY",

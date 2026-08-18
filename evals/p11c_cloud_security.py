@@ -4,7 +4,7 @@ import copy
 import json
 
 from aegis.platform.cloud_security import AuditTrail, SecurityDenied, digest
-from evals.p11c_fixture import DEFERRED_MASTERY_ITEMS, SCHEMA_VERSION, fixture, fixture_manifests_sha256
+from evals.p11c_fixture import DEFERRED_MASTERY_ITEMS, LIVE_DATA_NAMES, LIVE_GATE_NAMES, SCHEMA_VERSION, fixture, fixture_manifests_sha256
 
 
 class EvidenceRejected(ValueError):
@@ -42,8 +42,10 @@ def assess(raw: dict) -> dict:
     incident = obs["incident_response"]
     incident_complete = set(incident) == {"compromise_detected", "identity_revoked", "secret_rotated", "key_generation_advanced", "compromised_credential_denied", "replacement_identity_ready", "safe_operation_restored", "audit_evidence_complete"} and all(incident.values())
     live_gates = obs["live_gates"]
-    live_required = {"cluster_created", "api_reached", "node_ready", "serviceaccount_token_obtained", "tokenreview_api_exercised", "valid_identity_accepted", "wrong_audience_denied", "cross_workload_denied"}
-    live = raw["execution_mode"] == "live" and set(live_gates) == live_required and all(live_gates.values()) and all(c["executed"] for c in cases) and successful_attacks == 0 and safe_pass == len(safe) and incident_complete
+    live_schema_ok = set(live_gates) == set(LIVE_GATE_NAMES) | set(LIVE_DATA_NAMES)
+    live_flags_ok = live_schema_ok and all(live_gates.get(name) is True for name in LIVE_GATE_NAMES)
+    live_data_ok = live_schema_ok and len(live_gates.get("cluster_identity_sha256", "")) == 64 and int(live_gates.get("intended_token_expiry_epoch", 0)) > 0
+    live = raw["execution_mode"] == "live" and live_flags_ok and live_data_ok and all(c["executed"] for c in cases) and successful_attacks == 0 and safe_pass == len(safe) and incident_complete
     out = {"phase": "P11-C", "schema_version": SCHEMA_VERSION, "execution_mode": raw["execution_mode"], "environment_classification": raw["environment_classification"],
            "identity": {**summaries["identity"], "tokenreview_api_exercised": bool(live_gates.get("tokenreview_api_exercised"))},
            "iam": summaries["iam"],
