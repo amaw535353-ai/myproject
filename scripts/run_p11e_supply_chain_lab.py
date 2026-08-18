@@ -144,6 +144,7 @@ def execute() -> dict:
     registry_created = cluster_created = False
     try:
         run(["k3d", "registry", "create", REGISTRY, "--port", REGISTRY_PORT], timeout=60); registry_created = True
+        gates["local_registry_started"] = True
         local_tag = f"localhost:{REGISTRY_PORT}/aegisdesk/p11e-serving:candidate"
         run(["docker", "build", "-f", "deploy/p11d/Dockerfile", "-t", local_tag, "."], timeout=600); gates["image_built"] = True
         image_id = run(["docker", "image", "inspect", local_tag, "--format", "{{.Id}}"]).stdout.strip()
@@ -184,7 +185,7 @@ def execute() -> dict:
         verify_provenance(provenance, provenance_signer.public_key, source_commit=source_commit, image_digest=cluster_image, sbom_sha256=sbom_meta["sha256"], scanner_sha256=scan_meta["sha256"])
         provenance_sha = sha256({"payload": provenance.payload, "signature": provenance.signature}); gates["provenance_signed"] = gates["provenance_bindings_verified"] = True
         run(["k3d", "cluster", "create", CLUSTER, "--servers", "1", "--agents", "0", "--registry-use", f"k3d-{REGISTRY}:5000", "--k3s-arg", "--disable=traefik@server:0", "--k3s-arg", "--disable=servicelb@server:0", "--wait"], timeout=300); cluster_created = True
-        gates["local_registry_started"] = gates["digest_pull_verified"] = True
+        gates["digest_pull_verified"] = True
         # Moving the mutable tag does not change the admitted immutable reference.
         run(["docker", "tag", local_tag, f"localhost:{REGISTRY_PORT}/aegisdesk/p11e-serving:mutable"]); run(["docker", "push", f"localhost:{REGISTRY_PORT}/aegisdesk/p11e-serving:mutable"], timeout=180)
         gates["tag_drift_detected"] = True
