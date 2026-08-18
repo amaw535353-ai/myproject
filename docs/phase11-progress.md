@@ -7,7 +7,7 @@ Phase 11 shifts the program from portfolio-oriented evidence toward professional
 - **P11-A:** workload identity, non-root/container privilege boundaries, secrets, network policy, namespaced RBAC, image trust, and Linux runtime isolation — **implementation complete; local Linux mastery gate passed; Kubernetes manifests statically validated; live Kubernetes cluster deferred**.
 - **P11-B:** live Pod Security Admission, authorization API, and baseline-first NetworkPolicy enforcement — **LIVE-LOCAL PASS**.
 - **P11-C:** provider-neutral workload identity, IAM, KMS/envelope encryption, secret rotation, metadata protections, and incident response — **deterministic contract implemented; end-to-end live-local validation uses the Kubernetes-derived broker credential**.
-- **P11-D:** deployed model-serving hardening: ingress, TLS identity, service mesh or equivalent mTLS, rate limits, health/readiness, graceful shutdown, and runtime policy enforcement.
+- **P11-D:** deployed model-serving hardening: ingress, TLS identity, mTLS, rate limits, health/readiness, graceful shutdown, and runtime policy enforcement — **deterministic contract implemented; live-local Kubernetes gate provided**.
 - **P11-E:** container and model supply-chain security: provenance, SBOM, signature verification, registry policy, dependency/image scanning, and poisoned-artifact response.
 - **P11-F:** AI-security telemetry and SIEM detection engineering across application, model-serving, identity, network, and platform events.
 - **P11-G:** platform incident investigation and forensics: evidence acquisition, timeline reconstruction, containment, credential rotation, recovery, and post-incident validation.
@@ -45,6 +45,14 @@ The live harness creates its own bounded cluster, submits admission cases to the
 
 **Production cloud validation** remains unclaimed; no AWS, GCP, Azure, production KMS/HSM, metadata service, federation, or cloud incident-response system is exercised.
 
+## P11-D validation layers
+
+**Deterministic validation** covers server and client certificate identity, ingress and header trust boundaries, request/body/rate/concurrency policy, distinct health/readiness state, graceful draining, Restricted-compatible runtime settings, and network isolation.
+
+**Live local validation** creates a bounded single-server K3s cluster with bundled Traefik. A trusted HTTPS request traverses the real Ingress to a hardened gateway, then reaches a synthetic backend through mutually authenticated TLS with SAN-bound service identities. The lab exercises negative TLS handshakes, rate and concurrency limits, draining with in-flight completion, replacement readiness, NetworkPolicy denial, runtime security contexts, evidence integrity, and cleanup. Ephemeral private keys are deleted and never enter evidence.
+
+This is live-local deployed model-serving security validation, not production ingress, service-mesh, PKI, load-balancer, multi-zone, GPU-serving, WAF/DDoS, autoscaling, or SLO validation.
+
 ## Mastery debt carried forward
 
 - `p10f-live-nvidia-gpu-mig-cuda`
@@ -53,11 +61,17 @@ The live harness creates its own bounded cluster, submits admission cases to the
 - `p11c-production-hsm-key-custody`
 - `p11c-multi-account-project-production-behavior`
 - `p11c-production-cloud-incident-response`
+- `p11d-production-ingress-load-balancer`
+- `p11d-production-service-mesh-mtls`
+- `p11d-production-pki-certificate-rotation`
+- `p11d-multi-node-multi-zone-serving`
+- `p11d-production-model-server-gpu-runtime`
+- `p11d-production-waf-ddos-slo`
 
 None of these items is converted into a mastery claim by deterministic, static, synthetic, or live-local evidence.
 
 ## Claim boundary
 
-P11-A closes local Linux and static Kubernetes hardening. P11-B validates local Kubernetes enforcement. P11-C is provider-neutral live-local validation only and does not claim any provider or production-cloud mastery.
+P11-A closes local Linux and static Kubernetes hardening. P11-B validates local Kubernetes enforcement. P11-C validates a provider-neutral local cloud-security control plane. P11-D validates a live-local deployed serving path. None claims provider or production mastery.
 
 Package version: **0.101.0**. Dependency pins are unchanged and no runtime dependency is added.

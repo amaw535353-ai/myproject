@@ -193,3 +193,7 @@ P2-G remains an in-process resource-control proof. A production agent still need
 `X-Aegis-User` is a synthetic lab authentication handle, not a production authentication design.
 
 All organizations, identities, records, credentials, canaries, poison documents, MCP servers, network routes, browser pages, memory records, resource-exhaustion workloads, telemetry records, artifacts, archives, approval workflows, outbox messages, authorization replicas, policy/revocation version counters, authorization-signing key labels, trusted public keys, signing-key epochs, control-plane generations, control-plane change journals, execution-generation markers, protected checkpoint generations, protected journal-head hashes, current authorization-state rows, policy changes, downstream effect ledger rows, database snapshots, crash injections, recovery operations, and side effects in this repository are synthetic.
+
+## P11-D live-local serving security
+
+P11-D adds a deterministic serving-security contract and a bounded live-local K3s lab. The live request traverses trusted HTTPS through Traefik Ingress to a hardened gateway and reaches a synthetic backend over SAN-validated mTLS. The lab exercises request/header policy, rate and concurrency limits, health/readiness, graceful drain and replacement, NetworkPolicy, pod runtime hardening, ephemeral PKI cleanup, and canonical evidence. Run `python scripts/verify_phase11.py --focused-p11d`. Production serving and PKI claims remain explicitly out of scope.
