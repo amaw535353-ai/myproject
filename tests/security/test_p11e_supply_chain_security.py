@@ -49,6 +49,8 @@ def test_sbom_subject_metadata_and_tamper_binding() -> None:
     with pytest.raises(SupplyChainDenied): validate_sbom(sbom("other@sha256:" + "b"*64), expected_image_digest=IMAGE)
     bad = sbom(); bad["components"][0].pop("name")
     with pytest.raises(SupplyChainDenied): validate_sbom(bad, expected_image_digest=IMAGE)
+    package_free = sbom(); package_free.pop("components")
+    assert validate_sbom(package_free, expected_image_digest=IMAGE)["component_count"] == 0
 
 def test_scanner_subject_db_and_policy() -> None:
     report = {"source": {"target": {"userInput": IMAGE}}, "matches": []}
@@ -138,3 +140,11 @@ def test_live_pass_requires_blocked_serving_and_complete_clean_chain() -> None:
     for gate in ("real_serving_candidate_policy_blocked", "real_serving_candidate_receipt_not_issued", "clean_fixture_policy_passed", "clean_fixture_admitted"):
         changed = copy.deepcopy(raw); changed["observations"]["live_gates"][gate] = False
         assert assess(changed)["live_local_supply_chain_security_validated"] is False
+
+def test_integrated_model_incident_uses_existing_successor_key_generation() -> None:
+    from scripts.run_p11e_supply_chain_lab import model_scenario
+    result = model_scenario()
+    assert result["compromised_key_generation_revoked"] is True
+    assert result["clean_key_generation_established"] is True
+    assert result["clean_replacement_verified"] is True
+    assert result["model_bytes_executed"] is False

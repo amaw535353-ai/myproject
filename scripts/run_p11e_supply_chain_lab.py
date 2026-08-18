@@ -127,18 +127,19 @@ def model_scenario() -> dict:
     revoked = False
     try: LifecycleRestrictedModelPackageLoader(p5d._policy()).load(request=request, manifest=old_manifest, package_signature=old_sig, artifacts=old_artifacts)
     except KeyLifecycleRejected: revoked = True
-    request, new_manifest, new_sig, new_artifacts = p5d._benign_case("active_rotated_keys")
+    request, new_manifest, new_sig, new_artifacts = p5d._benign_case("successor_release_content")
     replacement = LifecycleRestrictedModelPackageLoader(p5d._policy()).load(request=request, manifest=new_manifest, package_signature=new_sig, artifacts=new_artifacts)
     unsafe = False
     try: scanner.inspect_opaque(b"\x80\x04synthetic", artifact_format="pickle", expected_sha256=sha256(b"\x80\x04synthetic"))
     except SupplyChainDenied: unsafe = True
     return {"artifact_signature_verified": True, "package_signature_verified": verified.package_signature_verified,
-            "transitive_closure_verified": verified.transitive_closure_verified, "immutable_release_verified": immutable.immutable_release_verified,
+            "transitive_closure_verified": verified.transitive_components_verified,
+            "immutable_release_verified": immutable.digest_addressed and immutable.mutable_tag_pin_verified,
             "unsafe_format_denied": unsafe, "live_content_scan_exercised": True, "signed_poisoned_release_detected": detected,
             "model_bytes_executed": False, "poisoned_digest_quarantined": bool(quarantine.evidence()),
             "quarantined_replay_denied": replay_denied, "compromised_key_generation_revoked": revoked,
             "old_release_replay_denied": revoked, "clean_key_generation_established": replacement.key_lifecycle_verified,
-            "clean_replacement_verified": replacement.package.transitive_closure_verified, "safe_admission_restored": replacement.package.transitive_closure_verified}
+            "clean_replacement_verified": replacement.package.transitive_components_verified, "safe_admission_restored": replacement.package.transitive_components_verified}
 
 def build_scan_candidate(*, tag: str, dockerfile: str, image_name: str, signing_dir: Path) -> dict:
     run(["docker", "build", "-f", dockerfile, "-t", tag, "."], timeout=600)
@@ -185,7 +186,7 @@ def execute() -> dict:
         cosign_env = {**os.environ, "COSIGN_PASSWORD": base64.urlsafe_b64encode(os.urandom(24)).decode()}
         prefix = signing_dir/"cosign"
         run(["cosign", "generate-key-pair", "--output-key-prefix", str(prefix)], env=cosign_env)
-        run(["cosign", "sign", "--yes", "--key", str(prefix)+".key", "--tlog-upload=false", "--allow-insecure-registry", clean["repo_digest"]], env=cosign_env, timeout=180)
+        run(["cosign", "sign", "--yes", "--key", str(prefix)+".key", "--use-signing-config=false", "--tlog-upload=false", "--allow-insecure-registry", clean["repo_digest"]], env=cosign_env, timeout=180)
         run(["cosign", "verify", "--key", str(prefix)+".pub", "--insecure-ignore-tlog=true", "--allow-insecure-registry", clean["repo_digest"]], timeout=180)
         wrong_prefix = signing_dir/"wrong-cosign"
         run(["cosign", "generate-key-pair", "--output-key-prefix", str(wrong_prefix)], env=cosign_env)
@@ -226,6 +227,9 @@ def execute() -> dict:
         gates["fail_closed_verified"] = denied(pod("outage", clean["cluster_image"], valid_annotation))
         model = model_scenario()
         for key in ("model_artifact_verified", "model_package_verified", "immutable_release_verified", "unsafe_format_denied", "live_content_scan_exercised", "signed_poisoned_release_detected", "model_bytes_not_executed", "poisoned_digest_quarantined", "quarantined_replay_denied", "key_generation_revoked", "old_release_replay_denied", "clean_key_generation_established", "clean_replacement_verified", "safe_admission_restored"):
+            if key == "model_bytes_not_executed":
+                gates[key] = model["model_bytes_executed"] is False
+                continue
             source = {"model_artifact_verified": "artifact_signature_verified", "model_package_verified": "package_signature_verified", "key_generation_revoked": "compromised_key_generation_revoked"}.get(key, key)
             gates[key] = bool(model[source])
         audit = [{"order": i+1, "event": event} for i, event in enumerate(("serving-candidate-blocked", "clean-fixture-built", "clean-sbom-bound", "clean-scan-passed", "signature-verified", "provenance-verified", "pod-admitted", "poison-detected", "digest-quarantined", "key-revoked", "replacement-verified"))]

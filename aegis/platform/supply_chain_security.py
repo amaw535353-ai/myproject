@@ -69,8 +69,8 @@ class LiveArtifactSafetyScanner:
 def validate_sbom(sbom: Mapping[str, Any], *, expected_image_digest: str) -> dict[str, Any]:
     if not isinstance(sbom, Mapping): raise SupplyChainDenied("SBOM_MALFORMED")
     metadata = sbom.get("metadata")
-    components = sbom.get("components")
-    if not isinstance(metadata, Mapping) or not isinstance(components, list): raise SupplyChainDenied("SBOM_MALFORMED")
+    components = sbom.get("components", [])
+    if sbom.get("bomFormat") != "CycloneDX" or not isinstance(metadata, Mapping) or not isinstance(components, list): raise SupplyChainDenied("SBOM_MALFORMED")
     component = metadata.get("component")
     refs = component.get("externalReferences", []) if isinstance(component, Mapping) else []
     subjects = {r.get("url") for r in refs if isinstance(r, Mapping)}
@@ -89,14 +89,19 @@ def evaluate_vulnerability_report(report: Mapping[str, Any], *, expected_image_d
     matches = report.get("matches")
     if not isinstance(matches, list): raise SupplyChainDenied("SCANNER_REPORT_MALFORMED")
     counts = {x: 0 for x in ("critical", "high", "medium", "low", "negligible", "unknown")}
-    blocking = []
+    blocking: dict[tuple[str, str], dict[str, Any]] = {}
     for match in matches:
         vuln = match.get("vulnerability", {}) if isinstance(match, Mapping) else {}
         severity = str(vuln.get("severity", "unknown")).casefold()
         counts[severity if severity in counts else "unknown"] += 1
         fixes = vuln.get("fix", {}).get("versions", [])
-        if severity == "critical" or (severity == "high" and bool(fixes)): blocking.append(vuln.get("id", "unknown"))
-    return {"severity_counts": counts, "policy_blocking_findings": blocking, "admitted": not blocking, "sha256": sha256(report)}
+        if severity == "critical" or (severity == "high" and bool(fixes)):
+            package = str(match.get("artifact", {}).get("name", "unknown"))
+            finding_id = str(vuln.get("id", "unknown"))
+            blocking[(finding_id, package)] = {"id": finding_id, "package": package, "severity": severity,
+                                               "fix_available": bool(fixes)}
+    findings = [blocking[key] for key in sorted(blocking)]
+    return {"severity_counts": counts, "policy_blocking_findings": findings, "admitted": not findings, "sha256": sha256(report)}
 
 
 @dataclass(frozen=True)
