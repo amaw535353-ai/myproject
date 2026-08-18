@@ -6,6 +6,7 @@ import pytest
 
 from aegis.platform.serving_security import DrainState, FixedWindowLimiter, RequestContext, RequestPolicy, ServingDenied, canonical_bytes, evidence_is_sensitive_material_free
 from evals.p11d_fixture import DEFERRED_MASTERY_ITEMS, LIVE_GATE_NAMES, fixture
+from evals.p11e_fixture import DEFERRED_MASTERY_ITEMS as LATEST_DEFERRED_MASTERY_ITEMS
 from evals.p11d_serving_security import EvidenceRejected, assess, validate_evidence
 from scripts.verify_phase11 import default_summary
 
@@ -107,7 +108,7 @@ def test_false_sensitive_leak_gate_prevents_live_pass():
 
 def test_default_verifier_uses_latest_canonical_debt_without_obsolete_p11b_items():
     summary = default_summary()
-    assert summary["deferred_mastery_items"] == list(DEFERRED_MASTERY_ITEMS)
+    assert summary["deferred_mastery_items"] == list(LATEST_DEFERRED_MASTERY_ITEMS)
     assert not any(item.startswith("p11b-production-") for item in summary["deferred_mastery_items"])
     assert summary["live_kubernetes_cluster_validated"] is False
     assert summary["live_local_cloud_security_validated"] is False

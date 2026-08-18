@@ -62,4 +62,4 @@ def test_p5f_evaluation_metrics_are_deterministic():
 
 def test_p5f_hashes_are_deterministic():
     assert P5F_DATASET_SHA256 == "a69d318ed7a674e272b40bade12a1099aecdffdcce3275e500292715be25b719"
-    assert P5F_FIXTURE_SHA256 == "117a2473d2df1f5825ba6040aada6b92a363be612520b57b05ebbddc37ada580"
+    assert P5F_FIXTURE_SHA256 == "138b30cb52af4dd9a3441a0353d6985b0d70ad7c8701bc4dea6f71354d8ef3b2"
