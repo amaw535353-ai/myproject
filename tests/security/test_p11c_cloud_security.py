@@ -10,6 +10,7 @@ from aegis.platform.cloud_security import (
 )
 from evals.p11c_cloud_security import EvidenceRejected, assess, validate_evidence
 from evals.p11c_fixture import DEFERRED_MASTERY_ITEMS, fixture
+from scripts.run_p11c_cloud_security_lab import TOKEN_DURATION
 
 
 def case(group, name):
@@ -86,3 +87,6 @@ def test_incomplete_containment_blocks_live():
     value = fixture("live", {k: True for k in ("cluster_created", "api_reached", "node_ready", "serviceaccount_token_obtained", "tokenreview_api_exercised", "valid_identity_accepted", "wrong_audience_denied", "cross_workload_denied")})
     value["observations"]["incident_response"]["identity_revoked"] = False
     assert not assess(value)["live_local_cloud_security_validated"]
+
+
+def test_live_token_duration_respects_k3s_minimum(): assert TOKEN_DURATION == "10m"

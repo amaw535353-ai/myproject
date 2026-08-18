@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ARTIFACT = ROOT / "artifacts" / "p11c-cloud-security-evidence.json"
 CLUSTER = "aegisdesk-p11c"
 K3S_IMAGE = "rancher/k3s:v1.33.5-k3s1"
+TOKEN_DURATION = "10m"  # K3s TokenRequest enforces a ten-minute minimum.
 
 
 class InfrastructureUnavailable(RuntimeError): pass
@@ -49,9 +50,9 @@ def main() -> int:
         if proc.returncode: raise InfrastructureUnavailable("cluster creation unavailable")
         created = True; kubectl("wait", "--for=condition=Ready", "node", "--all", "--timeout=90s")
         kubectl("apply", "-f", "deploy/p11c/identity.yaml")
-        intended = kubectl("create", "token", "inference", "-n", "tenant-acme", "--audience=aegisdesk-cloud-broker", "--duration=5m").stdout.strip()
-        wrong_aud = kubectl("create", "token", "inference", "-n", "tenant-acme", "--audience=wrong-audience", "--duration=5m").stdout.strip()
-        attacker = kubectl("create", "token", "attacker", "-n", "tenant-other", "--audience=aegisdesk-cloud-broker", "--duration=5m").stdout.strip()
+        intended = kubectl("create", "token", "inference", "-n", "tenant-acme", "--audience=aegisdesk-cloud-broker", f"--duration={TOKEN_DURATION}").stdout.strip()
+        wrong_aud = kubectl("create", "token", "inference", "-n", "tenant-acme", "--audience=wrong-audience", f"--duration={TOKEN_DURATION}").stdout.strip()
+        attacker = kubectl("create", "token", "attacker", "-n", "tenant-other", "--audience=aegisdesk-cloud-broker", f"--duration={TOKEN_DURATION}").stdout.strip()
         if not intended or not wrong_aud or not attacker: raise InfrastructureUnavailable("ServiceAccount token unavailable")
 
         def reviewer(token: str) -> dict:
