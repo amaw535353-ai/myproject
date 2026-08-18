@@ -172,7 +172,9 @@ def test_single_threshold_and_cross_source_correlation(tmp_path) -> None:
         ("identity", "REVOKED_CREDENTIAL_REPLAY"), ("k8s", "PRIVILEGED_POD_DENIED"),
         ("supply", "POISONED_RELEASE_BLOCKED"),
     ]
-    for index, (source, event_type) in enumerate(stages, 1):
+    # Transport order differs from event-time order for the middle stages.
+    for index in (1, 3, 2, 4, 5):
+        source, event_type = stages[index - 1]
         kind, category = source_spec[source]
         result = collector.ingest(signers[source].sign(event(f"evt-{index:03}", event_type, category, source, kind, 1_700_000_000+index, index)), 1_700_000_010)
     assert "p11f.correlation.multi-stage-ai-attack" in result["alerts"]

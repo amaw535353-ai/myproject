@@ -215,7 +215,11 @@ def run_lab() -> tuple[dict, EventStore, Path, bool]:
             ("supply-chain-adapter", "SUPPLY_CHAIN", "supply_chain", "POISONED_RELEASE_BLOCKED"),
         ]
         before = len([a for a in store.alert_rows() if a["rule_id"] == "p11f.correlation.multi-stage-ai-attack"])
-        for index, (source, kind, category, event_type) in enumerate(stages, 20):
+        # Submit stages 2 and 3 out of transport order while retaining bounded
+        # canonical event times; the engine must correlate on event time.
+        for stage_index in (0, 2, 1, 3, 4):
+            source, kind, category, event_type = stages[stage_index]
+            index = 20 + stage_index
             staged = make_event(source, kind, category, event_type, f"chain-{index}", now+index, index, "DETERMINISTIC_FIXTURE")
             result = post(base, signers[source].sign(staged), now+index)
             if result.status_code != 200: raise SecurityFailure("correlation event rejected")
@@ -231,7 +235,16 @@ def run_lab() -> tuple[dict, EventStore, Path, bool]:
                 principal = "other-principal" if split_principal and index == 2 else "principal-a"
                 staged = make_event(source, kind, category, event_type, f"evasion-{offset}-{index}", timestamp, 100+offset+index, "DETERMINISTIC_FIXTURE", principal=principal)
                 post(base, signers[source].sign(staged), timestamp)
-        gates["correlation_evasion_cases_exercised"] = len([a for a in store.alert_rows() if a["rule_id"] == "p11f.correlation.multi-stage-ai-attack"]) == len(correlation_alerts)
+        evasion_alert_count = len([a for a in store.alert_rows() if a["rule_id"] == "p11f.correlation.multi-stage-ai-attack"])
+        gates["correlation_evasion_cases_exercised"] = evasion_alert_count == len(correlation_alerts)
+        observations["correlation"] = {
+            "stage_count": len(stages), "window_seconds": 300,
+            "full_chain_alerted": gates["cross_event_correlation_alerted"],
+            "out_of_order_transport_handled": gates["cross_event_correlation_alerted"],
+            "split_principal_rejected": evasion_alert_count == len(correlation_alerts),
+            "outside_window_rejected": evasion_alert_count == len(correlation_alerts),
+            "duplicate_replay_resistant": gates["duplicate_replay_deduped"],
+        }
 
         benign = make_event("application-producer", "APPLICATION", "application_agent", "NORMAL_RAG_REQUEST", "benign-001", now+900, 900, "DETERMINISTIC_FIXTURE", principal="benign-principal")
         benign_result = post(base, signers["application-producer"].sign(benign), now+900)
