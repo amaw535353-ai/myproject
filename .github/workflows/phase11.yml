@@ -32,3 +32,7 @@ jobs:
         run: python scripts/check_p11a_k8s_manifests.py
       - name: P11-A real Linux least-privilege workload isolation lab
         run: python scripts/run_p11a_linux_sandbox_lab.py
+      - name: P11-B Kubernetes security deterministic evaluation
+        run: python -m evals.p11b_kubernetes_security
+      - name: P11-B focused security tests
+        run: python -m pytest -q tests/security/test_p11b_kubernetes_security.py

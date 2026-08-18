@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: p11b-restricted
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.33
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: p11b-other
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: p11b-client
+  namespace: p11b-restricted
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: allowed-config
+  namespace: p11b-restricted
+data: {value: safe}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: named-config-reader
+  namespace: p11b-restricted
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  resourceNames: ["allowed-config"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: named-config-reader
+  namespace: p11b-restricted
+subjects:
+- kind: ServiceAccount
+  name: p11b-client
+  namespace: p11b-restricted
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: named-config-reader

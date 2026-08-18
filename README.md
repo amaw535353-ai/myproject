@@ -72,6 +72,16 @@ The intentionally weak P2-R comparison uses the full P2-Q local coordinator but 
 
 ## Run in Codespaces
 
+P11-B deterministic validation and its resource-bounded live gate:
+
+```bash
+python -m pytest -q tests/security/test_p11b_kubernetes_security.py
+python -m evals.p11b_kubernetes_security
+python scripts/verify_phase11.py --focused-p11b
+```
+
+The verifier attempts a real single-server k3d/K3s cluster. Tooling or cluster-creation failure is deferred, never a pass; local evidence makes no production Kubernetes, cloud IAM, multi-node, kernel/container-escape, GPU, or production SOC/IR claim.
+
 ```bash
 python -m pip install -e ".[dev]"
 pytest
