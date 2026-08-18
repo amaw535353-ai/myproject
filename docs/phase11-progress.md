@@ -71,7 +71,10 @@ admission does not assert that the serving candidate passed.
 **Deterministic validation** covers canonical minimized events, Ed25519 producer
 authentication, source/domain authorization, replay protection, strict rules,
 time-window and cross-source correlation, alert deduplication, hash-chain integrity,
-incident snapshots, evidence recomputation, and overlapping benign traffic.
+incident snapshots, evidence recomputation, and overlapping benign traffic. The
+reported quality set is detector-executed: eight behaviors covered by the six-rule
+bundle and thirteen benign sequences each use a fresh registry, SQLite store, and
+engine. Input fixtures contain no pre-filled observed outcome.
 
 **Live local validation** sends real HTTP requests through a bounded collector into
 a temporary SQLite event store and executes the real rule engine. It adapts an
@@ -79,6 +82,10 @@ actually observed serving HTTP denial and an actually observed Kubernetes Pod
 Security API denial. Bounded attack fixtures also traverse that live pipeline to
 exercise correlation; they remain labeled `DETERMINISTIC_FIXTURE`, not native live
 logs. The Kubernetes observation is not represented as Kubernetes audit logging.
+The collector stream-caps request bodies and uses its server clock for freshness;
+an `x-p11f-now` header has no authority. Fixture producers are authorized only for
+`DETERMINISTIC_FIXTURE`, while separate adapter keys authorize the two
+`LIVE_CONTROL_OBSERVATION` sources.
 
 **Production SIEM/SOC validation** remains unclaimed. No enterprise SIEM, production
 log pipeline, cloud-native audit ingestion, EDR/UEBA, threat-intelligence platform,

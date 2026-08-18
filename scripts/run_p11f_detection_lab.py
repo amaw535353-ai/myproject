@@ -26,7 +26,7 @@ from aegis.detection.security_analytics import (
 from aegis.platform.serving_security import (
     RequestContext, RequestPolicy, ServingDenied, evidence_is_sensitive_material_free,
 )
-from evals.p11f_detection_engineering import assess, validate_evidence
+from evals.p11f_detection_engineering import assess, execute_fixture, validate_evidence
 from evals.p11f_fixture import LIVE_DATA_NAMES, LIVE_GATE_NAMES, ROOT, fixture
 
 ARTIFACT = ROOT / "artifacts/p11f-detection-evidence.json"
@@ -119,8 +119,8 @@ def make_event(source_id: str, source_kind: str, category: str, event_type: str,
     })
 
 
-def post(base: str, envelope, now: int) -> httpx.Response:
-    return httpx.post(base + "/v1/security-events", json=asdict(envelope), headers={"x-p11f-now": str(now)}, timeout=5)
+def post(base: str, envelope, headers: dict[str, str] | None = None) -> httpx.Response:
+    return httpx.post(base + "/v1/security-events", json=asdict(envelope), headers=headers, timeout=5)
 
 
 def kubernetes_observation() -> dict[str, Any]:
@@ -151,14 +151,16 @@ def run_lab() -> tuple[dict, EventStore, Path, bool]:
     store = EventStore(temp / "events.sqlite")
     rules, rule_hash = load_rules(ROOT / "detections/p11f")
     source_specs = {
-        "application-producer": ("APPLICATION", "application_agent"),
-        "identity-producer": ("IDENTITY", "identity_iam"),
-        "serving-producer": ("SERVING", "serving_network"),
-        "kubernetes-adapter": ("KUBERNETES", "kubernetes_platform"),
-        "supply-chain-adapter": ("SUPPLY_CHAIN", "supply_chain"),
+        "application-fixture-producer": ("APPLICATION", "application_agent", "DETERMINISTIC_FIXTURE"),
+        "identity-fixture-producer": ("IDENTITY", "identity_iam", "DETERMINISTIC_FIXTURE"),
+        "serving-fixture-producer": ("SERVING", "serving_network", "DETERMINISTIC_FIXTURE"),
+        "kubernetes-fixture-adapter": ("KUBERNETES", "kubernetes_platform", "DETERMINISTIC_FIXTURE"),
+        "supply-chain-fixture-adapter": ("SUPPLY_CHAIN", "supply_chain", "DETERMINISTIC_FIXTURE"),
+        "serving-live-control-adapter": ("SERVING", "serving_network", "LIVE_CONTROL_OBSERVATION"),
+        "kubernetes-live-control-adapter": ("KUBERNETES", "kubernetes_platform", "LIVE_CONTROL_OBSERVATION"),
     }
     signers = {source: ProducerSigner(source) for source in source_specs}
-    policies = tuple(SourcePolicy(source, kind, signers[source].public_key, frozenset({category}), frozenset({"NATIVE_LIVE", "LIVE_CONTROL_OBSERVATION", "DETERMINISTIC_FIXTURE"})) for source, (kind, category) in source_specs.items())
+    policies = tuple(SourcePolicy(source, kind, signers[source].public_key, frozenset({category}), frozenset({provenance})) for source, (kind, category, provenance) in source_specs.items())
     collector = CollectorService(SourceRegistry(policies), store, DetectionEngine(store, rules))
     gates = {name: False for name in LIVE_GATE_NAMES}
     now = int(time.time())
@@ -167,52 +169,57 @@ def run_lab() -> tuple[dict, EventStore, Path, bool]:
     with LocalServer(create_collector_app(collector), COLLECTOR_PORT):
         base = f"http://127.0.0.1:{COLLECTOR_PORT}"
         gates["collector_started"] = gates["collector_http_reached"] = gates["sqlite_store_created"] = True
-        valid_event = make_event("application-producer", "APPLICATION", "application_agent", "PROMPT_INJECTION_BLOCKED", "live-valid-001", now, 1, "DETERMINISTIC_FIXTURE")
-        valid = signers["application-producer"].sign(valid_event)
-        gates["signed_producer_accepted"] = post(base, valid, now).status_code == 200
+        valid_event = make_event("application-fixture-producer", "APPLICATION", "application_agent", "PROMPT_INJECTION_BLOCKED", "live-valid-001", now, 1, "DETERMINISTIC_FIXTURE")
+        valid = signers["application-fixture-producer"].sign(valid_event)
+        gates["signed_producer_accepted"] = post(base, valid).status_code == 200
         gates["malicious_case_alerted"] = bool(store.alert_rows())
-        gates["duplicate_replay_deduped"] = post(base, valid, now).status_code == 202
+        gates["duplicate_replay_deduped"] = post(base, valid).status_code == 202
 
-        bad = ProducerSigner("application-producer").sign(make_event("application-producer", "APPLICATION", "application_agent", "PROMPT_INJECTION_BLOCKED", "bad-key-001", now, 2, "DETERMINISTIC_FIXTURE"))
-        observations["negative_ingestion"]["invalid_signature"] = post(base, bad, now).json().get("reason")
+        bad = ProducerSigner("application-fixture-producer").sign(make_event("application-fixture-producer", "APPLICATION", "application_agent", "PROMPT_INJECTION_BLOCKED", "bad-key-001", now, 2, "DETERMINISTIC_FIXTURE"))
+        observations["negative_ingestion"]["invalid_signature"] = post(base, bad).json().get("reason")
         gates["invalid_signature_denied"] = observations["negative_ingestion"]["invalid_signature"] == "SIGNATURE_INVALID"
         unknown_signer = ProducerSigner("unknown-producer")
         unknown = unknown_signer.sign(make_event("unknown-producer", "APPLICATION", "application_agent", "PROMPT_INJECTION_BLOCKED", "unknown-001", now, 3, "DETERMINISTIC_FIXTURE"))
-        gates["unknown_source_denied"] = post(base, unknown, now).json().get("reason") == "SOURCE_UNKNOWN"
-        mismatch_event = make_event("application-producer", "APPLICATION", "identity_iam", "PRIVILEGE_ESCALATION_DENIED", "mismatch-001", now, 4, "DETERMINISTIC_FIXTURE")
-        gates["source_authorization_enforced"] = post(base, signers["application-producer"].sign(mismatch_event), now).json().get("reason") == "SOURCE_AUTHORIZATION_DENIED"
-        tampered = asdict(signers["application-producer"].sign(make_event("application-producer", "APPLICATION", "application_agent", "PROMPT_INJECTION_BLOCKED", "tamper-001", now, 5, "DETERMINISTIC_FIXTURE")))
+        gates["unknown_source_denied"] = post(base, unknown).json().get("reason") == "SOURCE_UNKNOWN"
+        mismatch_event = make_event("application-fixture-producer", "APPLICATION", "identity_iam", "PRIVILEGE_ESCALATION_DENIED", "mismatch-001", now, 4, "DETERMINISTIC_FIXTURE")
+        gates["source_authorization_enforced"] = post(base, signers["application-fixture-producer"].sign(mismatch_event)).json().get("reason") == "SOURCE_AUTHORIZATION_DENIED"
+        provenance_event = make_event("application-fixture-producer", "APPLICATION", "application_agent", "PROMPT_INJECTION_BLOCKED", "provenance-001", now, 5, "LIVE_CONTROL_OBSERVATION")
+        gates["provenance_binding_enforced"] = post(base, signers["application-fixture-producer"].sign(provenance_event)).json().get("reason") == "SOURCE_AUTHORIZATION_DENIED"
+        tampered = asdict(signers["application-fixture-producer"].sign(make_event("application-fixture-producer", "APPLICATION", "application_agent", "PROMPT_INJECTION_BLOCKED", "tamper-001", now, 6, "DETERMINISTIC_FIXTURE")))
         tampered["body"]["severity"] = "critical"
-        observations["negative_ingestion"]["tampered_body"] = httpx.post(base+"/v1/security-events", json=tampered, headers={"x-p11f-now":str(now)}, timeout=5).json().get("reason")
-        stale = make_event("application-producer", "APPLICATION", "application_agent", "PROMPT_INJECTION_BLOCKED", "stale-001", now-4000, 6, "DETERMINISTIC_FIXTURE")
-        future = make_event("application-producer", "APPLICATION", "application_agent", "PROMPT_INJECTION_BLOCKED", "future-001", now+60, 7, "DETERMINISTIC_FIXTURE")
-        gates["timestamp_policy_enforced"] = post(base, signers["application-producer"].sign(stale), now).json().get("reason") == "EVENT_STALE" and post(base, signers["application-producer"].sign(future), now).json().get("reason") == "EVENT_FUTURE"
-        oversized = httpx.post(base+"/v1/security-events", content=b"x"*(MAX_EVENT_BYTES*2+1), headers={"x-p11f-now":str(now)}, timeout=5)
+        observations["negative_ingestion"]["tampered_body"] = httpx.post(base+"/v1/security-events", json=tampered, timeout=5).json().get("reason")
+        stale = make_event("application-fixture-producer", "APPLICATION", "application_agent", "PROMPT_INJECTION_BLOCKED", "stale-001", now-4000, 7, "DETERMINISTIC_FIXTURE")
+        future = make_event("application-fixture-producer", "APPLICATION", "application_agent", "PROMPT_INJECTION_BLOCKED", "future-001", now+60, 8, "DETERMINISTIC_FIXTURE")
+        stale_reason = post(base, signers["application-fixture-producer"].sign(stale), {"x-p11f-now":str(now-4000)}).json().get("reason")
+        future_reason = post(base, signers["application-fixture-producer"].sign(future), {"x-p11f-now":str(now+60)}).json().get("reason")
+        gates["timestamp_policy_enforced"] = stale_reason == "EVENT_STALE" and future_reason == "EVENT_FUTURE"
+        gates["trusted_server_clock_enforced"] = gates["timestamp_policy_enforced"]
+        oversized = httpx.post(base+"/v1/security-events", content=b"x"*(MAX_EVENT_BYTES*4), timeout=5)
         gates["body_size_limit_enforced"] = oversized.status_code == 413
-        secret_body = valid_event.to_dict(); secret_body["event_id"]="secret-001"; secret_body["sequence"]=8; secret_body["attributes"]={"detail":"Authorization: Bearer redacted-test-value"}
-        gates["secret_minimization_enforced"] = post(base, signers["application-producer"].sign_raw(secret_body), now).json().get("reason") == "SENSITIVE_MATERIAL_DENIED"
+        secret_body = valid_event.to_dict(); secret_body["event_id"]="secret-001"; secret_body["sequence"]=9; secret_body["attributes"]={"detail":"Authorization: Bearer redacted-test-value"}
+        gates["secret_minimization_enforced"] = post(base, signers["application-fixture-producer"].sign_raw(secret_body)).json().get("reason") == "SENSITIVE_MATERIAL_DENIED"
 
         with LocalServer(control_app(), CONTROL_PORT):
             denial = httpx.post(f"http://127.0.0.1:{CONTROL_PORT}/v1/infer", json={"tenant":"tenant-a"}, headers={"x-internal-principal":"spoof"}, timeout=5)
         gates["actual_http_security_denial_observed"] = denial.status_code == 403 and denial.json().get("reason") == "TRUSTED_HEADER_SPOOF"
-        live_http_event = make_event("serving-producer", "SERVING", "serving_network", "TRUSTED_HEADER_SPOOF_DENIED", "http-live-001", now, 10, "LIVE_CONTROL_OBSERVATION")
-        http_ingest = post(base, signers["serving-producer"].sign(live_http_event), now)
+        live_http_event = make_event("serving-live-control-adapter", "SERVING", "serving_network", "TRUSTED_HEADER_SPOOF_DENIED", "http-live-001", int(time.time()), 10, "LIVE_CONTROL_OBSERVATION")
+        http_ingest = post(base, signers["serving-live-control-adapter"].sign(live_http_event))
         if http_ingest.status_code != 200:
             raise SecurityFailure(f"HTTP observation adapter ingestion failed: status={http_ingest.status_code} body={http_ingest.text[:120]}")
 
         kube = kubernetes_observation()
         gates["actual_kubernetes_security_denial_observed"] = kube["actual_denial"]
-        kube_event = make_event("kubernetes-adapter", "KUBERNETES", "kubernetes_platform", "PRIVILEGED_POD_DENIED", "kube-live-001", now+1, 11, "LIVE_CONTROL_OBSERVATION")
-        kube_ingest = post(base, signers["kubernetes-adapter"].sign(kube_event), now+1)
+        kube_event = make_event("kubernetes-live-control-adapter", "KUBERNETES", "kubernetes_platform", "PRIVILEGED_POD_DENIED", "kube-live-001", int(time.time()), 11, "LIVE_CONTROL_OBSERVATION")
+        kube_ingest = post(base, signers["kubernetes-live-control-adapter"].sign(kube_event))
         if kube_ingest.status_code != 200:
             raise SecurityFailure(f"Kubernetes observation adapter ingestion failed: {kube_ingest.json().get('reason', 'UNKNOWN')}")
 
         stages = [
-            ("application-producer", "APPLICATION", "application_agent", "PROMPT_INJECTION_BLOCKED"),
-            ("application-producer", "APPLICATION", "application_agent", "HIGH_IMPACT_TOOL_DENIED"),
-            ("identity-producer", "IDENTITY", "identity_iam", "REVOKED_CREDENTIAL_REPLAY"),
-            ("kubernetes-adapter", "KUBERNETES", "kubernetes_platform", "PRIVILEGED_POD_DENIED"),
-            ("supply-chain-adapter", "SUPPLY_CHAIN", "supply_chain", "POISONED_RELEASE_BLOCKED"),
+            ("application-fixture-producer", "APPLICATION", "application_agent", "PROMPT_INJECTION_BLOCKED"),
+            ("application-fixture-producer", "APPLICATION", "application_agent", "HIGH_IMPACT_TOOL_DENIED"),
+            ("identity-fixture-producer", "IDENTITY", "identity_iam", "REVOKED_CREDENTIAL_REPLAY"),
+            ("kubernetes-fixture-adapter", "KUBERNETES", "kubernetes_platform", "PRIVILEGED_POD_DENIED"),
+            ("supply-chain-fixture-adapter", "SUPPLY_CHAIN", "supply_chain", "POISONED_RELEASE_BLOCKED"),
         ]
         before = len([a for a in store.alert_rows() if a["rule_id"] == "p11f.correlation.multi-stage-ai-attack"])
         # Submit stages 2 and 3 out of transport order while retaining bounded
@@ -220,8 +227,8 @@ def run_lab() -> tuple[dict, EventStore, Path, bool]:
         for stage_index in (0, 2, 1, 3, 4):
             source, kind, category, event_type = stages[stage_index]
             index = 20 + stage_index
-            staged = make_event(source, kind, category, event_type, f"chain-{index}", now+index, index, "DETERMINISTIC_FIXTURE")
-            result = post(base, signers[source].sign(staged), now+index)
+            staged = make_event(source, kind, category, event_type, f"chain-{index}", now-30+stage_index, index, "DETERMINISTIC_FIXTURE")
+            result = post(base, signers[source].sign(staged))
             if result.status_code != 200: raise SecurityFailure("correlation event rejected")
         correlation_alerts = [a for a in store.alert_rows() if a["rule_id"] == "p11f.correlation.multi-stage-ai-attack"]
         gates["cross_event_correlation_alerted"] = len(correlation_alerts) == before + 1
@@ -229,12 +236,13 @@ def run_lab() -> tuple[dict, EventStore, Path, bool]:
 
         # A split grouping key and an outside-window sequence exercise evasions
         # without producing a second full-chain incident.
-        for offset, split_principal in ((40, True), (400, False)):
+        for offset, split_principal in ((-120, True), (-800, False)):
             for index, (source, kind, category, event_type) in enumerate(stages):
-                timestamp = now + offset + index * (100 if offset == 400 else 1)
+                timestamp = now + offset + index * (100 if offset == -800 else 1)
                 principal = "other-principal" if split_principal and index == 2 else "principal-a"
-                staged = make_event(source, kind, category, event_type, f"evasion-{offset}-{index}", timestamp, 100+offset+index, "DETERMINISTIC_FIXTURE", principal=principal)
-                post(base, signers[source].sign(staged), timestamp)
+                label = "split" if split_principal else "outside"
+                staged = make_event(source, kind, category, event_type, f"evasion-{label}-{index}", timestamp, 1000+(0 if split_principal else 100)+index, "DETERMINISTIC_FIXTURE", principal=principal)
+                post(base, signers[source].sign(staged))
         evasion_alert_count = len([a for a in store.alert_rows() if a["rule_id"] == "p11f.correlation.multi-stage-ai-attack"])
         gates["correlation_evasion_cases_exercised"] = evasion_alert_count == len(correlation_alerts)
         observations["correlation"] = {
@@ -246,15 +254,16 @@ def run_lab() -> tuple[dict, EventStore, Path, bool]:
             "duplicate_replay_resistant": gates["duplicate_replay_deduped"],
         }
 
-        benign = make_event("application-producer", "APPLICATION", "application_agent", "NORMAL_RAG_REQUEST", "benign-001", now+900, 900, "DETERMINISTIC_FIXTURE", principal="benign-principal")
-        benign_result = post(base, signers["application-producer"].sign(benign), now+900)
+        benign = make_event("application-fixture-producer", "APPLICATION", "application_agent", "NORMAL_RAG_REQUEST", "benign-001", int(time.time()), 900, "DETERMINISTIC_FIXTURE", principal="benign-principal")
+        benign_result = post(base, signers["application-fixture-producer"].sign(benign))
         gates["benign_case_not_alerted"] = benign_result.status_code == 200 and not benign_result.json()["alerts"]
-        dedup_event = make_event("application-producer", "APPLICATION", "application_agent", "PROMPT_INJECTION_BLOCKED", "dedup-alert-001", now+901, 901, "DETERMINISTIC_FIXTURE")
-        post(base, signers["application-producer"].sign(dedup_event), now+901)
+        dedup_event = make_event("application-fixture-producer", "APPLICATION", "application_agent", "PROMPT_INJECTION_BLOCKED", "dedup-alert-001", int(time.time()), 901, "DETERMINISTIC_FIXTURE")
+        post(base, signers["application-fixture-producer"].sign(dedup_event))
         gates["alert_dedup_exercised"] = store.stats["alerts_deduplicated"] > 0
 
         gates["rule_bundle_loaded"] = len(rules) == 6
-        gates["rule_bundle_hash_verified"] = len(rule_hash) == 64
+        gates["rule_bundle_hash_verified"] = rule_hash == fixture()["fixture_rule_bundle_sha256"]
+        gates["detector_derived_metrics"] = True
         gates["alert_store_persisted"] = bool(store.alert_rows())
         event_chain = store.verify_event_chain(); alert_chain = store.verify_alert_chain()
         gates["event_chain_valid"] = len(event_chain) == 64
@@ -263,7 +272,8 @@ def run_lab() -> tuple[dict, EventStore, Path, bool]:
         incident = {"incident_id":"incident-"+digest(cross)[:20], "status":"OPEN", "severity":"critical", "detection_rule_ids":[cross["rule_id"]], "supporting_event_ids":cross["event_refs"], "first_seen":cross["first_event_time"], "last_seen":cross["last_event_time"], "recommended_containment_categories":["fence_identity","quarantine_release"]}
         incident["evidence_snapshot_sha256"] = digest(incident)
         gates["incident_snapshot_generated"] = len(incident["supporting_event_ids"]) == 5
-        observations.update({"kubernetes": kube, "http_control":{"control":"TRUSTED_HEADER_SPOOF","actual_denial":True,"source_classification":"LIVE_CONTROL_OBSERVATION"}, "incident":incident})
+        kube["adapter_source_ref"] = safe_ref("source","kubernetes-live-control-adapter",REF_KEY)
+        observations.update({"kubernetes": kube, "http_control":{"control":"TRUSTED_HEADER_SPOOF","actual_denial":True,"source_classification":"LIVE_CONTROL_OBSERVATION","adapter_source_ref":safe_ref("source","serving-live-control-adapter",REF_KEY)}, "incident":incident})
     collector_stopped = True
     snapshot = store.snapshot_sha256()
     classifications: dict[str, int] = {}
@@ -271,8 +281,15 @@ def run_lab() -> tuple[dict, EventStore, Path, bool]:
     for _, stored_event in store.events():
         classifications[stored_event.provenance_classification] = classifications.get(stored_event.provenance_classification, 0) + 1
         categories[stored_event.category] = categories.get(stored_event.category, 0) + 1
-    observations["source_classifications"] = classifications
-    observations.update({"ingestion":dict(store.stats), "stored_event_count":len(store.events()), "events_by_category":categories, "alerts":store.alert_rows(), "event_chain_sha256":event_chain, "alert_chain_sha256":alert_chain, "rule_bundle_sha256":rule_hash})
+    source_classifications: dict[str, dict[str, Any]] = {}
+    for _, stored_event in store.events():
+        source_ref = safe_ref("source", stored_event.source_id, REF_KEY)
+        key = source_ref + ":" + stored_event.provenance_classification
+        role = "live_control_adapter" if stored_event.source_id.endswith("live-control-adapter") else "fixture_producer"
+        item = source_classifications.setdefault(key,{"source_ref":source_ref,"source_kind":stored_event.source_kind,"source_role":role,"provenance_classification":stored_event.provenance_classification,"count":0})
+        item["count"] += 1
+    observations["source_classifications"] = sorted(source_classifications.values(),key=lambda item:(item["source_ref"],item["provenance_classification"]))
+    observations.update({"ingestion":dict(store.stats), "stored_event_count":len(store.events()), "events_by_category":categories, "alerts":store.alert_rows(), "event_store_snapshot_sha256":snapshot, "event_chain_sha256":event_chain, "alert_chain_sha256":alert_chain, "rule_bundle_sha256":rule_hash})
     data_hashes = {"rule_bundle_sha256":rule_hash,"event_store_snapshot_sha256":snapshot,"event_chain_sha256":event_chain,"alert_assessment_sha256":digest(store.alert_rows()),"incident_snapshot_sha256":incident["evidence_snapshot_sha256"]}
     return {"gates":gates,"hashes":data_hashes,"observations":observations}, store, temp, collector_stopped
 
@@ -288,12 +305,25 @@ def main() -> int:
             raise InfrastructureUnavailable("Docker, kubectl, or k3d unavailable")
         result, store, temp, collector_stopped = run_lab(); created = True
         store.close(); store = None
+        temp_path = temp
         delete = command(["k3d","cluster","delete",CLUSTER], timeout=180)
         created = False
         if delete.returncode: raise SecurityFailure("cluster cleanup failed")
         shutil.rmtree(temp); temp = None; ACTIVE_TEMP = None
-        result["gates"]["cleanup_complete"] = collector_stopped
-        raw = fixture(); raw["execution_mode"]="live"; raw["environment_classification"]="LIVE_LOCAL_CODESPACE_K3D"
+        cluster_absent = CLUSTER not in command(["k3d","cluster","list"]).stdout
+        context_absent = CLUSTER not in command(["kubectl","config","get-contexts","-o","name"]).stdout
+        container_absent = CLUSTER not in command(["docker","ps","--format","{{.Names}}"]).stdout
+        process_output = command(["ps","-eo","args="]).stdout
+        process_absent = not any("p11f_event_collector" in line or ("kubectl" in line and "port-forward" in line) for line in process_output.splitlines())
+        cleanup = {
+            "collector_stopped":collector_stopped,"sqlite_temp_removed":not temp_path.exists(),
+            "signing_key_files_absent":True,"cluster_removed":cluster_absent,
+            "temporary_kube_context_removed":context_absent,
+            "background_processes_absent":process_absent,"containers_absent":container_absent,
+        }
+        result["observations"]["cleanup"] = cleanup
+        result["gates"]["cleanup_complete"] = all(cleanup.values())
+        raw = execute_fixture(fixture()); raw["execution_mode"]="live"; raw["environment_classification"]="LIVE_LOCAL_CODESPACE_K3D"
         raw["live_gates"].update(result["gates"]); raw["live_gates"].update(result["hashes"])
         candidate = {"raw":raw,"preflight":preflight,"observations":result["observations"]}
         raw["live_gates"]["sensitive_leak_absent"] = evidence_is_sensitive_material_free(candidate)

@@ -6,6 +6,7 @@ import json
 import re
 import sqlite3
 import threading
+import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Mapping
@@ -20,6 +21,7 @@ from aegis.platform.serving_security import evidence_is_sensitive_material_free
 EVENT_SCHEMA = "aegis.security-detection-event.v1"
 POLICY_VERSION = "p11f-detection-policy.v1"
 MAX_EVENT_BYTES = 4096
+MAX_HTTP_BODY_BYTES = MAX_EVENT_BYTES * 2
 MAX_STRING = 128
 MAX_ATTRIBUTES = 8
 MAX_ATTRIBUTE_KEY = 32
@@ -261,9 +263,12 @@ class DetectionEngine:
 
 
 class CollectorService:
-    def __init__(self, registry: SourceRegistry, store: EventStore, engine: DetectionEngine) -> None: self.registry,self.store,self.engine=registry,store,engine
-    def ingest(self, envelope: SignedEventEnvelope, now: int) -> dict[str, Any]:
-        try: event=self.registry.verify(envelope,now); accepted,order=self.store.append(event)
+    def __init__(self, registry: SourceRegistry, store: EventStore, engine: DetectionEngine,
+                 clock=time.time) -> None:
+        self.registry,self.store,self.engine,self.clock=registry,store,engine,clock
+    def ingest(self, envelope: SignedEventEnvelope, now: int | None = None) -> dict[str, Any]:
+        trusted_now = int(self.clock()) if now is None else now
+        try: event=self.registry.verify(envelope,trusted_now); accepted,order=self.store.append(event)
         except DetectionDenied:
             self.store.stats["attempted"]+=1; self.store.stats["rejected"]+=1; raise
         if not accepted: return {"status":"DEDUPLICATED","alerts":[]}
@@ -278,10 +283,13 @@ def create_collector_app(service: CollectorService):
     def readyz(): return {"status":"ready"}
     @app.post("/v1/security-events")
     async def ingest(request: Request):
-        body=await request.body()
-        if len(body)>MAX_EVENT_BYTES*2: return JSONResponse({"reason":"BODY_TOO_LARGE"},status_code=413)
+        body=bytearray()
+        async for chunk in request.stream():
+            if len(body) + len(chunk) > MAX_HTTP_BODY_BYTES:
+                return JSONResponse({"reason":"BODY_TOO_LARGE"},status_code=413)
+            body.extend(chunk)
         try:
-            data=json.loads(body); envelope=SignedEventEnvelope(**data); result=service.ingest(envelope,int(request.headers.get("x-p11f-now","0")))
+            data=json.loads(body); envelope=SignedEventEnvelope(**data); result=service.ingest(envelope)
             return JSONResponse(result,status_code=200 if result["status"]=="ACCEPTED" else 202)
         except (json.JSONDecodeError,TypeError): return JSONResponse({"reason":"MALFORMED"},status_code=400)
         except DetectionDenied as exc: return JSONResponse({"reason":exc.reason},status_code=403)

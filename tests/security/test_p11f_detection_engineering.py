@@ -12,7 +12,10 @@ from aegis.detection.security_analytics import (
     DetectionEngine, EventStore, ProducerSigner, SecurityEvent, SignedEventEnvelope,
     SourcePolicy, SourceRegistry, canonical_bytes, digest, load_rules, safe_ref,
 )
-from evals.p11f_detection_engineering import EvidenceRejected, assess, validate_evidence
+from evals.p11f_detection_engineering import (
+    EvidenceRejected, assess, execute_cases, execute_fixture, metric_summary,
+    validate_evidence,
+)
 from evals.p11f_fixture import (
     DEFERRED_MASTERY_ITEMS, LIVE_DATA_NAMES, LIVE_GATE_NAMES, ROOT, fixture,
 )
@@ -54,7 +57,7 @@ def service(tmp_path):
     ),))
     rules, bundle_hash = load_rules(ROOT / "detections/p11f")
     store = EventStore(tmp_path / "events.sqlite")
-    return signer, store, CollectorService(registry, store, DetectionEngine(store, rules)), bundle_hash
+    return signer, store, CollectorService(registry, store, DetectionEngine(store, rules), clock=lambda: 1_700_000_001), bundle_hash
 
 
 def test_event_schema_canonicalization_hash_and_unknown_field() -> None:
@@ -94,6 +97,29 @@ def test_real_http_collector_route_accepts_signed_envelope(tmp_path) -> None:
     response = asyncio.run(post_event())
     assert response.status_code == 200
     assert response.json()["status"] == "ACCEPTED"
+    store.close()
+
+
+def test_http_uses_trusted_clock_and_streaming_body_cap(tmp_path) -> None:
+    from dataclasses import asdict
+    import httpx
+    from aegis.detection.security_analytics import MAX_HTTP_BODY_BYTES, create_collector_app
+
+    signer, store, collector, _ = service(tmp_path)
+    async def requests():
+        transport = httpx.ASGITransport(app=create_collector_app(collector))
+        async with httpx.AsyncClient(transport=transport, base_url="http://p11f.test") as client:
+            stale = await client.post("/v1/security-events", json=asdict(signer.sign(event(event_time=1_699_996_000))), headers={"x-p11f-now":"1699996000"})
+            future = await client.post("/v1/security-events", json=asdict(signer.sign(event("evt-002",event_time=1_700_000_100,sequence=2))), headers={"x-p11f-now":"1700000100"})
+            extreme = await client.post("/v1/security-events", json=asdict(signer.sign(event("evt-003",sequence=3))), headers={"x-p11f-now":"999999999999999999"})
+            missing = await client.post("/v1/security-events", json=asdict(signer.sign(event("evt-004",sequence=4))))
+            oversized = await client.post("/v1/security-events", content=b"x"*(MAX_HTTP_BODY_BYTES*4))
+            return stale,future,extreme,missing,oversized
+    stale,future,extreme,missing,oversized=asyncio.run(requests())
+    assert stale.json()["reason"] == "EVENT_STALE"
+    assert future.json()["reason"] == "EVENT_FUTURE"
+    assert extreme.status_code == missing.status_code == 200
+    assert oversized.status_code == 413 and oversized.json()["reason"] == "BODY_TOO_LARGE"
     store.close()
 
 
@@ -156,6 +182,13 @@ def test_rule_bundle_schema_duplicate_operator_window_and_domain_coverage(tmp_pa
         values = copy.deepcopy(originals); mutate(values)
         for index, value in enumerate(values): (case_dir / f"{index}.json").write_text(json.dumps(value))
         with pytest.raises(DetectionDenied, match=reason): load_rules(case_dir)
+    tamper_dir=tmp_path/"tampered"; tamper_dir.mkdir()
+    for index,value in enumerate(originals): (tamper_dir/f"{index}.json").write_text(json.dumps(value))
+    changed=json.loads((tamper_dir/"0.json").read_text()); changed["title"] += " changed"
+    (tamper_dir/"0.json").write_text(json.dumps(changed))
+    assert load_rules(tamper_dir)[1] != bundle_hash
+    raw=execute_fixture(fixture()); raw["fixture_rule_bundle_sha256"]=load_rules(tamper_dir)[1]
+    with pytest.raises(EvidenceRejected,match="rule bundle integrity"): assess(raw)
 
 
 def test_single_threshold_and_cross_source_correlation(tmp_path) -> None:
@@ -179,6 +212,10 @@ def test_single_threshold_and_cross_source_correlation(tmp_path) -> None:
     ]
     # Transport order differs from event-time order for the middle stages.
     for index in (1, 3, 2, 4, 5):
+        if index == 5:
+            # A later-event-time benign record is transported first. The final
+            # attack stage then arrives late, but within freshness/skew bounds.
+            collector.ingest(signers["serving"].sign(event("watermark-001", "SERVING_REQUEST_ALLOWED", "serving_network", "serving", "SERVING", 1_700_000_010, 99)), 1_700_000_010)
         source, event_type = stages[index - 1]
         kind, category = source_spec[source]
         result = collector.ingest(signers[source].sign(event(f"evt-{index:03}", event_type, category, source, kind, 1_700_000_000+index, index)), 1_700_000_010)
@@ -208,7 +245,7 @@ def test_correlation_evasion_does_not_create_full_chain(tmp_path, variation) -> 
 
 
 def test_assessment_metrics_hash_claim_debt_and_live_boundary() -> None:
-    result = assess(fixture())
+    result = assess(execute_fixture(fixture()))
     assert result["ASR"]["numerator"] == result["FPR"]["numerator"] == 0
     assert result["DetectionRecall"]["numerator"] == result["DetectionRecall"]["denominator"]
     assert result["SafeTaskRate"]["numerator"] == result["SafeTaskRate"]["denominator"]
@@ -216,21 +253,46 @@ def test_assessment_metrics_hash_claim_debt_and_live_boundary() -> None:
     tampered = copy.deepcopy(result); tampered["ASR"]["numerator"] = 1
     with pytest.raises(EvidenceRejected): validate_evidence(tampered)
     for key in ("production_siem_validation_claimed", "professional_mastery_complete"):
-        raw = fixture(); raw[key] = True
+        raw = execute_fixture(fixture()); raw[key] = True
         with pytest.raises(EvidenceRejected): assess(raw)
-    raw = fixture(); raw["deferred_mastery_items"] = []
+    raw = execute_fixture(fixture()); raw["deferred_mastery_items"] = []
     with pytest.raises(EvidenceRejected): assess(raw)
 
 
 def test_live_flag_requires_every_observed_gate_and_live_mode() -> None:
-    raw = fixture(); raw["execution_mode"] = "live"; raw["environment_classification"] = "LIVE_LOCAL_CODESPACE_K3D"
+    raw = execute_fixture(fixture()); raw["execution_mode"] = "live"; raw["environment_classification"] = "LIVE_LOCAL_CODESPACE_K3D"
     for key in LIVE_GATE_NAMES: raw["live_gates"][key] = True
     for key in LIVE_DATA_NAMES: raw["live_gates"][key] = "a" * 64
+    raw["live_gates"]["rule_bundle_sha256"] = raw["fixture_rule_bundle_sha256"]
     assert assess(raw)["live_local_detection_engineering_validated"] is True
     for gate in LIVE_GATE_NAMES:
         changed = copy.deepcopy(raw); changed["live_gates"][gate] = False
         assert assess(changed)["live_local_detection_engineering_validated"] is False
-    assert assess(fixture())["live_local_detection_engineering_validated"] is False
+    assert assess(execute_fixture(fixture()))["live_local_detection_engineering_validated"] is False
+
+
+def test_detector_execution_changes_quality_metrics_when_rules_change() -> None:
+    from dataclasses import replace
+    rules, _ = load_rules(ROOT / "detections/p11f")
+    baseline = metric_summary(execute_cases(fixture()["case_definitions"], rules))
+    application_removed = tuple(rule for rule in rules if rule.rule_id != "p11f.application.prompt-injection")
+    escaped = metric_summary(execute_cases(fixture()["case_definitions"], application_removed))
+    assert escaped["ASR"]["numerator"] > baseline["ASR"]["numerator"]
+    assert escaped["DetectionRecall"]["numerator"] < baseline["DetectionRecall"]["numerator"]
+    application = next(rule for rule in rules if rule.rule_id == "p11f.application.prompt-injection")
+    overbroad = tuple(replace(rule,event_types=rule.event_types+("NORMAL_RAG_REQUEST",)) if rule is application else rule for rule in rules)
+    noisy = metric_summary(execute_cases(fixture()["case_definitions"], overbroad))
+    assert noisy["FPR"]["numerator"] > baseline["FPR"]["numerator"]
+    assert noisy["SafeTaskRate"]["numerator"] < baseline["SafeTaskRate"]["numerator"]
+    assert noisy["Precision"]["value"] < baseline["Precision"]["value"]
+
+
+def test_fixture_producer_cannot_claim_stronger_provenance(tmp_path) -> None:
+    signer, store, collector, _ = service(tmp_path)
+    for index, provenance in enumerate(("LIVE_CONTROL_OBSERVATION","NATIVE_LIVE"),2):
+        with pytest.raises(DetectionDenied, match="AUTHORIZATION"):
+            collector.ingest(signer.sign(event(f"evt-{index:03}",sequence=index,provenance=provenance)),1_700_000_001)
+    store.close()
 
 
 def test_default_phase11_debt_is_latest() -> None:

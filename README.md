@@ -209,5 +209,9 @@ identities, a bounded HTTP collector, temporary SQLite event and alert persisten
 strict JSON rules, cross-source temporal correlation, alert deduplication, incident
 handoff, and tamper-evident evidence. The live lab adapts real local HTTP and
 Kubernetes control denials while labeling fixture attack sequences distinctly.
+Its quality metrics execute eight covered malicious sequences and thirteen
+overlapping benign sequences through fresh real detector pipelines; unsupported
+telemetry signals are not counted as detections. HTTP freshness uses the server
+clock, and fixture-only keys cannot claim live-control or native-live provenance.
 Run `python scripts/verify_phase11.py --focused-p11f`. This is not a production
 SIEM, SOC, Kubernetes audit pipeline, or production-scale retention/latency claim.

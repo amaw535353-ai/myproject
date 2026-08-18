@@ -23,6 +23,11 @@ and is tested against wrong-tenant/principal, missing-stage, out-of-window,
 out-of-order, replay, and benign-flood evasion. Alert deduplication limits storms
 without suppressing the first high-severity signal.
 
+The HTTP route consumes the body incrementally and returns 413 when the bounded
+collector cap is crossed. Freshness is evaluated against an injected trusted
+server clock; caller headers cannot set that clock. Deterministic tests inject a
+fixed clock directly into the service, never through HTTP.
+
 ## Data minimization
 
 Events contain bounded reason codes and domain-separated HMAC references. They do
@@ -40,6 +45,25 @@ is part of the live pass predicate and is supplemented by an external leak scan.
 
 Fixture events are never described as native application logs. The Kubernetes
 adapter observes an API denial and is not a Kubernetes audit-log pipeline.
+Fixture producers and live-control adapters have separate ephemeral keys and
+single-class provenance policies. No `NATIVE_LIVE` event is manufactured by this
+lab.
+
+## Detection and integrity semantics
+
+Input fixtures specify event sequences and expected rule IDs but no observed
+result. Eight covered malicious sequences and thirteen overlapping benign
+sequences execute through fresh real source registries, collectors, SQLite stores,
+and rule engines; metrics are derived from persisted alerts. Mutation tests prove
+that rule removal increases escapes and an overbroad rule increases false alerts.
+
+One canonical digest of the parsed, ordered JSON rule bundle is used by loading,
+evaluation, live evidence, and validation. The validator independently recomputes
+the alert chain and incident snapshot and exactly checks the rule digest. The
+event-chain terminal and SQLite snapshot hashes are computed and verified before
+the temporary database is deleted, then cross-bound into retained evidence; raw
+event payloads are intentionally not retained, so the event chain cannot be
+independently replayed from the sanitized evidence alone.
 
 ## Claim boundary
 

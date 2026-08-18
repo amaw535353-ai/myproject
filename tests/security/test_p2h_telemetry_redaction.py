@@ -1,7 +1,11 @@
 import json
+import socket
+import threading
+import time
 
+import httpx
 import pytest
-from fastapi.testclient import TestClient
+import uvicorn
 from pydantic import ValidationError
 
 from aegis.approvals.models import ApprovalDecision
@@ -15,12 +19,46 @@ from aegis.observability.security_events import (
     TelemetryPseudonymizer,
 )
 from apps.api.dependencies import get_security_event_sink
+from apps.api import dependencies as api_dependencies
+from apps.api.main import app
 
 
 _TEST_KEY = b"p2h-unit-test-key-material-that-is-at-least-32-bytes"
 _DYNAMICS_HEADERS = {"X-Aegis-User": "alice@northstar-dynamics.test"}
 _APPROVER_HEADERS = {"X-Aegis-User": "carol.approver@northstar-dynamics.test"}
 _CANARY = "AEGIS-NORTH-7Q4M"
+
+
+def _post(base_url: str, path: str, *, headers: dict, json: dict) -> httpx.Response:
+    return httpx.post(base_url+path,headers=headers,json=json,timeout=10)
+
+
+@pytest.fixture
+def p2h_http_state(tmp_path, monkeypatch):
+    for name, filename in (
+        ("AEGISDESK_STATE_DB","state.sqlite3"),
+        ("AEGISDESK_EFFECT_DB","synthetic-effects.sqlite3"),
+        ("AEGISDESK_MEMORY_DB","memory.sqlite3"),
+        ("AEGISDESK_AGENT_CHECKPOINT_DB","agent-checkpoints.sqlite3"),
+        ("AEGISDESK_AGENT_CHECKPOINT_ANCHOR_DB","agent-checkpoint-anchor.sqlite3"),
+    ):
+        monkeypatch.setenv(name,str(tmp_path/filename))
+    cached=[value for value in vars(api_dependencies).values() if callable(value) and hasattr(value,"cache_clear")]
+    for dependency in cached: dependency.cache_clear()
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1",0)); port=probe.getsockname()[1]
+    server=uvicorn.Server(uvicorn.Config(app,host="127.0.0.1",port=port,log_level="error",access_log=False))
+    thread=threading.Thread(target=server.run,daemon=True); thread.start()
+    deadline=time.monotonic()+10
+    while time.monotonic()<deadline:
+        try:
+            if httpx.get(f"http://127.0.0.1:{port}/healthz",timeout=.5).status_code==200: break
+        except httpx.HTTPError: time.sleep(.05)
+    else: raise RuntimeError("P2-H loopback test server failed to start")
+    yield f"http://127.0.0.1:{port}"
+    server.should_exit=True; thread.join(timeout=10)
+    assert not thread.is_alive()
+    for dependency in cached: dependency.cache_clear()
 
 
 def _recorder() -> tuple[SecurityTelemetryRecorder, InMemorySecurityEventSink]:
@@ -150,11 +188,11 @@ def test_security_event_schema_rejects_extra_raw_field() -> None:
 
 
 def test_default_agent_path_records_redacted_security_event(
-    client: TestClient,
+    p2h_http_state,
 ) -> None:
     secret_note = "SYNTH-P2H-HTTP-PRIVATE-7X9Q"
-    response = client.post(
-        "/v1/agent/run",
+    response = _post(
+        p2h_http_state, "/v1/agent/run",
         headers=_DYNAMICS_HEADERS,
         json={"message": f"search: vpn vpn vpn {secret_note}"},
     )
@@ -172,18 +210,18 @@ def test_default_agent_path_records_redacted_security_event(
 
 
 def test_approval_decision_event_uses_refs_not_raw_approval_id(
-    client: TestClient,
+    p2h_http_state,
 ) -> None:
-    create_response = client.post(
-        "/v1/agent/run",
+    create_response = _post(
+        p2h_http_state, "/v1/agent/run",
         headers=_DYNAMICS_HEADERS,
         json={"message": "access: finance-admin | Synthetic reporting access"},
     )
     assert create_response.status_code == 200
     approval_id = create_response.json()["approval_id"]
 
-    decide_response = client.post(
-        f"/v1/approvals/{approval_id}/decision",
+    decide_response = _post(
+        p2h_http_state, f"/v1/approvals/{approval_id}/decision",
         headers=_APPROVER_HEADERS,
         json={"decision": ApprovalDecision.APPROVE.value},
     )
