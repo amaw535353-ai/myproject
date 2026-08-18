@@ -1,5 +1,6 @@
 import copy
 import json
+from pathlib import Path
 
 import pytest
 
@@ -88,3 +89,17 @@ def test_private_key_material_rejected():
 
 
 def test_debt_exact(): assert list(DEFERRED_MASTERY_ITEMS) == fixture()["deferred_mastery_items"]
+
+
+def test_live_manifest_uses_distinct_readiness_and_drain_lifecycle():
+    manifest = Path("deploy/p11d/resources.yaml").read_text()
+    assert "httpGet: {path: /readyz, port: health}" in manifest
+    assert "httpGet: {path: /healthz, port: health}" in manifest
+    assert "127.0.0.1:8081/internal/drain" in manifest
+    assert "readinessProbe: {tcpSocket" not in manifest
+
+
+def test_gateway_builds_explicit_client_certificate_context():
+    source = Path("apps/p11d_serving_gateway.py").read_text()
+    assert "ssl.create_default_context" in source
+    assert "load_cert_chain" in source

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import ssl
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Request
@@ -48,10 +49,13 @@ async def infer(request: Request, x_client_id: str | None = Header(default=None)
         code = 413 if str(exc) == "BODY_TOO_LARGE" else 429 if "LIMITED" in str(exc) else 403
         raise HTTPException(code, "request denied") from None
     try:
-        async with httpx.AsyncClient(verify=CA, cert=CERT, trust_env=False, timeout=5) as client:
+        tls = ssl.create_default_context(cafile=CA); tls.load_cert_chain(*CERT)
+        async with httpx.AsyncClient(verify=tls, trust_env=False, timeout=5) as client:
             response = await client.post(BACKEND + "/v1/infer", json=body,
                                          headers={"X-Aegis-Internal-Principal": context.principal})
         if response.status_code != 200: raise HTTPException(503, "backend unavailable")
         return response.json()
-    except httpx.HTTPError: raise HTTPException(502, "backend unavailable") from None
+    except httpx.HTTPError as exc:
+        print(f"backend transport denied: {type(exc).__name__}: {exc}", flush=True)
+        raise HTTPException(502, "backend unavailable") from None
     finally: limiter.release(context.principal)

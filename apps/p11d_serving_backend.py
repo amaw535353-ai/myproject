@@ -62,7 +62,9 @@ async def _proxy(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> 
     cert = ssl_object.getpeercert() if ssl_object else {}
     identities = {value for kind, value in cert.get("subjectAltName", ()) if kind == "DNS"}
     if "gateway.p11d.internal" not in identities:
+        print(f"client service identity denied: {sorted(identities)}", flush=True)
         writer.close(); await writer.wait_closed(); return
+    print("client service identity accepted", flush=True)
     try:
         upstream_reader, upstream_writer = await asyncio.open_connection("127.0.0.1", 8081)
         async def copy(source, target):
@@ -78,7 +80,7 @@ async def _proxy(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> 
 
 async def _serve() -> None:
     import uvicorn
-    config = uvicorn.Config(app, host="127.0.0.1", port=8081, log_level="warning", proxy_headers=False)
+    config = uvicorn.Config(app, host="0.0.0.0", port=8081, log_level="warning", proxy_headers=False)
     server = uvicorn.Server(config)
     app_task = asyncio.create_task(server.serve())
     while not server.started: await asyncio.sleep(0.05)

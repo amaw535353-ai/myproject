@@ -28,6 +28,8 @@ LIVE_GATE_NAMES = (
     "backend_mtls_enabled", "valid_gateway_client_cert_accepted", "missing_client_cert_rejected",
     "wrong_client_identity_rejected", "untrusted_client_ca_rejected", "backend_hostname_verified",
     "plaintext_backend_rejected", "gateway_request_success", "direct_backend_external_access_denied",
+    "plaintext_http_denied", "trusted_header_spoof_rejected", "tenant_mismatch_rejected",
+    "malformed_request_rejected", "wrong_content_type_rejected",
     "rate_limit_exercised", "burst_limited", "safe_requests_below_limit", "concurrency_limit_exercised",
     "concurrency_exhaustion_rejected", "safe_concurrency", "oversized_body_rejected",
     "health_probe_exercised", "readiness_probe_exercised", "readiness_distinct_from_health",
