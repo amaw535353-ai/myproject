@@ -1,9 +1,11 @@
 import copy
 
 import pytest
+import subprocess
 
 from evals.p11b_fixture import DEFERRED_MASTERY_ITEMS, canonical_bytes, fixture, manifests_sha256, sha256
 from evals.p11b_kubernetes_security import EvidenceRejected, assess, validate_evidence
+from scripts.run_p11b_kubernetes_lab import authorization_answer, pod_security_api_denial
 
 
 def live_fixture():
@@ -106,3 +108,13 @@ def test_clean_live_observations_pass_all_gates():
     result = assess(live_fixture())
     assert result["live_kubernetes_cluster_validated"]
     assert result["rbac"]["incorrect_allows"] == result["rbac"]["incorrect_denies"] == 0
+
+
+def test_kubectl_authorization_no_is_still_api_evidence():
+    proc = subprocess.CompletedProcess([], 1, "Warning: scoped check\nno\n", "")
+    assert authorization_answer(proc) == ("DENY", True)
+
+
+def test_pod_security_spelling_variants_are_api_evidence():
+    proc = subprocess.CompletedProcess([], 1, "", "Error: forbidden: violates Pod Security restricted")
+    assert pod_security_api_denial(proc)

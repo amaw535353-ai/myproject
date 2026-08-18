@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 import argparse
-import copy
 import json
 import os
 from pathlib import Path
 import platform
 import shutil
 import subprocess
-import sys
-import tempfile
 import time
 
 from evals.p11b_fixture import PSA_CASES, RBAC_CASES, fixture
@@ -51,9 +48,26 @@ def apply_json(doc: dict, dry_run: bool = True) -> subprocess.CompletedProcess[s
     return kubectl(*args, check=False, stdin=json.dumps(doc))
 
 
+def pod_security_api_denial(proc: subprocess.CompletedProcess[str]) -> bool:
+    message = (proc.stderr + proc.stdout).lower()
+    return proc.returncode != 0 and "forbidden" in message and any(
+        marker in message for marker in ("podsecurity", "pod-security", "pod security")
+    )
+
+
+def authorization_answer(proc: subprocess.CompletedProcess[str]) -> tuple[str, bool]:
+    lines = [line.strip().lower() for line in proc.stdout.splitlines() if line.strip()]
+    answer = lines[-1] if lines else ""
+    evaluated = answer in {"yes", "no"}
+    return ("ALLOW" if answer == "yes" else "DENY", evaluated)
+
+
 def psa_observations() -> list[dict]:
     mutations = {
-        "privileged": lambda d: d["spec"]["containers"][0]["securityContext"].update(privileged=True),
+        "privileged": lambda d: (
+            d["spec"]["containers"][0]["securityContext"].pop("allowPrivilegeEscalation"),
+            d["spec"]["containers"][0]["securityContext"].update(privileged=True),
+        ),
         "allowPrivilegeEscalation": lambda d: d["spec"]["containers"][0]["securityContext"].update(allowPrivilegeEscalation=True),
         "SYS_ADMIN": lambda d: d["spec"]["containers"][0]["securityContext"]["capabilities"].update(add=["SYS_ADMIN"]),
         "hostPID": lambda d: d["spec"].update(hostPID=True),
@@ -67,7 +81,7 @@ def psa_observations() -> list[dict]:
         doc = pod_doc(f"attack-{name.lower().replace('_', '-')}")
         mutations[name](doc)
         proc = apply_json(doc)
-        api = "forbidden" in (proc.stderr + proc.stdout).lower() and "podsecurity" in (proc.stderr + proc.stdout).lower()
+        api = pod_security_api_denial(proc)
         out.append({"case": name, "attack": True, "expected": "DENY", "observed": "DENY" if proc.returncode else "ALLOW", "api_evaluated": api})
     benign = apply_json(pod_doc("restricted-benign"))
     out.append({"case": "restricted_benign", "attack": False, "expected": "ALLOW", "observed": "ALLOW" if benign.returncode == 0 else "DENY", "api_evaluated": benign.returncode == 0})
@@ -75,12 +89,12 @@ def psa_observations() -> list[dict]:
 
 
 def auth(verb: str, resource: str, namespace: str | None = None, name: str | None = None) -> tuple[str, bool]:
+    if name:
+        resource = f"{resource}/{name}"
     args = ["auth", "can-i", verb, resource, "--as", "system:serviceaccount:p11b-restricted:p11b-client"]
     if namespace: args += ["-n", namespace]
-    if name: args += ["--resource-name", name]
     proc = kubectl(*args, check=False)
-    answer = proc.stdout.strip().lower()
-    return ("ALLOW" if answer == "yes" else "DENY", proc.returncode == 0 and answer in {"yes", "no"})
+    return authorization_answer(proc)
 
 
 def rbac_observations() -> list[dict]:
@@ -113,6 +127,16 @@ def probe(client: str) -> str:
     return "INFRASTRUCTURE_FAILURE"
 
 
+def positive_probe(client: str, attempts: int = 6) -> str:
+    result = "INFRASTRUCTURE_FAILURE"
+    for _ in range(attempts):
+        result = probe(client)
+        if result == "SUCCESS":
+            return result
+        time.sleep(1)
+    return result
+
+
 def network_observation() -> dict:
     victim = workload("victim", {"app": "victim"})
     victim["spec"]["containers"][0].update(image="python:3.13.7-alpine3.22", command=["python", "-m", "http.server", "8080"])
@@ -121,11 +145,11 @@ def network_observation() -> dict:
         p = apply_json(doc, dry_run=False)
         if p.returncode: raise InfrastructureUnavailable(p.stderr)
     kubectl("wait", "--for=condition=Ready", "pod/victim", "pod/authorized-client", "pod/attacker", "-n", "p11b-restricted", "--timeout=90s", timeout=100)
-    baseline = probe("attacker")
+    baseline = positive_probe("attacker")
     policy = {"apiVersion": "networking.k8s.io/v1", "kind": "NetworkPolicy", "metadata": {"name": "victim-ingress", "namespace": "p11b-restricted"}, "spec": {"podSelector": {"matchLabels": {"app": "victim"}}, "policyTypes": ["Ingress"], "ingress": [{"from": [{"podSelector": {"matchLabels": {"access": "authorized"}}}], "ports": [{"protocol": "TCP", "port": 8080}]}]}}
     if apply_json(policy, dry_run=False).returncode: raise InfrastructureUnavailable("policy apply failed")
     time.sleep(4)
-    return {"baseline": baseline, "authorized_after_policy": probe("authorized-client"), "attacker_after_policy": probe("attacker"), "api_evaluated": True}
+    return {"baseline": baseline, "authorized_after_policy": positive_probe("authorized-client"), "attacker_after_policy": probe("attacker"), "api_evaluated": True}
 
 
 def live_observations() -> dict:
