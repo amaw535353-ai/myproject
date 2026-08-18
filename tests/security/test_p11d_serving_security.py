@@ -108,7 +108,7 @@ def test_false_sensitive_leak_gate_prevents_live_pass():
 
 def test_default_verifier_uses_latest_canonical_debt_without_obsolete_p11b_items():
     summary = default_summary()
-    assert summary["deferred_mastery_items"] == list(LATEST_DEFERRED_MASTERY_ITEMS)
+    assert summary["deferred_mastery_items"][:len(LATEST_DEFERRED_MASTERY_ITEMS)] == list(LATEST_DEFERRED_MASTERY_ITEMS)
     assert not any(item.startswith("p11b-production-") for item in summary["deferred_mastery_items"])
     assert summary["live_kubernetes_cluster_validated"] is False
     assert summary["live_local_cloud_security_validated"] is False

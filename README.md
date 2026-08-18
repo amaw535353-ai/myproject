@@ -201,3 +201,13 @@ P11-D adds a deterministic serving-security contract and a bounded live-local K3
 ## P11-E live-local supply-chain security
 
 P11-E composes P5 provenance and lifecycle controls with a real local image build, Syft SBOM, Grype scan, Cosign digest signature, signed provenance, disposable OCI registry, fail-closed Kubernetes validating admission webhook, and a non-executing signed-model content/quarantine/recovery exercise. Run `python scripts/verify_phase11.py --focused-p11e`. It makes no production registry, CI/CD provenance, SLSA, transparency-log, HSM, comprehensive model-scanner, or hardware-attestation claim.
+
+## P11-F live-local detection engineering
+
+P11-F adds minimized canonical security events, independent Ed25519 producer
+identities, a bounded HTTP collector, temporary SQLite event and alert persistence,
+strict JSON rules, cross-source temporal correlation, alert deduplication, incident
+handoff, and tamper-evident evidence. The live lab adapts real local HTTP and
+Kubernetes control denials while labeling fixture attack sequences distinctly.
+Run `python scripts/verify_phase11.py --focused-p11f`. This is not a production
+SIEM, SOC, Kubernetes audit pipeline, or production-scale retention/latency claim.

@@ -110,7 +110,10 @@ def test_live_flag_requires_every_gate_and_real_execution_mode() -> None:
 
 def test_default_debt_is_latest_and_retains_prior_items() -> None:
     from scripts.verify_phase11 import default_summary
-    assert default_summary()["deferred_mastery_items"] == list(DEFERRED_MASTERY_ITEMS)
+    # Later Phase 11 milestones must retain this canonical P11-E prefix while
+    # appending their own production debt to the default repository summary.
+    current = default_summary()["deferred_mastery_items"]
+    assert current[:len(DEFERRED_MASTERY_ITEMS)] == list(DEFERRED_MASTERY_ITEMS)
     assert "p11d-production-ingress-load-balancer" in DEFERRED_MASTERY_ITEMS
 
 def test_blocked_serving_candidate_cannot_receive_receipt_but_clean_fixture_can() -> None:

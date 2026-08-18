@@ -9,7 +9,7 @@ Phase 11 shifts the program from portfolio-oriented evidence toward professional
 - **P11-C:** provider-neutral workload identity, IAM, KMS/envelope encryption, secret rotation, metadata protections, and incident response — **deterministic contract implemented; end-to-end live-local validation uses the Kubernetes-derived broker credential**.
 - **P11-D:** deployed model-serving hardening: ingress, TLS identity, mTLS, rate limits, health/readiness, graceful shutdown, and runtime policy enforcement — **deterministic contract implemented; live-local Kubernetes gate provided**.
 - **P11-E:** container and model supply-chain security: provenance, SBOM, signature verification, registry policy, dependency/image scanning, and poisoned-artifact response — **deterministic contract and bounded live-local lab implemented**.
-- **P11-F:** AI-security telemetry and SIEM detection engineering across application, model-serving, identity, network, and platform events.
+- **P11-F:** AI-security telemetry and SIEM detection engineering across application, model-serving, identity, network, and platform events — **deterministic contract and bounded live-local collector/store/detection lab implemented**.
 - **P11-G:** platform incident investigation and forensics: evidence acquisition, timeline reconstruction, containment, credential rotation, recovery, and post-incident validation.
 - **P11-H:** integrated AI-platform compromise exercise and machine-readable Phase 11 professional-mastery gate.
 
@@ -66,6 +66,24 @@ admission does not assert that the serving candidate passed.
 
 **Production supply-chain validation** remains unclaimed; the lab does not exercise a production registry, CI/CD builder, HSM, transparency log, enterprise vulnerability program, production admission controller/model registry, comprehensive backdoor detector, or hardware attestation.
 
+## P11-F validation layers
+
+**Deterministic validation** covers canonical minimized events, Ed25519 producer
+authentication, source/domain authorization, replay protection, strict rules,
+time-window and cross-source correlation, alert deduplication, hash-chain integrity,
+incident snapshots, evidence recomputation, and overlapping benign traffic.
+
+**Live local validation** sends real HTTP requests through a bounded collector into
+a temporary SQLite event store and executes the real rule engine. It adapts an
+actually observed serving HTTP denial and an actually observed Kubernetes Pod
+Security API denial. Bounded attack fixtures also traverse that live pipeline to
+exercise correlation; they remain labeled `DETERMINISTIC_FIXTURE`, not native live
+logs. The Kubernetes observation is not represented as Kubernetes audit logging.
+
+**Production SIEM/SOC validation** remains unclaimed. No enterprise SIEM, production
+log pipeline, cloud-native audit ingestion, EDR/UEBA, threat-intelligence platform,
+retention/compliance system, or production detection latency is exercised.
+
 ## Mastery debt carried forward
 
 - `p10f-live-nvidia-gpu-mig-cuda`
@@ -89,11 +107,19 @@ admission does not assert that the serving candidate passed.
 - `p11e-production-model-registry-scanning`
 - `p11e-production-artifact-quarantine-ir`
 - `p11e-hardware-backed-remote-attestation`
+- `p11f-production-siem-platform`
+- `p11f-production-log-pipeline-scale`
+- `p11f-production-cloud-native-security-telemetry`
+- `p11f-production-kubernetes-audit-ingestion`
+- `p11f-production-detection-tuning-baselines`
+- `p11f-production-soc-case-management`
+- `p11f-production-threat-intelligence-enrichment`
+- `p11f-production-retention-compliance-governance`
 
 None of these items is converted into a mastery claim by deterministic, static, synthetic, or live-local evidence.
 
 ## Claim boundary
 
-P11-A closes local Linux and static Kubernetes hardening. P11-B validates local Kubernetes enforcement. P11-C validates a provider-neutral local cloud-security control plane. P11-D validates a live-local deployed serving path. P11-E validates a live-local container and model supply-chain path. None claims provider or production mastery.
+P11-A closes local Linux and static Kubernetes hardening. P11-B validates local Kubernetes enforcement. P11-C validates a provider-neutral local cloud-security control plane. P11-D validates a live-local deployed serving path. P11-E validates a live-local container and model supply-chain path. P11-F validates a bounded live-local telemetry collector, event store, rule engine, correlation, and incident handoff. None claims provider or production mastery.
 
 Package version: **0.101.0**. Dependency pins are unchanged and no runtime dependency is added.

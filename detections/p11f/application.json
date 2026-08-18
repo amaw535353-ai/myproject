@@ -1,0 +1,1 @@
+{"rule_id":"p11f.application.prompt-injection","title":"Prompt injection policy denial","version":1,"enabled":true,"severity":"high","domain":"application_agent","kind":"single","event_types":["PROMPT_INJECTION_BLOCKED"],"window_seconds":300,"group_by":["tenant_ref","principal_ref"],"threshold":1,"response_category":"investigate_application"}

@@ -6,7 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-from evals.p11e_fixture import DEFERRED_MASTERY_ITEMS
+from evals.p11f_fixture import DEFERRED_MASTERY_ITEMS
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -89,6 +89,28 @@ def run_p11e() -> None:
     raise SystemExit(proc.returncode)
 
 
+def run_p11f() -> None:
+    run([sys.executable, "-m", "pytest", "-q", "tests/security/test_p11f_detection_engineering.py"])
+    run([sys.executable, "-m", "evals.p11f_detection_engineering"])
+    for test in (
+        "test_p11e_supply_chain_security.py", "test_p11d_serving_security.py",
+        "test_p11c_cloud_security.py", "test_p11b_kubernetes_security.py",
+        "test_p11a_workload_security.py", "test_p2h_telemetry_redaction.py",
+        "test_p7g_telemetry_security.py", "test_p10i_incident_response.py",
+    ):
+        path = ROOT / "tests/security" / test
+        if path.exists():
+            run([sys.executable, "-m", "pytest", "-q", str(path.relative_to(ROOT))])
+    run([sys.executable, "-m", "py_compile", "aegis/detection/security_analytics.py",
+         "evals/p11f_fixture.py", "evals/p11f_detection_engineering.py",
+         "scripts/run_p11f_detection_lab.py", "scripts/verify_phase11.py"])
+    proc = subprocess.run([sys.executable, "scripts/run_p11f_detection_lab.py"], cwd=ROOT)
+    if proc.returncode == 0: print("P11F_LIVE_LOCAL_PASS")
+    elif proc.returncode == 2: print("LIVE_LOCAL_DETECTION_ENGINEERING_DEFERRED")
+    else: print("P11F_SECURITY_VALIDATION_FAILED")
+    raise SystemExit(proc.returncode)
+
+
 def default_summary(scope: str = "phase11_repository", status: str = "LOCAL_FULL_PASS",
                     *, p11b_contract_validated: bool = True) -> dict:
     return {
@@ -100,6 +122,7 @@ def default_summary(scope: str = "phase11_repository", status: str = "LOCAL_FULL
         "live_local_cloud_security_validated": False,
         "live_local_serving_security_validated": False,
         "live_local_supply_chain_security_validated": False,
+        "live_local_detection_engineering_validated": False,
         "production_validation_claimed": False,
         "professional_mastery_complete": False,
         "deferred_mastery_items": list(DEFERRED_MASTERY_ITEMS),
@@ -113,8 +136,9 @@ def main() -> int:
     parser.add_argument("--focused-p11c", action="store_true")
     parser.add_argument("--focused-p11d", action="store_true")
     parser.add_argument("--focused-p11e", action="store_true")
+    parser.add_argument("--focused-p11f", action="store_true")
     args = parser.parse_args()
-    if sum((args.focused_p11a, args.focused_p11b, args.focused_p11c, args.focused_p11d, args.focused_p11e)) > 1:
+    if sum((args.focused_p11a, args.focused_p11b, args.focused_p11c, args.focused_p11d, args.focused_p11e, args.focused_p11f)) > 1:
         parser.error("choose one focused milestone")
 
     if args.focused_p11a:
@@ -133,6 +157,9 @@ def main() -> int:
     elif args.focused_p11e:
         run_p11e()
         return 0
+    elif args.focused_p11f:
+        run_p11f()
+        return 0
     else:
         run([sys.executable, "-m", "pytest"])
         run([sys.executable, "-m", "evals.p11a_workload_security"])
@@ -142,6 +169,7 @@ def main() -> int:
         run([sys.executable, "-m", "evals.p11c_cloud_security"])
         run([sys.executable, "-m", "evals.p11d_serving_security"])
         run([sys.executable, "-m", "evals.p11e_supply_chain_security"])
+        run([sys.executable, "-m", "evals.p11f_detection_engineering"])
         scope = "phase11_repository"
         status = "LOCAL_FULL_PASS"
 

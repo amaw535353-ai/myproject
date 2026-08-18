@@ -42,3 +42,5 @@ jobs:
         run: python -m pytest -q tests/security/test_p11d_serving_security.py && python -m evals.p11d_serving_security
       - name: P11-E supply-chain security contract
         run: python -m pytest -q tests/security/test_p11e_supply_chain_security.py && python -m evals.p11e_supply_chain_security
+      - name: P11-F detection-engineering contract
+        run: python -m pytest -q tests/security/test_p11f_detection_engineering.py && python -m evals.p11f_detection_engineering
