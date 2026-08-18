@@ -76,6 +76,22 @@ def test_signed_event_accepts_and_wrong_key_tamper_unsigned_are_denied(tmp_path)
     store.close()
 
 
+def test_real_http_collector_route_accepts_signed_envelope(tmp_path) -> None:
+    from dataclasses import asdict
+    from fastapi.testclient import TestClient
+    from aegis.detection.security_analytics import create_collector_app
+
+    signer, store, collector, _ = service(tmp_path)
+    client = TestClient(create_collector_app(collector))
+    response = client.post(
+        "/v1/security-events", json=asdict(signer.sign(event())),
+        headers={"x-p11f-now": "1700000001"},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "ACCEPTED"
+    store.close()
+
+
 def test_source_category_impersonation_unknown_source_and_provenance_denied(tmp_path) -> None:
     signer, store, collector, _ = service(tmp_path)
     for changed in (

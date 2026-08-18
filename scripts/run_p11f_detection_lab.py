@@ -35,6 +35,7 @@ K3S_IMAGE = "rancher/k3s:v1.33.5-k3s1"
 COLLECTOR_PORT = 18116
 CONTROL_PORT = 18117
 REF_KEY = os.urandom(32)
+ACTIVE_TEMP: Path | None = None
 
 
 class InfrastructureUnavailable(RuntimeError):
@@ -144,7 +145,9 @@ def kubernetes_observation() -> dict[str, Any]:
 
 
 def run_lab() -> tuple[dict, EventStore, Path, bool]:
+    global ACTIVE_TEMP
     temp = Path(tempfile.mkdtemp(prefix="p11f-detection-"))
+    ACTIVE_TEMP = temp
     store = EventStore(temp / "events.sqlite")
     rules, rule_hash = load_rules(ROOT / "detections/p11f")
     source_specs = {
@@ -193,14 +196,16 @@ def run_lab() -> tuple[dict, EventStore, Path, bool]:
             denial = httpx.post(f"http://127.0.0.1:{CONTROL_PORT}/v1/infer", json={"tenant":"tenant-a"}, headers={"x-internal-principal":"spoof"}, timeout=5)
         gates["actual_http_security_denial_observed"] = denial.status_code == 403 and denial.json().get("reason") == "TRUSTED_HEADER_SPOOF"
         live_http_event = make_event("serving-producer", "SERVING", "serving_network", "TRUSTED_HEADER_SPOOF_DENIED", "http-live-001", now, 10, "LIVE_CONTROL_OBSERVATION")
-        if post(base, signers["serving-producer"].sign(live_http_event), now).status_code != 200:
-            raise SecurityFailure("HTTP observation adapter ingestion failed")
+        http_ingest = post(base, signers["serving-producer"].sign(live_http_event), now)
+        if http_ingest.status_code != 200:
+            raise SecurityFailure(f"HTTP observation adapter ingestion failed: status={http_ingest.status_code} body={http_ingest.text[:120]}")
 
         kube = kubernetes_observation()
         gates["actual_kubernetes_security_denial_observed"] = kube["actual_denial"]
         kube_event = make_event("kubernetes-adapter", "KUBERNETES", "kubernetes_platform", "PRIVILEGED_POD_DENIED", "kube-live-001", now+1, 11, "LIVE_CONTROL_OBSERVATION")
-        if post(base, signers["kubernetes-adapter"].sign(kube_event), now+1).status_code != 200:
-            raise SecurityFailure("Kubernetes observation adapter ingestion failed")
+        kube_ingest = post(base, signers["kubernetes-adapter"].sign(kube_event), now+1)
+        if kube_ingest.status_code != 200:
+            raise SecurityFailure(f"Kubernetes observation adapter ingestion failed: {kube_ingest.json().get('reason', 'UNKNOWN')}")
 
         stages = [
             ("application-producer", "APPLICATION", "application_agent", "PROMPT_INJECTION_BLOCKED"),
@@ -248,12 +253,19 @@ def run_lab() -> tuple[dict, EventStore, Path, bool]:
         observations.update({"kubernetes": kube, "http_control":{"control":"TRUSTED_HEADER_SPOOF","actual_denial":True,"source_classification":"LIVE_CONTROL_OBSERVATION"}, "incident":incident})
     collector_stopped = True
     snapshot = store.snapshot_sha256()
-    observations.update({"ingestion":dict(store.stats), "stored_event_count":len(store.events()), "alerts":store.alert_rows(), "event_chain_sha256":event_chain, "alert_chain_sha256":alert_chain, "rule_bundle_sha256":rule_hash})
+    classifications: dict[str, int] = {}
+    categories: dict[str, int] = {}
+    for _, stored_event in store.events():
+        classifications[stored_event.provenance_classification] = classifications.get(stored_event.provenance_classification, 0) + 1
+        categories[stored_event.category] = categories.get(stored_event.category, 0) + 1
+    observations["source_classifications"] = classifications
+    observations.update({"ingestion":dict(store.stats), "stored_event_count":len(store.events()), "events_by_category":categories, "alerts":store.alert_rows(), "event_chain_sha256":event_chain, "alert_chain_sha256":alert_chain, "rule_bundle_sha256":rule_hash})
     data_hashes = {"rule_bundle_sha256":rule_hash,"event_store_snapshot_sha256":snapshot,"event_chain_sha256":event_chain,"alert_assessment_sha256":digest(store.alert_rows()),"incident_snapshot_sha256":incident["evidence_snapshot_sha256"]}
     return {"gates":gates,"hashes":data_hashes,"observations":observations}, store, temp, collector_stopped
 
 
 def main() -> int:
+    global ACTIVE_TEMP
     parser = argparse.ArgumentParser(); parser.parse_args()
     tools = {name: shutil.which(name) for name in ("docker", "kubectl", "k3d")}
     preflight = {"architecture":platform.machine(), "cpu_count":os.cpu_count(), "tools":{k:bool(v) for k,v in tools.items()}, "k3s_image":K3S_IMAGE}
@@ -266,7 +278,7 @@ def main() -> int:
         delete = command(["k3d","cluster","delete",CLUSTER], timeout=180)
         created = False
         if delete.returncode: raise SecurityFailure("cluster cleanup failed")
-        shutil.rmtree(temp); temp = None
+        shutil.rmtree(temp); temp = None; ACTIVE_TEMP = None
         result["gates"]["cleanup_complete"] = collector_stopped
         raw = fixture(); raw["execution_mode"]="live"; raw["environment_classification"]="LIVE_LOCAL_CODESPACE_K3D"
         raw["live_gates"].update(result["gates"]); raw["live_gates"].update(result["hashes"])
@@ -290,6 +302,9 @@ def main() -> int:
         if shutil.which("k3d"):
             command(["k3d","cluster","delete",CLUSTER],timeout=180)
         if temp is not None and temp.exists(): shutil.rmtree(temp)
+        if ACTIVE_TEMP is not None and ACTIVE_TEMP.exists():
+            shutil.rmtree(ACTIVE_TEMP)
+        ACTIVE_TEMP = None
 
 
 if __name__ == "__main__":

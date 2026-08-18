@@ -12,6 +12,8 @@ from typing import Any, Mapping
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from aegis.platform.serving_security import evidence_is_sensitive_material_free
 
@@ -269,8 +271,6 @@ class CollectorService:
 
 
 def create_collector_app(service: CollectorService):
-    from fastapi import FastAPI, Request
-    from fastapi.responses import JSONResponse
     app=FastAPI(docs_url=None,redoc_url=None,openapi_url=None)
     @app.get("/healthz")
     def healthz(): return {"status":"ok"}
