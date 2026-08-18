@@ -161,7 +161,16 @@ def execute() -> dict:
         scan_meta = evaluate_vulnerability_report(scan_data, expected_image_digest=cluster_image, db_usable=True)
         gates["scanner_executed"] = gates["scanner_database_usable"] = True
         gates["candidate_policy_passed"] = scan_meta["admitted"]
-        if not scan_meta["admitted"]: raise SupplyChainDenied("VULNERABILITY_POLICY_BLOCK")
+        if not scan_meta["admitted"]:
+            raw = fixture(); raw["execution_mode"] = "live"; raw["environment_classification"] = "LIVE_LOCAL_CODESPACE_POLICY_BLOCKED"
+            raw["observations"]["live_gates"].update({**gates, "image_digest": sha256(cluster_image.encode()),
+                "sbom_sha256": sbom_meta["sha256"], "scanner_report_sha256": scan_meta["sha256"]})
+            sanitized = {"raw": raw, "preflight": tools, "container": {"source_commit": source_commit,
+                "dockerfile_sha256": sha256((ROOT/"deploy/p11d/Dockerfile").read_bytes()), "image_id": image_id,
+                "image_digest": cluster_image, "sbom": sbom_meta, "scanner": scan_meta},
+                "security_failure": "VULNERABILITY_POLICY_BLOCK"}
+            raw["observations"]["live_gates"]["sensitive_leak_absent"] = evidence_is_clean(sanitized)
+            return {"raw": raw, "extras": sanitized}
         cosign_env = {**os.environ, "COSIGN_PASSWORD": base64.urlsafe_b64encode(os.urandom(24)).decode()}
         prefix = signing_dir/"cosign"
         run(["cosign", "generate-key-pair", "--output-key-prefix", str(prefix)], env=cosign_env)
@@ -221,7 +230,7 @@ def main() -> int:
         clean = run(["k3d", "cluster", "list"], check=False).stdout.find(CLUSTER) < 0 and not any(Path("/tmp").glob("p11e-pki-*")) and not any(Path("/tmp").glob("p11e-signing-*"))
         raw["observations"]["live_gates"]["cleanup_complete"] = clean
         raw["observations"]["live_gates"]["sensitive_leak_absent"] = evidence_is_clean({"raw": raw, **{k:v for k,v in bundle["extras"].items() if k != "raw"}})
-        evidence = assess(raw); validate_evidence(evidence)
+        evidence = assess(raw); validate_evidence({**raw, **evidence})
         final = {**evidence, **{k:v for k,v in bundle["extras"].items() if k != "raw"}}
         if not evidence_is_clean(final): raise SupplyChainDenied("SENSITIVE_MATERIAL")
         ARTIFACT.write_text(json.dumps(final, sort_keys=True, indent=2)+"\n", encoding="utf-8")
