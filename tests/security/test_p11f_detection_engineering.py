@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import copy
 import json
 import sqlite3
@@ -78,15 +79,19 @@ def test_signed_event_accepts_and_wrong_key_tamper_unsigned_are_denied(tmp_path)
 
 def test_real_http_collector_route_accepts_signed_envelope(tmp_path) -> None:
     from dataclasses import asdict
-    from fastapi.testclient import TestClient
+    import httpx
     from aegis.detection.security_analytics import create_collector_app
 
     signer, store, collector, _ = service(tmp_path)
-    client = TestClient(create_collector_app(collector))
-    response = client.post(
-        "/v1/security-events", json=asdict(signer.sign(event())),
-        headers={"x-p11f-now": "1700000001"},
-    )
+    async def post_event():
+        transport = httpx.ASGITransport(app=create_collector_app(collector))
+        async with httpx.AsyncClient(transport=transport, base_url="http://p11f.test") as client:
+            return await client.post(
+                "/v1/security-events", json=asdict(signer.sign(event())),
+                headers={"x-p11f-now": "1700000001"},
+            )
+
+    response = asyncio.run(post_event())
     assert response.status_code == 200
     assert response.json()["status"] == "ACCEPTED"
     store.close()
