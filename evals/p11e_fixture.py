@@ -40,17 +40,19 @@ BENIGN = {
     "incident_response": ("new_signing_generation", "clean_replacement", "safe_recovery"),
 }
 LIVE_GATE_NAMES = (
-    "image_built", "immutable_digest_obtained", "sbom_generated", "sbom_subject_bound", "scanner_executed",
-    "scanner_database_usable", "candidate_policy_passed", "image_signature_generated", "image_signature_verified",
-    "provenance_signed", "provenance_bindings_verified", "local_registry_started", "digest_pull_verified",
-    "tag_drift_detected", "admission_api_exercised", "valid_workload_admitted", "mutable_tag_denied",
-    "missing_receipt_denied", "tampered_receipt_denied", "expired_receipt_denied", "fail_closed_verified",
+    "real_serving_candidate_scanned", "real_serving_candidate_policy_blocked", "real_serving_candidate_receipt_not_issued",
+    "clean_fixture_built", "clean_fixture_sbom_generated", "clean_fixture_scanner_executed", "clean_fixture_policy_passed",
+    "clean_fixture_signed", "clean_fixture_provenance_verified", "local_registry_started", "clean_fixture_digest_pull_verified",
+    "tag_drift_detected", "admission_api_exercised", "clean_fixture_admitted", "mutable_tag_denied",
+    "missing_receipt_denied", "tampered_receipt_denied", "expired_receipt_denied", "digest_mismatch_denied",
+    "wrong_signer_denied", "fail_closed_verified",
     "model_artifact_verified", "model_package_verified", "immutable_release_verified", "unsafe_format_denied",
     "live_content_scan_exercised", "signed_poisoned_release_detected", "model_bytes_not_executed",
-    "poisoned_digest_quarantined", "key_generation_revoked", "old_release_replay_denied",
-    "clean_replacement_verified", "safe_admission_restored", "sensitive_leak_absent", "cleanup_complete",
+    "poisoned_digest_quarantined", "quarantined_replay_denied", "key_generation_revoked", "old_release_replay_denied",
+    "clean_key_generation_established", "clean_replacement_verified", "safe_admission_restored",
+    "sensitive_leak_absent", "cleanup_complete",
 )
-LIVE_DATA_NAMES = ("image_digest", "sbom_sha256", "scanner_report_sha256", "provenance_sha256", "audit_chain_sha256")
+LIVE_DATA_NAMES = ("serving_image_digest", "clean_image_digest", "sbom_sha256", "scanner_report_sha256", "provenance_sha256", "audit_chain_sha256")
 
 def fixture_manifests_sha256() -> str:
     files = [ROOT / "deploy/p11d/Dockerfile", *sorted((ROOT / "deploy/p11e").glob("*"))]

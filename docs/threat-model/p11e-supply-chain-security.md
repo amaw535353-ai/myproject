@@ -9,6 +9,12 @@ binds a real CycloneDX SBOM and Grype report, signs the immutable OCI digest,
 signs canonical build provenance, pushes to a disposable registry, and exercises
 a fail-closed Kubernetes validating admission webhook with short-lived receipts.
 
+Live evidence distinguishes two images. The real P11-D-derived serving candidate
+is a negative case and remains denied when Grype reports a policy-blocking
+finding. A separate static `scratch` image is explicitly labeled as a benign
+P11-E mechanism fixture. Only that fixture may continue after passing the same
+unchanged scanner policy; its admission makes no claim about the blocked image.
+
 The separate model path signs real inert bytes with Ed25519 and uses the existing
 P5 loaders. A bounded scanner parses only small JSON metadata. Primary model data
 remains opaque and is never deserialized. A validly signed release containing a
@@ -37,3 +43,11 @@ not a production registry, CI/CD provenance system, SLSA certification, Sigstore
 keyless/Rekor validation, HSM signing service, enterprise vulnerability program,
 production admission controller/model registry/quarantine process, comprehensive
 backdoor detector, or hardware-backed remote attestation.
+
+## P5-F inherited fixture-hash note
+
+An isolated detached `origin/main` worktree repeatedly computes fixture SHA-256
+`138b30cb52af4dd9a3441a0353d6985b0d70ad7c8701bc4dea6f71354d8ef3b2`
+while main's stale test expects `117a2473...`. Canonical JSON covers the existing
+verified package, runtime plan, subject digests, and safe scan-evidence digest.
+P11-E changes none of those inputs, the dataset, or P5-F control semantics.

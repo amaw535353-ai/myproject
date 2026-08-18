@@ -9,9 +9,10 @@ import pytest
 from aegis.platform.supply_chain_security import (
     Ed25519EnvelopeSigner, LiveArtifactSafetyScanner, QuarantineRegistry, SignedEnvelope,
     SupplyChainDenied, cache_read, evidence_is_clean, evaluate_vulnerability_report,
-    sha256, validate_sbom, verify_envelope, verify_provenance, verify_receipt,
+    require_receipt_candidate, sha256, validate_sbom, validate_two_candidate_evidence,
+    verify_envelope, verify_provenance, verify_receipt,
 )
-from evals.p11e_fixture import DEFERRED_MASTERY_ITEMS, LIVE_GATE_NAMES, fixture
+from evals.p11e_fixture import DEFERRED_MASTERY_ITEMS, LIVE_DATA_NAMES, LIVE_GATE_NAMES, fixture
 from evals.p11e_supply_chain_security import EvidenceRejected, assess, validate_evidence
 
 IMAGE = "registry.local/aegisdesk@sha256:" + "a" * 64
@@ -99,7 +100,7 @@ def test_sensitive_material_rejected(secret: str) -> None:
 def test_live_flag_requires_every_gate_and_real_execution_mode() -> None:
     raw = fixture(); raw["execution_mode"] = "live"; raw["environment_classification"] = "LIVE_LOCAL_CODESPACE"
     for key in LIVE_GATE_NAMES: raw["observations"]["live_gates"][key] = True
-    for key in ("image_digest", "sbom_sha256", "scanner_report_sha256", "provenance_sha256", "audit_chain_sha256"): raw["observations"]["live_gates"][key] = "a"*64
+    for key in LIVE_DATA_NAMES: raw["observations"]["live_gates"][key] = "a"*64
     assert assess(raw)["live_local_supply_chain_security_validated"] is True
     raw["observations"]["live_gates"]["fail_closed_verified"] = False
     assert assess(raw)["live_local_supply_chain_security_validated"] is False
@@ -109,3 +110,31 @@ def test_default_debt_is_latest_and_retains_prior_items() -> None:
     from scripts.verify_phase11 import default_summary
     assert default_summary()["deferred_mastery_items"] == list(DEFERRED_MASTERY_ITEMS)
     assert "p11d-production-ingress-load-balancer" in DEFERRED_MASTERY_ITEMS
+
+def test_blocked_serving_candidate_cannot_receive_receipt_but_clean_fixture_can() -> None:
+    with pytest.raises(SupplyChainDenied, match="PURPOSE"):
+        require_receipt_candidate(purpose="REAL_P11D_DERIVED_NEGATIVE_SECURITY_CASE", scanner_policy_passed=False)
+    with pytest.raises(SupplyChainDenied, match="VULNERABILITY"):
+        require_receipt_candidate(purpose="P11E_POSITIVE_MECHANISM_VALIDATION", scanner_policy_passed=False)
+    require_receipt_candidate(purpose="P11E_POSITIVE_MECHANISM_VALIDATION", scanner_policy_passed=True)
+
+def test_two_candidate_evidence_preserves_negative_and_positive_paths() -> None:
+    candidates = {
+        "serving_candidate": {"purpose": "REAL_P11D_DERIVED_NEGATIVE_SECURITY_CASE", "scanner_policy_passed": False,
+                              "admitted": False, "receipt_issued": False, "cluster_image": "registry/serving@sha256:" + "a"*64},
+        "benign_supply_chain_fixture": {"purpose": "P11E_POSITIVE_MECHANISM_VALIDATION", "scanner_policy_passed": True,
+                                         "kubernetes_admitted": True, "cluster_image": "registry/fixture@sha256:" + "b"*64},
+    }
+    validate_two_candidate_evidence(candidates)
+    confused = copy.deepcopy(candidates); confused["benign_supply_chain_fixture"]["cluster_image"] = confused["serving_candidate"]["cluster_image"]
+    with pytest.raises(SupplyChainDenied, match="CONFUSED"): validate_two_candidate_evidence(confused)
+
+def test_live_pass_requires_blocked_serving_and_complete_clean_chain() -> None:
+    raw = fixture(); raw["execution_mode"] = "live"; raw["environment_classification"] = "LIVE_LOCAL_CODESPACE_K3D"
+    for key in LIVE_GATE_NAMES: raw["observations"]["live_gates"][key] = True
+    for key in ("serving_image_digest", "clean_image_digest", "sbom_sha256", "scanner_report_sha256", "provenance_sha256", "audit_chain_sha256"):
+        raw["observations"]["live_gates"][key] = "a"*64
+    assert assess(raw)["live_local_supply_chain_security_validated"] is True
+    for gate in ("real_serving_candidate_policy_blocked", "real_serving_candidate_receipt_not_issued", "clean_fixture_policy_passed", "clean_fixture_admitted"):
+        changed = copy.deepcopy(raw); changed["observations"]["live_gates"][gate] = False
+        assert assess(changed)["live_local_supply_chain_security_validated"] is False

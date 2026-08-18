@@ -59,6 +59,11 @@ This is live-local deployed model-serving security validation, not production in
 
 **Live local validation** composes a real P11-D image build, Syft CycloneDX SBOM, Grype vulnerability report, Cosign digest signature, signed local provenance, disposable OCI registry, Kubernetes validating admission webhook, and real signed inert model package. The incident path proves that a signed-but-poisoned release is blocked and quarantined, an old signer generation is revoked, and a clean replacement restores admission. Signature validity is never presented as proof of content safety.
 
+Image evidence has two explicit subjects: the real P11-D-derived candidate is a
+policy-blocked negative case, while a separate minimal static P11-E fixture proves
+the positive mechanism only after passing the identical scanner policy. Fixture
+admission does not assert that the serving candidate passed.
+
 **Production supply-chain validation** remains unclaimed; the lab does not exercise a production registry, CI/CD builder, HSM, transparency log, enterprise vulnerability program, production admission controller/model registry, comprehensive backdoor detector, or hardware attestation.
 
 ## Mastery debt carried forward

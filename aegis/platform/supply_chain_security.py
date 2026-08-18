@@ -166,5 +166,24 @@ def cache_read(cache: Mapping[str, bytes], immutable_key: str, expected_digest: 
     return value
 
 
+def require_receipt_candidate(*, purpose: str, scanner_policy_passed: bool) -> None:
+    if purpose != "P11E_POSITIVE_MECHANISM_VALIDATION":
+        raise SupplyChainDenied("RECEIPT_PURPOSE_DENIED")
+    if not scanner_policy_passed:
+        raise SupplyChainDenied("VULNERABILITY_POLICY_BLOCK")
+
+
+def validate_two_candidate_evidence(candidates: Mapping[str, Any]) -> None:
+    if set(candidates) != {"serving_candidate", "benign_supply_chain_fixture"}:
+        raise SupplyChainDenied("CANDIDATE_EVIDENCE_MALFORMED")
+    serving, clean = candidates["serving_candidate"], candidates["benign_supply_chain_fixture"]
+    if serving.get("purpose") != "REAL_P11D_DERIVED_NEGATIVE_SECURITY_CASE" or serving.get("scanner_policy_passed") is not False or serving.get("admitted") is not False or serving.get("receipt_issued") is not False:
+        raise SupplyChainDenied("SERVING_CANDIDATE_BOUNDARY_INVALID")
+    if clean.get("purpose") != "P11E_POSITIVE_MECHANISM_VALIDATION" or clean.get("scanner_policy_passed") is not True or clean.get("kubernetes_admitted") is not True:
+        raise SupplyChainDenied("CLEAN_CANDIDATE_BOUNDARY_INVALID")
+    if serving.get("cluster_image") == clean.get("cluster_image"):
+        raise SupplyChainDenied("CANDIDATE_IDENTITY_CONFUSED")
+
+
 def evidence_is_clean(payload: object) -> bool:
     return evidence_is_sensitive_material_free(payload)
