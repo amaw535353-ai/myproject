@@ -5,8 +5,8 @@ Phase 11 shifts the program from portfolio-oriented evidence toward professional
 ## Roadmap
 
 - **P11-A:** workload identity, non-root/container privilege boundaries, secrets, network policy, namespaced RBAC, image trust, and Linux runtime isolation — **implementation complete; local Linux mastery gate passed; Kubernetes manifests statically validated; live Kubernetes cluster deferred**.
-- **P11-B:** live Pod Security Admission, authorization API, and baseline-first NetworkPolicy enforcement — **raw-observation evidence contract and local k3d/K3s harness implemented; only a successful live run may set the live flag**.
-- **P11-C:** cloud IAM, workload identity federation, KMS/envelope encryption, secret rotation, metadata-service protections, and least-privilege incident response.
+- **P11-B:** live Pod Security Admission, authorization API, and baseline-first NetworkPolicy enforcement — **LIVE-LOCAL PASS**.
+- **P11-C:** provider-neutral workload identity, IAM, KMS/envelope encryption, secret rotation, metadata protections, and incident response — **deterministic contract implemented; end-to-end live-local validation uses the Kubernetes-derived broker credential**.
 - **P11-D:** deployed model-serving hardening: ingress, TLS identity, service mesh or equivalent mTLS, rate limits, health/readiness, graceful shutdown, and runtime policy enforcement.
 - **P11-E:** container and model supply-chain security: provenance, SBOM, signature verification, registry policy, dependency/image scanning, and poisoned-artifact response.
 - **P11-F:** AI-security telemetry and SIEM detection engineering across application, model-serving, identity, network, and platform events.
@@ -29,23 +29,35 @@ Adversarial dataset SHA-256: `c2f8261835fc6bbacdb012f912711fe39eb2ddbd0bce4588a9
 
 The real Linux sandbox lab passed all fifteen required checks in the current execution environment: non-root UID/GID, `no_new_privs`, empty effective and bounding capability sets, owner secret read, foreign-tenant secret denial, read-only root-like path, scoped writable path, raw-socket denial, setuid-root denial, cross-tenant signal denial, cross-tenant `/proc` environment denial, owner Unix-socket access, foreign-tenant Unix-socket denial, and user-namespace availability. The stable local report SHA-256 is `c11045270e73bc50f95373d3c53afb0c696a28e662c9812bc341095084bed8cc`.
 
-The Kubernetes JSON bundle passed the static hardening verifier. Static report SHA-256: `b9c9fe94dfbaefdc70a623e6159a07ee19b9a1a4670403624a3c8c904a5ddf40`. The available execution environment did not provide `kubectl`, Docker/Podman, kind, or minikube, so this is explicitly **not** a live Kubernetes validation.
+The Kubernetes JSON bundle passed the static hardening verifier. Static report SHA-256: `b9c9fe94dfbaefdc70a623e6159a07ee19b9a1a4670403624a3c8c904a5ddf40`.
 
 ## P11-B implementation
 
-The current gate pins k3d `v5.8.3` and `rancher/k3s:v1.33.5-k3s1`. It derives eight-case PSA, ten-case RBAC, and baseline/authorized/attacker NetworkPolicy metrics from raw observations and carries production mastery debt. Deterministic evaluation cannot set `live_kubernetes_cluster_validated`.
+The live-local P11-B gate passed with PSA attacks blocked **8/8**, benign admitted **1/1**, ASR **0/8**, FPR **0/1**, and SafeTaskRate **1/1**. All **10** authorization cases matched with zero incorrect allows/denies. NetworkPolicy baseline and authorized paths succeeded and the attacker path was denied. `live_kubernetes_cluster_validated=true`; production and professional-mastery claims remain false.
 
 The live harness creates its own bounded cluster, submits admission cases to the API, queries authorization through `kubectl auth can-i`, and runs baseline-first in-cluster network probes. It writes evidence only from those observations and cleans up through `finally`.
 
+## P11-C validation layers
+
+**Deterministic validation** covers cryptographically verified synthetic workload tokens, least-privilege IAM, AES-GCM envelope encryption, key lifecycle, encrypted versioned secrets, metadata capabilities, audit chaining, and attack → observe → contain → rotate → recover.
+
+**Live local validation** follows real K3s ServiceAccount token → Kubernetes TokenReview → verified broker credential → IAM/KMS/secrets/metadata → compromise → revocation and rotation → new Kubernetes token → TokenReview → newer replacement broker credential → safe recovery. The cluster binding comes from the Kubernetes API and credential expiry is bounded by the reviewed token's actual expiry. This path is executable local evidence and is not supplied by the deterministic fixture.
+
+**Production cloud validation** remains unclaimed; no AWS, GCP, Azure, production KMS/HSM, metadata service, federation, or cloud incident-response system is exercised.
+
 ## Mastery debt carried forward
 
-- `p10f-live-nvidia-gpu-mig-cuda` — live NVIDIA GPU/MIG/CUDA operations unavailable.
-- `p11a-live-kubernetes-cluster` — live Kubernetes API/admission/CNI/runtime enforcement has not yet been executed and validated.
+- `p10f-live-nvidia-gpu-mig-cuda`
+- `p11c-production-cloud-federation`
+- `p11c-production-cloud-iam-kms-secrets-metadata`
+- `p11c-production-hsm-key-custody`
+- `p11c-multi-account-project-production-behavior`
+- `p11c-production-cloud-incident-response`
 
-Neither item is converted into a mastery claim by deterministic, static, synthetic, or CPU/Linux-only evidence.
+None of these items is converted into a mastery claim by deterministic, static, synthetic, or live-local evidence.
 
 ## Claim boundary
 
-P11-A closes the local Linux process/filesystem least-privilege gate and the static Kubernetes hardening-manifest gate. P11-B currently adds the deterministic enforcement contract and a real-cluster mastery harness only. It does not yet claim live Kubernetes enforcement, production admission policy, CNI behavior, production container-runtime integration, kernel escape resistance, production orchestrator behavior, or broader professional AI Security Engineering mastery.
+P11-A closes local Linux and static Kubernetes hardening. P11-B validates local Kubernetes enforcement. P11-C is provider-neutral live-local validation only and does not claim any provider or production-cloud mastery.
 
 Package version: **0.101.0**. Dependency pins are unchanged and no runtime dependency is added.

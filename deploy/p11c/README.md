@@ -1,0 +1,3 @@
+# P11-C provider-neutral live-local identity lab
+
+The runner creates one pinned local K3s server, obtains short-lived ServiceAccount tokens with `kubectl create token`, and submits them to the Kubernetes TokenReview API with the broker audience. The verified principal is bound to an API-derived cluster UID, namespace, ServiceAccount, subject, audience, tenant, and actual expiration. Its short-lived broker credential drives the local IAM, envelope-encryption, secrets, and metadata controls through compromise and revocation. Recovery requests and reviews a fresh Kubernetes token before issuing a newer-generation replacement credential. Tokens remain memory-only and never appear in evidence or logs; service data is synthetic.
