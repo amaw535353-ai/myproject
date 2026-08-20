@@ -1,0 +1,1 @@
+{"rule_id":"p11f.serving.rate-abuse","title":"Repeated serving rate abuse","version":1,"enabled":true,"severity":"medium","domain":"serving_network","kind":"threshold","event_types":["RATE_ABUSE_DENIED"],"window_seconds":60,"group_by":["tenant_ref","principal_ref"],"threshold":3,"response_category":"limit_serving"}

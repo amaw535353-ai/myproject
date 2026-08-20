@@ -9,7 +9,6 @@ from qdrant_client import QdrantClient, models
 from aegis.identity.models import Principal
 from aegis.rag.models import KnowledgeDocument, RetrievedDocument
 
-
 _VECTOR_SIZE = 32
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
@@ -34,6 +33,7 @@ class KnowledgeStore:
     COLLECTION = "knowledge_base"
 
     def __init__(self, documents: list[KnowledgeDocument]) -> None:
+        self._revoked_document_ids: set[int] = set()
         self._client = QdrantClient(":memory:")
         self._client.create_collection(
             collection_name=self.COLLECTION,
@@ -52,6 +52,16 @@ class KnowledgeStore:
                 )
                 for document in documents
             ],
+        )
+
+    def revoke(self, document_id: int) -> None:
+        """Remove a document and retain a local deny marker for stale-index defense."""
+
+        self._revoked_document_ids.add(document_id)
+        self._client.delete(
+            collection_name=self.COLLECTION,
+            points_selector=models.PointIdsList(points=[document_id]),
+            wait=True,
         )
 
     @classmethod
@@ -86,6 +96,8 @@ class KnowledgeStore:
 
         results: list[RetrievedDocument] = []
         for point in response.points:
+            if int(point.id) in self._revoked_document_ids:
+                continue
             payload = point.payload or {}
             results.append(
                 RetrievedDocument(
