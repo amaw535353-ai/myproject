@@ -6,6 +6,7 @@ from aegis.incidents.lifecycle import (
     ZERO_SHA256,
     IncidentLifecycleBoundary,
     IncidentLifecycleState,
+    intake_root_digest,
     transition_digest,
 )
 from aegis.incidents.types import IncidentIntakeRecord
@@ -35,6 +36,23 @@ def test_open_consumes_intake_and_preserves_it() -> None:
     assert record.incident_id == intake.incident_id
     assert record.state is IncidentLifecycleState.OPEN
     assert record.transitions == ()
+    assert record.intake_root_sha256 == intake_root_digest(intake)
+
+
+def test_intake_root_digest_is_deterministic_and_bound_to_required_fields() -> None:
+    intake = _intake()
+
+    assert intake_root_digest(intake) == intake_root_digest(intake)
+    for field, value in (
+        ("incident_id", "incident-002"),
+        ("tenant_ref", "ref:tenant-b"),
+        ("workload_ref", "ref:workload-b"),
+        ("contributing_event_ids", ("event-002",)),
+        ("evidence_references", (("tenant_ref", "ref:tenant-b"),)),
+    ):
+        assert intake_root_digest(intake) != intake_root_digest(
+            replace(intake, **{field: value})
+        )
 
 
 def test_valid_lifecycle_transition_chain() -> None:
@@ -56,6 +74,10 @@ def test_valid_lifecycle_transition_chain() -> None:
     assert all(
         current.previous_transition_sha256 == previous.transition_sha256
         for previous, current in zip(record.transitions, record.transitions[1:])
+    )
+    assert all(
+        item.intake_root_sha256 == record.intake_root_sha256
+        for item in record.transitions
     )
 
 
@@ -96,6 +118,7 @@ def test_transition_replay_is_idempotent() -> None:
 def test_transition_digest_is_deterministic_and_incident_bound() -> None:
     arguments = {
         "incident_id": "incident-001",
+        "intake_root_sha256": intake_root_digest(_intake()),
         "sequence": 1,
         "from_state": IncidentLifecycleState.OPEN,
         "to_state": IncidentLifecycleState.ACKNOWLEDGED,
@@ -106,6 +129,69 @@ def test_transition_digest_is_deterministic_and_incident_bound() -> None:
     assert transition_digest(**arguments) != transition_digest(
         **{**arguments, "incident_id": "incident-002"}
     )
+    assert transition_digest(**arguments) != transition_digest(
+        **{**arguments, "intake_root_sha256": "f" * 64}
+    )
+
+
+def test_modified_intake_is_rejected() -> None:
+    boundary = IncidentLifecycleBoundary()
+    record = boundary.open(_intake())
+
+    with pytest.raises(ValueError, match="INCIDENT_LIFECYCLE_INTAKE_ROOT_INVALID"):
+        boundary.transition(
+            replace(record, intake=replace(record.intake, tenant_ref="ref:tenant-b")),
+            IncidentLifecycleState.ACKNOWLEDGED,
+        )
+
+
+def test_lifecycle_fork_is_rejected() -> None:
+    boundary = IncidentLifecycleBoundary()
+    investigating = boundary.open(_intake())
+    investigating = boundary.transition(
+        investigating, IncidentLifecycleState.ACKNOWLEDGED
+    )
+    investigating = boundary.transition(
+        investigating, IncidentLifecycleState.INVESTIGATING
+    )
+    boundary.transition(investigating, IncidentLifecycleState.CONTAINED)
+
+    with pytest.raises(ValueError, match="INCIDENT_LIFECYCLE_FORK_INVALID"):
+        boundary.transition(investigating, IncidentLifecycleState.RESOLVED)
+
+
+def test_replay_with_identical_chain_is_accepted() -> None:
+    boundary = IncidentLifecycleBoundary()
+    acknowledged = boundary.transition(
+        boundary.open(_intake()), IncidentLifecycleState.ACKNOWLEDGED
+    )
+    replay_record = replace(acknowledged, transitions=tuple(acknowledged.transitions))
+
+    assert boundary.transition(
+        replay_record, IncidentLifecycleState.ACKNOWLEDGED
+    ) is replay_record
+
+
+def test_replay_with_altered_valid_chain_is_rejected() -> None:
+    boundary = IncidentLifecycleBoundary()
+    investigating = boundary.open(_intake())
+    investigating = boundary.transition(
+        investigating, IncidentLifecycleState.ACKNOWLEDGED
+    )
+    investigating = boundary.transition(
+        investigating, IncidentLifecycleState.INVESTIGATING
+    )
+    contained = boundary.transition(
+        investigating, IncidentLifecycleState.CONTAINED
+    )
+
+    alternate = IncidentLifecycleBoundary().transition(
+        investigating, IncidentLifecycleState.RESOLVED
+    )
+    with pytest.raises(ValueError, match="INCIDENT_LIFECYCLE_FORK_INVALID"):
+        boundary.transition(alternate, IncidentLifecycleState.CLOSED)
+
+    assert contained.state is IncidentLifecycleState.CONTAINED
 
 
 def test_tampered_transition_chain_is_rejected() -> None:
