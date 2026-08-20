@@ -26,7 +26,7 @@ jobs:
       - name: Install
         run: python -m pip install -e ".[dev]"
       - name: Test
-        run: pytest
+        run: python -m pytest
       - name: P2-A tenant-boundary evaluation
         run: python -m evals.p2a_tenant_boundary
       - name: P2-B indirect-prompt-injection evaluation

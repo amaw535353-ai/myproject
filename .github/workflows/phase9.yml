@@ -25,7 +25,7 @@ jobs:
       - name: Install
         run: python -m pip install -e ".[dev]"
       - name: Test
-        run: pytest
+        run: python -m pytest
       - name: P9-A training dataset provenance and holdout-isolation evaluation
         run: python -m evals.p9a_training_data_provenance
       - name: P9-B training data poisoning label-integrity contributor-trust evaluation
