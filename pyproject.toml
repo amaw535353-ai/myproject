@@ -16,6 +16,11 @@ dependencies = [
   "uvicorn==0.52.1",
 ]
 
+[project.urls]
+Repository = "https://github.com/lahcennh3-jpg/aegisdesk"
+Issues = "https://github.com/lahcennh3-jpg/aegisdesk/issues"
+Documentation = "https://github.com/lahcennh3-jpg/aegisdesk/tree/main/docs"
+
 [project.optional-dependencies]
 dev = [
   "bandit==1.8.6",

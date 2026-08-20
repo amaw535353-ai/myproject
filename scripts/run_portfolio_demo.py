@@ -6,7 +6,7 @@ import json
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from evals.p8f_human_approval import run as run_approval
 from evals.p10a_inference_tenant_isolation import run as run_inference
@@ -15,6 +15,7 @@ from evals.p11e_supply_chain_security import assess as assess_supply
 from evals.portfolio_adaptive_security import build_report as run_prompt_injection
 
 ROOT = Path(__file__).resolve().parents[1]
+DOCS_EVIDENCE = ROOT / "docs" / "evidence"
 
 
 def _revision() -> str:
@@ -94,22 +95,13 @@ def build_evidence() -> dict[str, Any]:
     }
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--output-dir", type=Path, default=ROOT / "build" / "portfolio-demo")
-    args = parser.parse_args()
-    evidence = build_evidence()
-    args.output_dir.mkdir(parents=True, exist_ok=True)
-    evidence_path = args.output_dir / "evidence.json"
-    evidence_path.write_text(
-        json.dumps(evidence, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+def _report(evidence: dict[str, Any], *, revision: str | None = None) -> str:
     lines = [
         "# AegisDesk deterministic portfolio demonstration",
         "",
         f"Status: **{evidence['status']}**",
         "",
-        f"Code revision: `{evidence['code_revision']}`",
+        f"Code revision: `{revision or evidence['code_revision']}`",
         "",
         "| Case | Vulnerable ASR | Hardened ASR | FPR | SafeTaskRate |",
         "|---|---:|---:|---:|---:|",
@@ -117,27 +109,60 @@ def main() -> int:
     for name, case in evidence["cases"].items():
 
         def show(metric: object) -> str:
-            return (
-                metric
-                if isinstance(metric, str)
-                else f"{metric['numerator']}/{metric['denominator']}"
-            )
+            if isinstance(metric, str):
+                return metric
+            ratio = cast(dict[str, int], metric)
+            return f"{ratio['numerator']}/{ratio['denominator']}"
 
         lines.append(
-            "| "
-            f"{name} | {show(case['vulnerable_asr'])} | {show(case['hardened_asr'])} | "
+            f"| {name} | {show(case['vulnerable_asr'])} | {show(case['hardened_asr'])} | "
             f"{show(case['fpr'])} | {show(case['safe_task_rate'])} |"
         )
     lines.extend(
         [
             "",
-            "Reproduce: `python scripts/run_portfolio_demo.py`",
+            "Reproduce: `python scripts/run_portfolio_demo.py --docs-sample`",
             "",
             "Limitations:",
             *[f"- {item}" for item in evidence["limitations"]],
         ]
     )
-    (args.output_dir / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return "\n".join(lines) + "\n"
+
+
+def committed_sample(evidence: dict[str, Any]) -> tuple[str, str]:
+    report = _report(evidence, revision="<revision>")
+    output = (
+        json.dumps(
+            {
+                "evidence": "<output-dir>/evidence.json",
+                "report": "<output-dir>/report.md",
+                "status": evidence["status"],
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    return report, output
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output-dir", type=Path, default=ROOT / "build" / "portfolio-demo")
+    parser.add_argument("--docs-sample", action="store_true")
+    args = parser.parse_args()
+    evidence = build_evidence()
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    evidence_path = args.output_dir / "evidence.json"
+    evidence_path.write_text(
+        json.dumps(evidence, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    (args.output_dir / "report.md").write_text(_report(evidence), encoding="utf-8")
+    if args.docs_sample:
+        DOCS_EVIDENCE.mkdir(parents=True, exist_ok=True)
+        report, output = committed_sample(evidence)
+        (DOCS_EVIDENCE / "portfolio-demo-report.md").write_text(report, encoding="utf-8")
+        (DOCS_EVIDENCE / "portfolio-demo-output.txt").write_text(output, encoding="utf-8")
     print(
         json.dumps(
             {

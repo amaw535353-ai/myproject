@@ -2,6 +2,17 @@
 
 AegisDesk is a safe, synthetic AI-security engineering lab for attacking and hardening a multi-tenant help-desk RAG agent across retrieval, MCP tools, multi-agent workflows, model supply chain, training, and inference. It pairs intentionally vulnerable comparisons with server-owned controls and reproducible evidence; it is a portfolio demonstration, not a production product or an attack platform.
 
+[Five-minute portfolio walkthrough](docs/portfolio-walkthrough.md) · [Generated evidence sample](docs/evidence/portfolio-demo-report.md)
+
+## Verify the portfolio in five minutes
+
+```bash
+python scripts/run_portfolio_demo.py --output-dir /tmp/aegisdesk-portfolio-demo
+python -m pytest -q tests/security/test_portfolio_gap_controls.py tests/security/test_portfolio_demo_evidence.py
+```
+
+The first command exits 0 with `VERIFIED` deterministic, synthetic evidence. The focused tests validate the four-case controls and prove the committed sample has not drifted from the generator. `BLOCKED` is the expected fail-closed state for explicitly requested live evidence without configuration; `FAILED` means a control or evidence assertion failed.
+
 ## Verified boundary
 
 The current portfolio claim is **P11-E implemented with deterministic and bounded live-local evidence as recorded in the repository**. P11-F code and progress records exist, but this README deliberately stops its headline claim at the requested P11-E boundary. Deterministic tests do not prove model behavior or factual correctness; live-local labs do not prove cloud, GPU, multi-node, or production operation.

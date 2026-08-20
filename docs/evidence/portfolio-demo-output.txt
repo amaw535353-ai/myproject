@@ -1,0 +1,1 @@
+{"evidence": "<output-dir>/evidence.json", "report": "<output-dir>/report.md", "status": "VERIFIED"}
