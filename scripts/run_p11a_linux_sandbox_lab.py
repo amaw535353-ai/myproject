@@ -143,7 +143,7 @@ def main() -> int:
         checks["raw_socket_capability_denied"] = raw_socket.returncode == 0 and _json_stdout(raw_socket).get("raw_socket_denied") is True
         checks["setuid_root_denied"] = setuid_root.returncode == 0 and _json_stdout(setuid_root).get("setuid_root_denied") is True
 
-        target_env = {**os.environ, "P11A_TENANT_SECRET": "beta-only"}
+        target_env = {**os.environ, "P11A_TENANT_SECRET": "beta-only"}  # pragma: allowlist secret
         target = subprocess.Popen(
             _sandbox_prefix(TENANT_B_UID) + ["sleep", "30"],
             cwd=lab,
