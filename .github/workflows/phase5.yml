@@ -25,7 +25,7 @@ jobs:
       - name: Install
         run: python -m pip install -e ".[dev]"
       - name: Test
-        run: pytest
+        run: python -m pytest
       - name: P5-A model artifact provenance and safe loading evaluation
         run: python -m evals.p5a_model_artifact_provenance
       - name: P5-B transitive model-package and adapter provenance evaluation

@@ -19,6 +19,7 @@ from aegis.vulnerable.agent_delegation import VulnerableDeclaredDelegationAuthor
 from evals.p8a_fixture import (
     AGENT_OBSERVABILITY,
     AGENT_ORCH_A,
+    AGENT_RETRIEVAL_A,
     AGENT_RELEASE,
     AGENT_SECURITY,
     AGENT_TOOL_BROKER_A,
