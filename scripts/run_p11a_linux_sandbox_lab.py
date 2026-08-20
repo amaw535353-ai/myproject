@@ -4,7 +4,6 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
 import shutil
 import socket
 import subprocess
@@ -12,8 +11,12 @@ import sys
 import tempfile
 import threading
 import time
+from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+PROBE_SOURCE = ROOT / "apps" / "p11a_linux_sandbox_lab.py"
+LAB_TEMP_ROOT = Path(os.sep) / "tmp"
 TENANT_A_UID = 20001
 TENANT_B_UID = 20002
 
@@ -30,8 +33,10 @@ def _reexec_as_root_if_possible() -> None:
 def _sandbox_prefix(uid: int) -> list[str]:
     return [
         "setpriv",
-        "--reuid", str(uid),
-        "--regid", str(uid),
+        "--reuid",
+        str(uid),
+        "--regid",
+        str(uid),
         "--clear-groups",
         "--no-new-privs",
         "--bounding-set=-all",
@@ -40,23 +45,58 @@ def _sandbox_prefix(uid: int) -> list[str]:
     ]
 
 
-def _probe(uid: int, *args: str, check: bool = False) -> subprocess.CompletedProcess[str]:
-    cmd = _sandbox_prefix(uid) + [sys.executable, "-m", "apps.p11a_linux_sandbox_lab", *args]
-    return subprocess.run(cmd, cwd=ROOT, text=True, capture_output=True, check=check)
+def _stage_probe(lab: Path) -> Path:
+    probe = lab / "p11a_linux_sandbox_probe.py"
+    shutil.copyfile(PROBE_SOURCE, probe)
+    probe.chmod(0o555)
+    return probe.resolve()
 
 
-def _json_stdout(proc: subprocess.CompletedProcess[str]) -> dict:
+def _sanitized_stderr(stderr: str, probe: Path) -> str:
+    sanitized = stderr.replace("\r", "").strip()
+    replacements = sorted(
+        (
+            (str(PROBE_SOURCE), "<probe-source>"),
+            (str(probe), "<probe>"),
+            (str(ROOT), "<repository>"),
+        ),
+        key=lambda item: len(item[0]),
+        reverse=True,
+    )
+    for value, replacement in replacements:
+        sanitized = sanitized.replace(value, replacement)
+    if len(sanitized) > 1_000:
+        sanitized = "..." + sanitized[-1_000:]
+    return sanitized or "<no stderr>"
+
+
+def _probe(
+    probe: Path, uid: int, *args: str, check: bool = False
+) -> subprocess.CompletedProcess[str]:
+    if not probe.is_absolute():
+        raise ValueError("sandbox probe path must be absolute")
+    cmd = _sandbox_prefix(uid) + [sys.executable, str(probe), *args]
+    proc = subprocess.run(cmd, cwd=probe.parent, text=True, capture_output=True)
+    if check and proc.returncode != 0:
+        stderr = _sanitized_stderr(proc.stderr, probe)
+        raise RuntimeError(f"sandbox probe failed with exit code {proc.returncode}: {stderr}")
+    return proc
+
+
+def _json_stdout(proc: subprocess.CompletedProcess[str]) -> dict[str, Any]:
     text = proc.stdout.strip().splitlines()
     return json.loads(text[-1]) if text else {}
 
 
-def _stable_report_sha(report: dict) -> str:
+def _stable_report_sha(report: dict[str, Any]) -> str:
     payload = json.dumps(report, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(payload).hexdigest()
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="P11-A real Linux least-privilege workload isolation lab")
+    parser = argparse.ArgumentParser(
+        description="P11-A real Linux least-privilege workload isolation lab"
+    )
     parser.add_argument("--output")
     args = parser.parse_args()
     _reexec_as_root_if_possible()
@@ -67,13 +107,18 @@ def main() -> int:
     evidence: dict[str, object] = {}
     target = None
 
-    with tempfile.TemporaryDirectory(prefix="p11a-linux-") as raw:
+    # Dropped identities cannot traverse GitHub's group-restricted runner home.
+    with tempfile.TemporaryDirectory(prefix="p11a-linux-", dir=LAB_TEMP_ROOT) as raw:
         lab = Path(raw)
-        os.chmod(lab, 0o711)
+        # Execute-only traversal is required for both dropped UIDs; contents stay unlistable.
+        os.chmod(lab, 0o711)  # nosec B103  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
+        probe = _stage_probe(lab)
 
-        identity_proc = _probe(TENANT_A_UID, "identity", check=True)
+        identity_proc = _probe(probe, TENANT_A_UID, "identity", check=True)
         identity = _json_stdout(identity_proc)
-        checks["non_root_identity"] = identity.get("uid") == TENANT_A_UID and identity.get("gid") == TENANT_A_UID
+        checks["non_root_identity"] = (
+            identity.get("uid") == TENANT_A_UID and identity.get("gid") == TENANT_A_UID
+        )
         checks["no_new_privs"] = identity.get("no_new_privs") is True
         checks["effective_capabilities_dropped"] = identity.get("cap_eff") == "0000000000000000"
         checks["bounding_capabilities_dropped"] = identity.get("cap_bnd") == "0000000000000000"
@@ -85,40 +130,59 @@ def main() -> int:
         secret.write_text("acme-secret-material\n")
         os.chown(secret, TENANT_A_UID, TENANT_A_UID)
         os.chmod(secret, 0o400)
-        owner_read = _probe(TENANT_A_UID, "read-file", str(secret))
-        foreign_read = _probe(TENANT_B_UID, "read-file", str(secret))
-        checks["secret_owner_can_read"] = owner_read.returncode == 0 and _json_stdout(owner_read).get("read") is True
-        checks["cross_tenant_secret_read_denied"] = foreign_read.returncode != 0 and _json_stdout(foreign_read).get("read") is False
+        owner_read = _probe(probe, TENANT_A_UID, "read-file", str(secret))
+        foreign_read = _probe(probe, TENANT_B_UID, "read-file", str(secret))
+        checks["secret_owner_can_read"] = (
+            owner_read.returncode == 0 and _json_stdout(owner_read).get("read") is True
+        )
+        checks["cross_tenant_secret_read_denied"] = (
+            foreign_read.returncode != 0 and _json_stdout(foreign_read).get("read") is False
+        )
 
         rootfs = lab / "rootfs"
         rootfs.mkdir(mode=0o555)
         os.chown(rootfs, 0, 0)
-        root_write = _probe(TENANT_A_UID, "write-file", str(rootfs / "blocked"))
+        root_write = _probe(probe, TENANT_A_UID, "write-file", str(rootfs / "blocked"))
         writable = lab / "writable"
         writable.mkdir(mode=0o700)
         os.chown(writable, TENANT_A_UID, TENANT_A_UID)
-        tmp_write = _probe(TENANT_A_UID, "write-file", str(writable / "ok"))
-        checks["readonly_root_area_enforced"] = root_write.returncode != 0 and _json_stdout(root_write).get("write") is False
-        checks["scoped_writable_area_available"] = tmp_write.returncode == 0 and _json_stdout(tmp_write).get("write") is True
+        tmp_write = _probe(probe, TENANT_A_UID, "write-file", str(writable / "ok"))
+        checks["readonly_root_area_enforced"] = (
+            root_write.returncode != 0 and _json_stdout(root_write).get("write") is False
+        )
+        checks["scoped_writable_area_available"] = (
+            tmp_write.returncode == 0 and _json_stdout(tmp_write).get("write") is True
+        )
 
-        raw_socket = _probe(TENANT_A_UID, "raw-socket")
-        setuid_root = _probe(TENANT_A_UID, "setuid-root")
-        checks["raw_socket_capability_denied"] = raw_socket.returncode == 0 and _json_stdout(raw_socket).get("raw_socket_denied") is True
-        checks["setuid_root_denied"] = setuid_root.returncode == 0 and _json_stdout(setuid_root).get("setuid_root_denied") is True
+        raw_socket = _probe(probe, TENANT_A_UID, "raw-socket")
+        setuid_root = _probe(probe, TENANT_A_UID, "setuid-root")
+        checks["raw_socket_capability_denied"] = (
+            raw_socket.returncode == 0 and _json_stdout(raw_socket).get("raw_socket_denied") is True
+        )
+        checks["setuid_root_denied"] = (
+            setuid_root.returncode == 0
+            and _json_stdout(setuid_root).get("setuid_root_denied") is True
+        )
 
-        target_env = {**os.environ, "P11A_TENANT_SECRET": "beta-only"}
+        target_env = {**os.environ, "P11A_TENANT_SECRET": "beta-only"}  # pragma: allowlist secret
         target = subprocess.Popen(
             _sandbox_prefix(TENANT_B_UID) + ["sleep", "30"],
-            cwd=ROOT,
+            cwd=lab,
             env=target_env,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
         time.sleep(0.1)
-        signal = _probe(TENANT_A_UID, "signal", str(target.pid))
-        proc_read = _probe(TENANT_A_UID, "read-proc-environ", str(target.pid))
-        checks["cross_tenant_signal_denied"] = signal.returncode == 0 and _json_stdout(signal).get("cross_tenant_signal_denied") is True
-        checks["cross_tenant_proc_environ_denied"] = proc_read.returncode == 0 and _json_stdout(proc_read).get("cross_tenant_proc_environ_denied") is True
+        signal = _probe(probe, TENANT_A_UID, "signal", str(target.pid))
+        proc_read = _probe(probe, TENANT_A_UID, "read-proc-environ", str(target.pid))
+        checks["cross_tenant_signal_denied"] = (
+            signal.returncode == 0
+            and _json_stdout(signal).get("cross_tenant_signal_denied") is True
+        )
+        checks["cross_tenant_proc_environ_denied"] = (
+            proc_read.returncode == 0
+            and _json_stdout(proc_read).get("cross_tenant_proc_environ_denied") is True
+        )
 
         ipc_dir = lab / "ipc"
         ipc_dir.mkdir(mode=0o700)
@@ -129,9 +193,9 @@ def main() -> int:
         os.chown(sock_path, TENANT_A_UID, TENANT_A_UID)
         os.chmod(sock_path, 0o600)
         server.listen(2)
-        accepted = []
+        accepted: list[bytes] = []
 
-        def accept_one():
+        def accept_one() -> None:
             try:
                 conn, _ = server.accept()
                 accepted.append(conn.recv(16))
@@ -141,13 +205,20 @@ def main() -> int:
 
         thread = threading.Thread(target=accept_one, daemon=True)
         thread.start()
-        owner_connect = _probe(TENANT_A_UID, "unix-connect", sock_path)
-        foreign_connect = _probe(TENANT_B_UID, "unix-connect", sock_path)
+        owner_connect = _probe(probe, TENANT_A_UID, "unix-connect", sock_path)
+        foreign_connect = _probe(probe, TENANT_B_UID, "unix-connect", sock_path)
         thread.join(timeout=2)
         checks["owner_ipc_connect_allowed"] = owner_connect.returncode == 0 and bool(accepted)
         checks["cross_tenant_ipc_connect_denied"] = foreign_connect.returncode != 0
 
-        userns = subprocess.run(["unshare", "--user", "--map-root-user", "true"], capture_output=True).returncode == 0 if shutil.which("unshare") else False
+        userns = (
+            subprocess.run(
+                ["unshare", "--user", "--map-root-user", "true"], capture_output=True
+            ).returncode
+            == 0
+            if shutil.which("unshare")
+            else False
+        )
         checks["kernel_user_namespace_available"] = userns
         evidence["cgroup_v2_observed"] = Path("/sys/fs/cgroup/cgroup.controllers").exists()
         evidence["live_kubernetes_cluster_validated"] = False

@@ -1,0 +1,41 @@
+name: Bug report
+description: Report a reproducible non-sensitive defect
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not disclose vulnerabilities, credentials, secrets, tenant data, or exploit details in a public issue. Use the private security channel once published."
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe expected and actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest sanitized deterministic reproduction.
+    validations:
+      required: true
+  - type: dropdown
+    id: boundary
+    attributes:
+      label: Affected security boundary
+      options: [Tenant isolation, Identity/authentication, Authorization/effects, Data or memory, Model/supply chain, Platform/infrastructure, Telemetry/evidence, None or unknown]
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Tests and evidence
+      description: Include exact commands, exit states, and sanitized output.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed secrets, personal information, and vulnerability details.
+          required: true

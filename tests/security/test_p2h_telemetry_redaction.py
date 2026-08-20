@@ -190,7 +190,7 @@ def test_security_event_schema_rejects_extra_raw_field() -> None:
 def test_default_agent_path_records_redacted_security_event(
     p2h_http_state,
 ) -> None:
-    secret_note = "SYNTH-P2H-HTTP-PRIVATE-7X9Q"
+    secret_note = "SYNTH-P2H-HTTP-PRIVATE-7X9Q"  # pragma: allowlist secret
     response = _post(
         p2h_http_state, "/v1/agent/run",
         headers=_DYNAMICS_HEADERS,

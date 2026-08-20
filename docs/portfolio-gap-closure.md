@@ -10,8 +10,8 @@ This plan was derived from the top-level documentation, `pyproject.toml`, all wo
 | Repository security policy | blocked | Draft requires explicit preview approval under the repository security-policy workflow before `SECURITY.md` is written. |
 | Owner-selected license | blocked | No license is present. The owner must choose MIT, Apache-2.0, or another policy; none is invented here. |
 | Pinned lint, format, types, static security, audit, coverage, secret gates | implemented | `pyproject.toml`; `.github/workflows/quality.yml` |
-| Quality-gate execution in this workspace | verified | The configured focused quality sequence passed locally. The complete unit, integration, evaluation, and security sequence also passed twice: 2,844 tests per run. |
-| Duplicated full pytest in historical workflows | deferred | `ci.yml` and phase workflows repeat full pytest. Consolidation is unsafe without confirming branch-protection/required-check settings; the new quality workflow does not add another full-suite run. |
+| Quality-gate execution in this workspace | verified | The configured focused quality sequence passed locally. The current complete unit, integration, evaluation, and security sequence passed: 2,848 tests. |
+| Duplicated full pytest in historical workflows | deferred | Branch-protection settings were unavailable (`403`) and phase jobs share the `tests` name. Workflows remain unchanged; `docs/ci-consolidation-plan.md` maps a proposed nine-run reduction and required owner checks. |
 | Provider-neutral real-model boundary | implemented | `real_model_evals/`; fake and live evidence cannot be confused |
 | Real-model execution | blocked | Requires explicit opt-in, endpoint, model identifier, repository-specific credential, and budget approval. No normal test requires it. |
 | Compact adaptive adversarial corpus | implemented | `synthetic_data/adaptive_ai_security_cases.json`; feedback mutation in `evals/portfolio_adaptive_security.py` |
@@ -43,7 +43,7 @@ The quality workflow has read-only contents permission, pinned action commits, c
 - P8-A regression proof after restoring its missing fixture import: 13 passed.
 - `python scripts/run_portfolio_demo.py`: `VERIFIED`; four reports emitted under ignored `build/portfolio-demo/`.
 - Offline adapter: `VERIFIED`, 2/4 request budget used. Live adapter: `BLOCKED` and exit 2 because no opt-in/configuration exists.
-- The complete sequence passed twice outside the earlier bundled sandbox: unit 122, integration 10, evaluations 5, and security 2,707, for 2,844 tests per run.
+- The current complete sequence passed outside the bundled sandbox: unit 122, integration 10, evaluations 5, and security 2,711, for 2,848 tests.
 - The earlier AnyIO/TestClient and MCP negotiation timeouts were sandbox artifacts, not repository blockers.
 - System bubblewrap 0.9.0 at `/usr/bin/bwrap` resolved the Codex bundled-bubblewrap sandbox issue.
 - Real-model and multimodal execution, NVIDIA GPU/MIG/CUDA, production cloud IAM/KMS/HSM, multi-node and production infrastructure, production registry/SIEM/SOC, production-scale reliability, the repository security-policy approval, and an owner-selected license remain unverified, deferred, or owner-blocked as described above.
