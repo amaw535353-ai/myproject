@@ -5,7 +5,7 @@ labels: ["bug"]
 body:
   - type: markdown
     attributes:
-      value: "Do not disclose vulnerabilities, credentials, secrets, tenant data, or exploit details in a public issue. Use the private security channel once published."
+      value: "Do not disclose vulnerabilities, credentials, secrets, tenant data, or exploit details in a public issue. Follow SECURITY.md and use GitHub Private Vulnerability Reporting."
   - type: textarea
     id: description
     attributes:

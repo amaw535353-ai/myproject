@@ -7,11 +7,11 @@ This plan was derived from the top-level documentation, `pyproject.toml`, all wo
 | Concise P11-E portfolio presentation and four case studies | implemented | `README.md` |
 | Explicit deterministic/live-local/production claim boundary | implemented | `README.md`; existing phase progress records |
 | Contributor guidance | implemented | `CONTRIBUTING.md` |
-| Repository security policy | blocked | Draft requires explicit preview approval under the repository security-policy workflow before `SECURITY.md` is written. |
-| Owner-selected license | blocked | No license is present. The owner must choose MIT, Apache-2.0, or another policy; none is invented here. |
+| Repository security policy | implemented | Root `SECURITY.md`; GitHub Private Vulnerability Reporting is enabled. |
+| Owner-selected license | implemented | Root `LICENSE` contains the official Apache-2.0 text; `pyproject.toml`, `README.md`, and `CONTRIBUTING.md` carry consistent metadata and links. |
 | Pinned lint, format, types, static security, audit, coverage, secret gates | implemented | `pyproject.toml`; `.github/workflows/quality.yml` |
 | Quality-gate execution in this workspace | verified | The configured focused quality sequence passed locally. The current complete unit, integration, evaluation, and security sequence passed: 2,848 tests. |
-| Duplicated full pytest in historical workflows | deferred | Branch-protection settings were unavailable (`403`) and phase jobs share the `tests` name. Workflows remain unchanged; `docs/ci-consolidation-plan.md` maps a proposed nine-run reduction and required owner checks. |
+| Duplicated full pytest in historical workflows | deferred | Branch-protection settings were unavailable (`403`) and phase jobs share the `tests` name. Workflows remain unchanged; `docs/follow-up-roadmap.md` records the separate future branch and acceptance criteria. |
 | Provider-neutral real-model boundary | implemented | `real_model_evals/`; fake and live evidence cannot be confused |
 | Real-model execution | blocked | Requires explicit opt-in, endpoint, model identifier, repository-specific credential, and budget approval. No normal test requires it. |
 | Compact adaptive adversarial corpus | implemented | `synthetic_data/adaptive_ai_security_cases.json`; feedback mutation in `evals/portfolio_adaptive_security.py` |
@@ -46,4 +46,4 @@ The quality workflow has read-only contents permission, pinned action commits, c
 - The current complete sequence passed outside the bundled sandbox: unit 122, integration 10, evaluations 5, and security 2,711, for 2,848 tests.
 - The earlier AnyIO/TestClient and MCP negotiation timeouts were sandbox artifacts, not repository blockers.
 - System bubblewrap 0.9.0 at `/usr/bin/bwrap` resolved the Codex bundled-bubblewrap sandbox issue.
-- Real-model and multimodal execution, NVIDIA GPU/MIG/CUDA, production cloud IAM/KMS/HSM, multi-node and production infrastructure, production registry/SIEM/SOC, production-scale reliability, the repository security-policy approval, and an owner-selected license remain unverified, deferred, or owner-blocked as described above.
+- Real-model and multimodal execution, NVIDIA GPU/MIG/CUDA, production cloud IAM/KMS/HSM, multi-node and production infrastructure, production registry/SIEM/SOC, and production-scale reliability remain unverified or deferred as described above.

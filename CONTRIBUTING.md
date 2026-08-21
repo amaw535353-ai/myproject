@@ -10,4 +10,6 @@ Before proposing a change:
 4. Report raw metric numerators and denominators; never replace an unexecuted live gate with fake output.
 5. Do not include credentials, raw sensitive transcripts, chain of thought, private prompts, or real third-party attack traffic.
 
-Dependency changes must be pinned and justified. New exclusions, accepted risks, network access, external side effects, and production claims require explicit maintainer review. The repository currently has no owner-selected license; contribution terms should not be inferred until that decision is made.
+Dependency changes must be pinned and justified. New exclusions, accepted risks, network access, external side effects, and production claims require explicit maintainer review.
+
+Contributions are submitted under the repository's [Apache License 2.0](LICENSE). Do not report vulnerabilities in public issues; follow the [security policy](SECURITY.md) and use GitHub Private Vulnerability Reporting.
