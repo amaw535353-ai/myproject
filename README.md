@@ -2,7 +2,7 @@
 
 AegisDesk is a safe, synthetic AI-security engineering lab for attacking and hardening a multi-tenant help-desk RAG agent across retrieval, MCP tools, multi-agent workflows, model supply chain, training, and inference. It pairs intentionally vulnerable comparisons with server-owned controls and reproducible evidence; it is a portfolio demonstration, not a production product or an attack platform.
 
-[Five-minute portfolio walkthrough](docs/portfolio-walkthrough.md) · [Generated evidence sample](docs/evidence/portfolio-demo-report.md)
+[Five-minute portfolio walkthrough](docs/portfolio-walkthrough.md) · [Generated evidence sample](docs/evidence/portfolio-demo-report.md) · [Contributing](CONTRIBUTING.md)
 
 ## Verify the portfolio in five minutes
 
@@ -60,6 +60,10 @@ Evidence legend: **deterministic** = synthetic fake/no-model or modeled executio
 No paid model is required or silently substituted for a live pass. Real-model, multimodal, NVIDIA GPU/MIG/CUDA, production cloud IAM/KMS/HSM, multi-node Kubernetes, production registry/SIEM/SOC, and production-scale reliability remain unverified or deferred. Heuristic groundedness checks establish citation/evidence structure, not truth. Intentionally vulnerable components are local synthetic comparisons and must never be exposed publicly.
 
 See the [portfolio gap closure](docs/portfolio-gap-closure.md), [framework crosswalk](docs/framework-crosswalk.md), [threat models](docs/threat-model/), [evaluations](evals/), and [security tests](tests/security/). Historical milestone detail remains in `docs/phase*-progress.md`.
+
+## Governance
+
+AegisDesk is licensed under the [Apache License 2.0](LICENSE), copyright 2026 lahcennh3-jpg. Security vulnerabilities must not be reported in public issues; follow the [security policy](SECURITY.md) and use GitHub Private Vulnerability Reporting. See [Contributing](CONTRIBUTING.md) for non-sensitive contribution guidance and the [release-readiness checklist](docs/release-readiness.md) for the evidence required before a first release.
 
 ## What I learned and can explain in an interview
 
