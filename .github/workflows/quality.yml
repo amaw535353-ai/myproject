@@ -51,8 +51,8 @@ jobs:
 
           baseline = json.loads(Path(".secrets.baseline").read_text())
           findings = [finding for matches in baseline["results"].values() for finding in matches]
-          if len(findings) != 8 or any(finding.get("is_secret") is not False for finding in findings):
-              raise SystemExit("secret baseline must contain exactly eight reviewed findings")
+          if len(findings) != 13 or any(finding.get("is_secret") is not False for finding in findings):
+              raise SystemExit("secret baseline must contain exactly thirteen reviewed findings")
           PY
       - name: Reviewed-baseline secret detection
         run: |
