@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Any
 
-from aegis.agent.rag_model import DeterministicRagSecurityModel
+from aegis.agent.rag_model import RagSecurityModel
 from aegis.identity.models import Principal
 from aegis.mcp_gateway.gateway import ToolGateway
 from aegis.mcp_gateway.models import ToolCallProposal
@@ -35,7 +35,7 @@ class RagAnswerRunner:
         self,
         *,
         knowledge_store: KnowledgeStore,
-        model: DeterministicRagSecurityModel,
+        model: RagSecurityModel,
         gateway: ToolGateway,
         capability_policy: ToolCapabilityPolicy,
     ) -> None:

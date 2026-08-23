@@ -26,6 +26,7 @@ class EvaluationConfig:
     max_cost_usd: float = 0.0
     request_timeout_seconds: float = 5.0
     max_retries: int = 1
+    max_output_tokens: int = 128
     transcript_chars: int = 500
 
 
@@ -50,15 +51,25 @@ def _sanitize(text: str, limit: int) -> str:
     return _SECRET.sub("[REDACTED]", text).replace("\x00", "")[:limit]
 
 
-def _live_adapter() -> OpenAICompatibleAdapter | None:
+def _live_adapter(config: EvaluationConfig) -> OpenAICompatibleAdapter | None:
     if os.getenv("AEGIS_REAL_MODEL_OPT_IN") != "yes":
         return None
     endpoint = os.getenv("AEGIS_MODEL_ENDPOINT")
     model = os.getenv("AEGIS_MODEL_ID")
-    key = os.getenv("AEGIS_MODEL_API_KEY")
-    if not endpoint or not model or not key:
+    key = os.getenv("AEGIS_MODEL_API_KEY", "")
+    if not endpoint or not model:
         return None
-    return OpenAICompatibleAdapter(endpoint=endpoint, model_id=model, api_key=key)
+    try:
+        return OpenAICompatibleAdapter(
+            endpoint=endpoint,
+            model_id=model,
+            api_key=key,
+            temperature=config.temperature,
+            seed=config.seed,
+            max_output_tokens=config.max_output_tokens,
+        )
+    except ValueError:
+        return None
 
 
 def run_evaluation(config: EvaluationConfig | None = None) -> dict[str, object]:
@@ -69,14 +80,25 @@ def run_evaluation(config: EvaluationConfig | None = None) -> dict[str, object]:
     ]
     policy = {"no_chain_of_thought": True, "bounded_transcript": config.transcript_chars}
     adapter: ModelAdapter | None = (
-        OfflineFakeAdapter() if config.mode == "offline_fake" else _live_adapter()
+        OfflineFakeAdapter() if config.mode == "offline_fake" else _live_adapter(config)
     )
+    remote_without_budget = (
+        adapter is not None
+        and adapter.endpoint_class == "openai_compatible_https"
+        and config.max_cost_usd <= 0
+    )
+    if remote_without_budget:
+        adapter = None
     evidence: dict[str, object] = {
         "status": "VERIFIED" if config.mode == "offline_fake" else "BLOCKED",
         "evidence_class": "deterministic" if config.mode == "offline_fake" else "live_local",
         "reason": None
         if adapter
-        else "live model requires explicit opt-in and complete configuration",
+        else (
+            "remote model requires an explicit positive cost budget"
+            if remote_without_budget
+            else "live model requires explicit opt-in and complete configuration"
+        ),
         "model_id": adapter.model_id if adapter else os.getenv("AEGIS_MODEL_ID", "unconfigured"),
         "endpoint_class": adapter.endpoint_class if adapter else "unconfigured",
         "seed": config.seed,

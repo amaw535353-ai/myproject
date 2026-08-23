@@ -1,5 +1,6 @@
 import json
 from dataclasses import dataclass
+from typing import Protocol
 
 from pydantic import ValidationError
 
@@ -16,6 +17,18 @@ POISON_TOOL_PREFIX = "AEGIS_POISON_TOOL="
 class RagModelDecision:
     answer: str
     proposal: ToolCallProposal | None
+
+
+class RagSecurityModel(Protocol):
+    model_id: str
+    prompt_version: str
+
+    def respond(
+        self,
+        *,
+        user_query: str,
+        documents: list[RetrievedDocument],
+    ) -> RagModelDecision: ...
 
 
 class DeterministicRagSecurityModel:

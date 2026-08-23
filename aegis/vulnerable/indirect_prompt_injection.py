@@ -1,4 +1,4 @@
-from aegis.agent.rag_model import DeterministicRagSecurityModel
+from aegis.agent.rag_model import RagSecurityModel
 from aegis.identity.models import Principal
 from aegis.mcp_gateway.gateway import ToolGateway
 from aegis.rag.answering import RagAnswerOutcome
@@ -13,7 +13,7 @@ class VulnerableRagAnswerRunner:
         self,
         *,
         knowledge_store: KnowledgeStore,
-        model: DeterministicRagSecurityModel,
+        model: RagSecurityModel,
         gateway: ToolGateway,
     ) -> None:
         self._knowledge_store = knowledge_store
