@@ -1,5 +1,7 @@
 import json
+from copy import deepcopy
 
+import evals.portfolio_adaptive_security as portfolio_adaptive
 from aegis.identity.models import Principal
 from aegis.rag.evaluation import (
     contains_hidden_context_leak,
@@ -99,11 +101,20 @@ def test_tool_output_validation_precedes_execution() -> None:
 
 def test_adaptive_metrics_are_derived_from_cases() -> None:
     report = build_report()
-    assert report["adaptive_case_count"] >= 1
+    assert report["status"] == "VERIFIED"
+    assert report["gate"]["passed"]
+    assert all(report["gate"]["checks"].values())
+    assert report["behavioral_source"] == "evals.p2b_indirect_prompt_injection"
+    assert report["adaptive_catalog"]["adaptive_case_count"] >= 1
+    assert not report["adaptive_catalog"]["executed"]
     metrics = report["metrics"]
     assert metrics["vulnerable_asr"]["numerator"] == metrics["vulnerable_asr"]["denominator"]
     assert metrics["hardened_asr"]["numerator"] == 0
-    assert report["deferred"] == ["multimodal-metadata"]
+    assert report["adaptive_catalog"]["deferred"] == ["multimodal-metadata"]
+    vulnerable = report["observations"]["vulnerable"]["adversarial_attempts"]
+    hardened = report["observations"]["hardened"]["adversarial_attempts"]
+    assert all(attempt["side_effect_verified"] for attempt in vulnerable)
+    assert all(not attempt["side_effect_verified"] for attempt in hardened)
     assert (
         len(
             mutate(
@@ -117,6 +128,19 @@ def test_adaptive_metrics_are_derived_from_cases() -> None:
         )
         == 2
     )
+
+
+def test_adaptive_gate_fails_when_behavioral_control_is_weakened(monkeypatch) -> None:
+    behavioral = portfolio_adaptive.build_p2b_report()
+    weakened = deepcopy(behavioral)
+    weakened["variants"]["hardened"]["metrics"]["asr"]["successful_policy_violations"] = 1
+
+    monkeypatch.setattr(portfolio_adaptive, "build_p2b_report", lambda: weakened)
+    report = portfolio_adaptive.build_report()
+
+    assert report["status"] == "FAILED"
+    assert not report["gate"]["passed"]
+    assert not report["gate"]["checks"]["hardened_side_effects_prevented"]
 
 
 def test_fake_and_live_evidence_cannot_be_confused(monkeypatch) -> None:

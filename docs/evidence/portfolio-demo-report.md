@@ -6,7 +6,7 @@ Code revision: `<revision>`
 
 | Case | Vulnerable ASR | Hardened ASR | FPR | SafeTaskRate |
 |---|---:|---:|---:|---:|
-| indirect_prompt_injection | 14/14 | 0/14 | 0/2 | 2/2 |
+| indirect_prompt_injection | 2/2 | 0/2 | 0/1 | 1/1 |
 | multi_agent_human_approval | 92/92 | 0/92 | 0/3 | 3/3 |
 | model_container_supply_chain | not_reported_by_source | 0/45 | 0/15 | 15/15 |
 | inference_tenant_isolation | 136/136 | 0/136 | 0/4 | 4/4 |
