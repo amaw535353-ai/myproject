@@ -2,7 +2,7 @@
 
 AegisDesk is a safe, synthetic AI-security engineering lab for attacking and hardening a multi-tenant help-desk RAG agent across retrieval, MCP tools, multi-agent workflows, model supply chain, training, and inference. It pairs intentionally vulnerable comparisons with server-owned controls and reproducible evidence; it is a portfolio demonstration, not a production product or an attack platform.
 
-[Five-minute portfolio walkthrough](docs/portfolio-walkthrough.md) · [Generated evidence sample](docs/evidence/portfolio-demo-report.md) · [Contributing](CONTRIBUTING.md)
+[Five-minute portfolio walkthrough](docs/portfolio-walkthrough.md) · [Generated evidence report](docs/evidence/portfolio-demo-report.md) · [Machine-readable sample](docs/evidence/portfolio-demo-evidence.json) · [Contributing](CONTRIBUTING.md)
 
 ## Verify the portfolio in five minutes
 
@@ -11,7 +11,7 @@ python scripts/run_portfolio_demo.py --output-dir /tmp/aegisdesk-portfolio-demo
 python -m pytest -q tests/security/test_portfolio_gap_controls.py tests/security/test_portfolio_demo_evidence.py
 ```
 
-The first command exits 0 with `VERIFIED` deterministic, synthetic evidence. The focused tests validate the four-case controls and prove the committed sample has not drifted from the generator. `BLOCKED` is the expected fail-closed state for explicitly requested live evidence without configuration; `FAILED` means a control or evidence assertion failed.
+The first command exits 0 only when its explicit ASR, FPR, SafeTaskRate, and source-status gates produce `VERIFIED` deterministic, synthetic evidence. The focused tests validate the four-case controls, prove a weakened control changes the gate to `FAILED`, and prove the committed sample has not drifted from the generator. `BLOCKED` is the expected fail-closed state for explicitly requested live evidence without configuration; `FAILED` means a control or evidence assertion failed.
 
 ## Verified boundary
 

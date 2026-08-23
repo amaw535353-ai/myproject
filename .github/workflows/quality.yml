@@ -64,6 +64,16 @@ jobs:
       - name: Focused tests and coverage
         run: python -m pytest tests/security/test_portfolio_gap_controls.py tests/security/test_portfolio_demo_evidence.py --cov=aegis.rag --cov=real_model_evals --cov-report=term-missing --cov-fail-under=65
       - name: Portfolio demonstration
-        run: python scripts/run_portfolio_demo.py
+        run: python scripts/run_portfolio_demo.py --output-dir build/portfolio-demo
+      - name: Preserve commit-bound portfolio evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: portfolio-evidence-${{ github.sha }}
+          path: |
+            build/portfolio-demo/evidence.json
+            build/portfolio-demo/report.md
+          if-no-files-found: error
+          retention-days: 30
       - name: Patch whitespace check
         run: git diff --check

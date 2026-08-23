@@ -14,21 +14,21 @@ This plan was derived from the top-level documentation, `pyproject.toml`, all wo
 | Duplicated full pytest in historical workflows | deferred | Branch-protection settings were unavailable (`403`) and phase jobs share the `tests` name. Workflows remain unchanged; `docs/follow-up-roadmap.md` records the separate future branch and acceptance criteria. |
 | Provider-neutral real-model boundary | implemented | `real_model_evals/`; fake and live evidence cannot be confused |
 | Real-model execution | blocked | Requires explicit opt-in, endpoint, model identifier, repository-specific credential, and budget approval. No normal test requires it. |
-| Compact adaptive adversarial corpus | implemented | `synthetic_data/adaptive_ai_security_cases.json`; feedback mutation in `evals/portfolio_adaptive_security.py` |
+| Compact adaptive adversarial corpus | catalog only | `synthetic_data/adaptive_ai_security_cases.json`; mutation in `evals/portfolio_adaptive_security.py`. Catalog cases without executable adapters are explicitly excluded from behavioral metrics. |
 | Multimodal model execution | deferred | Safe image metadata boundary exists in the corpus; no real multimodal model is configured. |
-| Raw ASR/FPR/SafeTaskRate derivation | implemented | `evals/portfolio_adaptive_security.py`; flagship demo evidence |
+| Raw ASR/FPR/SafeTaskRate derivation | implemented | The flagship prompt-injection metrics are derived from `evals/p2b_indirect_prompt_injection.py`, which runs the vulnerable and hardened RAG/MCP paths and verifies server-side side effects. `evals/portfolio_adaptive_security.py` applies the explicit security gate. |
 | Citation binding, support, conflict, abstention, leakage and tool-output checks | implemented | `aegis/rag/evaluation.py`; focused tests |
 | Proof of factual correctness | deferred | Structural heuristics are explicitly not represented as factual proof. A governed external fact source/model evaluation would be required. |
 | Real Qdrant local authorization cases | implemented | `KnowledgeStore`; focused tests cover tenant filtering, collection identity, poison/near duplicate, revocation and metadata bypass |
 | Distributed stale-index behavior | deferred | Local Qdrant tests model revocation state; production replicas and concurrent index refresh are not available. |
 | Verified framework crosswalk | implemented | `docs/framework-crosswalk.md`; mappings are limited to full/partial/gap and repository evidence |
-| Four-case deterministic portfolio command | implemented | `python scripts/run_portfolio_demo.py` writes sanitized JSON and Markdown under ignored `build/portfolio-demo/` |
+| Four-case deterministic portfolio command | implemented | `python scripts/run_portfolio_demo.py` derives `VERIFIED` or `FAILED` from explicit gates and writes JSON and Markdown under ignored `build/portfolio-demo/`. CI uploads the unsanitized evidence under an artifact name bound to the exact commit SHA. |
 
 ## Implementation notes
 
 The vertical slices reuse existing analyzers and Qdrant local mode. The real-model adapter uses an OpenAI-compatible HTTP contract but is provider-neutral at the adapter protocol. It records model/endpoint class, seed, temperature, dataset/policy hashes, code revision, bounded sanitized outputs, and budget use. It never requests or records chain of thought. A missing live configuration returns `BLOCKED` and exit code 2.
 
-The quality workflow has read-only contents permission, pinned action commits, credential persistence disabled, dependency caching, concurrency cancellation, and a job timeout. Ruff and mypy are initially focused on the new and RAG security boundary; Bandit and Semgrep cover the same security-sensitive slice. Dependency and reviewed-baseline secret scans remain repository-wide. Historical full-suite duplication is recorded rather than changed without repository-settings evidence.
+The quality workflow has read-only contents permission, pinned action commits, credential persistence disabled, dependency caching, concurrency cancellation, and a job timeout. Ruff and mypy are initially focused on the new and RAG security boundary; Bandit and Semgrep cover the same security-sensitive slice. Dependency and reviewed-baseline secret scans remain repository-wide. The portfolio command fails closed on metric or source-status regression and an always-run artifact step preserves both passing and failing evidence for 30 days. Historical full-suite duplication is recorded rather than changed without repository-settings evidence.
 
 ## Local verification record (2026-08-20 UTC)
 
