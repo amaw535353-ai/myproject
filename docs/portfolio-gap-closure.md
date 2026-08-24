@@ -10,10 +10,10 @@ This plan was derived from the top-level documentation, `pyproject.toml`, all wo
 | Repository security policy | implemented | Root `SECURITY.md`; GitHub Private Vulnerability Reporting is enabled. |
 | Owner-selected license | implemented | Root `LICENSE` contains the official Apache-2.0 text; `pyproject.toml`, `README.md`, and `CONTRIBUTING.md` carry consistent metadata and links. |
 | Pinned lint, format, types, static security, audit, coverage, secret gates | implemented | `pyproject.toml`; `.github/workflows/quality.yml` |
-| Quality-gate execution in this workspace | verified | The configured focused quality sequence passed locally. The current complete unit, integration, evaluation, and security sequence passed: 2,848 tests. |
+| Quality-gate execution at merged baseline | verified | PR #114 head `f8d19489a5e94781056403b75339664fc848d5f1` passed all ten configured GitHub workflows and 2,850 tests before merge to `main` at `3a3db29f18b3d037998f68e4c83d5bec78e0620a`. |
 | Duplicated full pytest in historical workflows | deferred | Branch-protection settings were unavailable (`403`) and phase jobs share the `tests` name. Workflows remain unchanged; `docs/follow-up-roadmap.md` records the separate future branch and acceptance criteria. |
 | Provider-neutral real-model boundary | implemented | `real_model_evals/`; fake and live evidence cannot be confused |
-| Real-model execution | blocked | Requires explicit opt-in, endpoint, model identifier, repository-specific credential, and budget approval. No normal test requires it. |
+| Real-model RAG/MCP execution | implemented, unexecuted | The opt-in evaluator retrieves 20 attacks and 5 safe tasks through Qdrant local, records one strict real-model decision per case, and replays each decision through vulnerable and hardened MCP paths. A loopback or remote endpoint must still be owner-selected and executed; no normal test or CI contacts one. |
 | Compact adaptive adversarial corpus | catalog only | `synthetic_data/adaptive_ai_security_cases.json`; mutation in `evals/portfolio_adaptive_security.py`. Catalog cases without executable adapters are explicitly excluded from behavioral metrics. |
 | Multimodal model execution | deferred | Safe image metadata boundary exists in the corpus; no real multimodal model is configured. |
 | Raw ASR/FPR/SafeTaskRate derivation | implemented | The flagship prompt-injection metrics are derived from `evals/p2b_indirect_prompt_injection.py`, which runs the vulnerable and hardened RAG/MCP paths and verifies server-side side effects. `evals/portfolio_adaptive_security.py` applies the explicit security gate. |
@@ -23,6 +23,8 @@ This plan was derived from the top-level documentation, `pyproject.toml`, all wo
 | Distributed stale-index behavior | deferred | Local Qdrant tests model revocation state; production replicas and concurrent index refresh are not available. |
 | Verified framework crosswalk | implemented | `docs/framework-crosswalk.md`; mappings are limited to full/partial/gap and repository evidence |
 | Four-case deterministic portfolio command | implemented | `python scripts/run_portfolio_demo.py` derives `VERIFIED` or `FAILED` from explicit gates and writes JSON and Markdown under ignored `build/portfolio-demo/`. CI uploads the unsanitized evidence under an artifact name bound to the exact commit SHA. |
+| Release-candidate artifacts and provenance | implemented, unpublished | `.github/workflows/release-candidate.yml` builds and validates the wheel/source distribution, creates a CycloneDX dependency SBOM and SHA-256 manifest, smoke-installs the wheel, preserves the exact-SHA bundle, and can attest subjects only on an explicit manual `main` run. No tag or release is created. |
+| Independent technical review | gap | PR #114 had no recorded reviewer. The release checklist now requires an external review and follow-up disposition before a first release. |
 
 ## Implementation notes
 
@@ -43,7 +45,7 @@ The quality workflow has read-only contents permission, pinned action commits, c
 - P8-A regression proof after restoring its missing fixture import: 13 passed.
 - `python scripts/run_portfolio_demo.py`: `VERIFIED`; four reports emitted under ignored `build/portfolio-demo/`.
 - Offline adapter: `VERIFIED`, 2/4 request budget used. Live adapter: `BLOCKED` and exit 2 because no opt-in/configuration exists.
-- The current complete sequence passed outside the bundled sandbox: unit 122, integration 10, evaluations 5, and security 2,711, for 2,848 tests.
+- The complete sequence at the earlier local record passed 2,848 tests. PR #114 subsequently passed 2,850 tests and all ten GitHub workflows at head `f8d19489a5e94781056403b75339664fc848d5f1`.
 - The earlier AnyIO/TestClient and MCP negotiation timeouts were sandbox artifacts, not repository blockers.
 - System bubblewrap 0.9.0 at `/usr/bin/bwrap` resolved the Codex bundled-bubblewrap sandbox issue.
 - Real-model and multimodal execution, NVIDIA GPU/MIG/CUDA, production cloud IAM/KMS/HSM, multi-node and production infrastructure, production registry/SIEM/SOC, and production-scale reliability remain unverified or deferred as described above.

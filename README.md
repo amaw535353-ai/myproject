@@ -50,14 +50,23 @@ python -m pip install -e ".[dev]"
 python -m pytest tests/security/test_portfolio_gap_controls.py
 python scripts/run_portfolio_demo.py
 python -m real_model_evals                 # offline fake, explicitly labeled
-python -m real_model_evals --live          # opt-in; BLOCKED if unconfigured
+python -m real_model_evals.rag_mcp          # opt-in real-model RAG/MCP slice; BLOCKED if unconfigured
 ```
+
+The [real-model RAG/MCP guide](docs/live-model-rag-mcp.md) documents its 20 attack cases, 5 safe
+tasks, loopback configuration, remote cost gate, evidence schema, and claim boundary. Normal tests
+and CI never contact a model endpoint.
 
 Evidence legend: **deterministic** = synthetic fake/no-model or modeled execution suitable for CI; **live-local** = an actually executed bounded local service, process, container, or cluster; **production** = real deployment evidence, currently not claimed.
 
 ## Current limitations
 
-No paid model is required or silently substituted for a live pass. Real-model, multimodal, NVIDIA GPU/MIG/CUDA, production cloud IAM/KMS/HSM, multi-node Kubernetes, production registry/SIEM/SOC, and production-scale reliability remain unverified or deferred. Heuristic groundedness checks establish citation/evidence structure, not truth. Intentionally vulnerable components are local synthetic comparisons and must never be exposed publicly.
+No paid model is required or silently substituted for a live pass. The executable real-model slice
+is available but no real-model result is committed or claimed. Multimodal, NVIDIA GPU/MIG/CUDA,
+production cloud IAM/KMS/HSM, multi-node Kubernetes, production registry/SIEM/SOC, and
+production-scale reliability remain unverified or deferred. Heuristic groundedness checks
+establish citation/evidence structure, not truth. Intentionally vulnerable components are local
+synthetic comparisons and must never be exposed publicly.
 
 See the [portfolio gap closure](docs/portfolio-gap-closure.md), [framework crosswalk](docs/framework-crosswalk.md), [threat models](docs/threat-model/), [evaluations](evals/), and [security tests](tests/security/). Historical milestone detail remains in `docs/phase*-progress.md`.
 
