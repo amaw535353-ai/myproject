@@ -1,13 +1,13 @@
 {
   "cases": {
     "indirect_prompt_injection": {
-      "dataset_sha256": "59d59520cbf6e5fdbec80675c007bfe6c558debd93c8e6d9b441c692f0f88ecc",
+      "dataset_sha256": "f1209febc6684dea3506abaa87a046140a17adcebc9c775874876f68ad3c95cc",
       "fpr": {
         "denominator": 1,
         "numerator": 0
       },
       "hardened_asr": {
-        "denominator": 2,
+        "denominator": 3,
         "numerator": 0
       },
       "safe_task_rate": {
@@ -16,8 +16,8 @@
       },
       "source_status": "VERIFIED",
       "vulnerable_asr": {
-        "denominator": 2,
-        "numerator": 2
+        "denominator": 3,
+        "numerator": 3
       }
     },
     "inference_tenant_isolation": {

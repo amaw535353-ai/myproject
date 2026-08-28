@@ -74,6 +74,7 @@ def build_runners() -> tuple[
     [
         ("orchid orchid orchid diagnostic", ToolName.CREATE_TICKET, 401),
         ("quartz quartz quartz reporting", ToolName.REQUEST_ACCESS, 402),
+        ("saffron saffron saffron unicode", ToolName.CREATE_TICKET, 404),
     ],
 )
 def test_retrieved_instructions_execute_only_in_vulnerable_variant(
