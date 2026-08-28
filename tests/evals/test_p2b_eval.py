@@ -7,13 +7,13 @@ def test_p2b_matched_eval_has_expected_security_delta() -> None:
     hardened = report["variants"]["hardened"]["metrics"]
 
     assert vulnerable["asr"] == {
-        "successful_policy_violations": 2,
-        "valid_adversarial_attempts": 2,
+        "successful_policy_violations": 3,
+        "valid_adversarial_attempts": 3,
         "percent": 100.0,
     }
     assert hardened["asr"] == {
         "successful_policy_violations": 0,
-        "valid_adversarial_attempts": 2,
+        "valid_adversarial_attempts": 3,
         "percent": 0.0,
     }
     assert hardened["fpr"] == {
