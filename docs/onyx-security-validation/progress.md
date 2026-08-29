@@ -4,6 +4,8 @@
 
 State: `planned`
 
+The O1 milestone is not yet complete. The architecture/design checkpoint and the first deterministic target-adapter slice are implemented; live-local fixture provisioning and RAG authorization execution remain pending.
+
 ### Inspection record
 
 Pinned revisions inspected:
@@ -20,13 +22,16 @@ Onyx inspection identified current authorization/retrieval boundaries in:
 - `backend/ee/onyx/access/access.py`
 - `backend/onyx/context/search/preprocessing/access_filters.py`
 - `backend/onyx/context/search/pipeline.py`
+- `backend/onyx/server/features/search/api.py`
 - `deployment/docker_compose/README.md`
+
+The pinned search API exposes `POST /api/search`, requires the server-resolved user to hold `Permission.READ_SEARCH`, creates the search tool with `bypass_acl=False`, and routes through the normal search authorization path. It also obtains an LLM and performs usage-limit checks, so it is not yet assumed to be the cheapest or most deterministic live-local O1 retrieval surface.
 
 Preliminary non-O1 architecture inventory also located MCP/OAuth under `backend/onyx/server/features/mcp/`, sandbox code under `backend/onyx/server/features/build/sandbox/`, Docker Compose under `deployment/docker_compose/`, and Helm/Kubernetes assets under `deployment/helm/`. Those components are not implemented or attacked in O1.
 
 ### Files changed
 
-Documentation-only design slice:
+Design/documentation slice:
 
 - `docs/onyx-security-validation/architecture.md`
 - `docs/onyx-security-validation/trust-boundaries.md`
@@ -37,37 +42,90 @@ Documentation-only design slice:
 - `docs/onyx-security-validation/local-lab.md`
 - `docs/onyx-security-validation/progress.md`
 
-No implementation code has been changed in this slice, intentionally: architecture, threat model, and acceptance criteria are recorded first.
+First implementation slice:
+
+- `aegis/targets/__init__.py`
+- `aegis/targets/onyx/__init__.py`
+- `aegis/targets/onyx/config.py`
+- `aegis/targets/onyx/safety.py`
+- `aegis/targets/onyx/client.py`
+- `aegis/targets/onyx/fixtures.py`
+- `aegis/targets/onyx/evidence.py`
+- `tests/security/test_onyx_target_adapter.py`
+- `.github/workflows/quality.yml`
+
+### Implemented acceptance slice
+
+- Mandatory `AEGIS_ONYX_LAB_ACK=YES` acknowledgement is represented by the target configuration and enforced by the safety gate.
+- Loopback literals are accepted only after acknowledgement; `localhost` must resolve exclusively to loopback.
+- Non-loopback targets are disabled by default.
+- Private-lab targets require explicit private-network opt-in, an exact hostname allowlist entry, and resolution entirely inside loopback/RFC1918/IPv6 ULA ranges.
+- Target URLs containing credentials, query strings, fragments, application paths, invalid ports, or unsupported schemes fail closed.
+- A matching lab marker is required after location validation.
+- The client wrapper validates location before calling the marker probe, so an obviously unauthorized public target receives no application-level probe or attack request.
+- The client revalidates target resolution before every request and blocks resolution drift.
+- Synthetic `alice`, `bob`, and `attacker` identities plus engineering/HR/public/revoked/poisoned document fixtures are deterministic and contain only `.test` identities and synthetic canaries.
+- Evidence serialization redacts credential-bearing fields and rejects evidence explicitly marked unsanitized.
+- ASR, FPR, and SafeTaskRate preserve raw numerator/denominator counts; blocked cases do not enter executable denominators and a zero denominator produces `null`/`None`, not `0%`.
+- Run aggregation is fail closed: an empty run is `BLOCKED`; confirmed unauthorized effects force `FAILED`; otherwise any blocked case prevents `VERIFIED`.
 
 ### Tests executed
 
-None for this documentation-only slice. No claim of executable O1 verification is made.
+The execution container cannot resolve `github.com`, so cloning the branch for an exact repository-native local run failed with:
 
-### Exact inspection commands/actions
+```text
+git clone --depth 1 --branch onyx-o1-design https://github.com/amaw535353-ai/myproject.git /tmp/aegisdesk-o1
+fatal: unable to access 'https://github.com/amaw535353-ai/myproject.git/': Could not resolve host: github.com
+```
 
-Repository revisions were resolved from GitHub and source files were read at the exact SHAs above. Local cloning was attempted in the execution sandbox but outbound DNS was unavailable; no test result is inferred from that tooling limitation.
+A local isolated reconstruction of the current adapter logic was executed with the installed Python/pytest environment to validate imports and the core target/client/evidence assertions. Result:
+
+```text
+2 passed in 0.07s
+```
+
+That reconstruction is a developer sanity check, not repository-native O1 evidence and not a live-local Onyx result.
+
+The repository's `focused-quality` workflow was extended so the exact branch implementation is covered by:
+
+```text
+ruff format --check aegis/targets/onyx tests/security/test_onyx_target_adapter.py ...
+ruff check aegis/targets/onyx tests/security/test_onyx_target_adapter.py ...
+mypy ... aegis/targets/onyx
+bandit -q -r ... aegis/targets/onyx ...
+semgrep scan --config p/python --error ... aegis/targets/onyx ...
+detect-secrets-hook --baseline .secrets.baseline aegis/targets/onyx/*.py tests/security/test_onyx_target_adapter.py
+python -m pytest ... tests/security/test_onyx_target_adapter.py ...
+```
+
+GitHub Actions runs were queued for the branch during this slice. A queued or cancelled workflow is not recorded as a passing test.
 
 ### Evidence generated
 
-No O1 security evidence JSON yet. Documentation is planning evidence only and must not be labeled `VERIFIED`.
+No O1 security evidence JSON has been generated yet because no authenticated Onyx RAG authorization case has executed. The deterministic adapter tests are control-development evidence only and must not be described as live-local Onyx verification.
 
 ### Known limitations
 
-- Exact authenticated API calls for fixture provisioning and retrieval still need to be bound to the pinned Onyx revision during implementation.
+- No concrete HTTP transport is bound to Onyx yet; `OnyxTransport` is deliberately a protocol so endpoint contracts are not guessed before source inspection.
+- The lab-marker probe endpoint/service still needs a reproducible loopback/private-lab implementation. It should preferably be an external lab marker/sidecar or other clearly local mechanism rather than an upstream production behavior assumption.
+- Exact authenticated API calls for user creation/login, group provisioning, document ingestion/ACL assignment, revocation, and retrieval still need to be bound to the pinned Onyx revision.
+- `POST /api/search` is source-confirmed but may require an LLM path; a more deterministic authorization-focused retrieval surface should be preferred if the pinned code exposes one.
 - Group-specific live cases depend on an Onyx edition/configuration that exposes group ACLs.
 - Runtime image-to-source commit binding for Docker Compose must be made explicit.
 - Revocation/index/cache consistency behavior is not yet executed.
-- No live-local Onyx process has been started by this documentation slice.
+- No live-local Onyx process has been started by this slice.
+- No production security claim is made.
 
 ### Follow-up tasks
 
-1. Implement `aegis.targets.onyx` safety/config/client/evidence vertical slice.
-2. Add deterministic unit tests for fail-closed target validation and evidence/metric aggregation.
-3. Add programmatic synthetic fixture definitions.
-4. Bind fixture provisioning and retrieval to current Onyx APIs at the pinned revision.
-5. Add explicit opt-in live-local RAG authorization tests.
-6. Run focused quality/test gates and generate sanitized O1 evidence.
-7. Update this file to `implemented` and then `verified` only when acceptance criteria have executable evidence.
+1. Bind a concrete loopback/private-lab transport and lab-marker probe without relaxing the target gate.
+2. Inspect and bind current Onyx user/admin authentication APIs for synthetic fixture provisioning.
+3. Inspect and bind current group/document ACL provisioning APIs for the selected local edition.
+4. Select the narrowest source-confirmed retrieval API that exercises Onyx ACL enforcement without requiring paid/external services.
+5. Add explicit opt-in live-local cross-user/cross-group RAG tests and direct document-ID negative cases.
+6. Generate sanitized case JSON with exact Onyx and AegisDesk commits and raw metrics.
+7. Run focused repository-native quality gates plus broader relevant regressions.
+8. Change O1 to `implemented` only after the full milestone code path exists, and to `verified` only after every acceptance gate has executable evidence.
 
 ## O2 and later
 
