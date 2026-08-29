@@ -15,7 +15,7 @@ from aegis.targets.onyx.safety import (
 
 
 class OnyxTransport(Protocol):
-    """Transport boundary; concrete Onyx endpoint bindings are added only after source inspection."""
+    """Transport boundary for source-inspected Onyx endpoint bindings."""
 
     def probe_lab_marker(self, *, base_url: str, timeout_seconds: float) -> str: ...
 
