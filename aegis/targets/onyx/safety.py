@@ -126,13 +126,23 @@ def validate_target_location(
     if not config.allow_private_network_targets:
         return _blocked("non-loopback targets are disabled by default", hostname=hostname)
     if hostname not in config.approved_lab_hosts:
-        return _blocked("target hostname is not in the explicit private-lab allowlist", hostname=hostname)
+        return _blocked(
+            "target hostname is not in the explicit private-lab allowlist",
+            hostname=hostname,
+        )
 
-    addresses = (literal,) if literal is not None else _resolved_addresses(hostname, port, resolver)
+    addresses = (
+        (literal,)
+        if literal is not None
+        else _resolved_addresses(hostname, port, resolver)
+    )
     if not addresses:
         return _blocked("target hostname could not be resolved safely", hostname=hostname)
     if not all(_is_private_lab_address(address) for address in addresses):
-        return _blocked("target resolves outside approved private/loopback ranges", hostname=hostname)
+        return _blocked(
+            "target resolves outside approved private/loopback ranges",
+            hostname=hostname,
+        )
 
     return TargetValidation(
         status=TargetGateStatus.VERIFIED,
