@@ -19,7 +19,7 @@ from aegis.targets.onyx.evidence import (
 from aegis.targets.onyx.fixtures import DOCUMENTS, USERS, expected_access
 from aegis.targets.onyx.safety import TargetGateStatus, validate_authorized_target
 
-ONYX_COMMIT = "cbfd6b327b348beac532801306de63eed8551248"
+ONYX_COMMIT = "test-onyx-commit"
 AEGIS_COMMIT = "test-aegis-commit"
 LAB_MARKER = "aegis-onyx-o1-lab"
 
