@@ -26,7 +26,9 @@ class OnyxTargetConfig:
             raise ValueError("expected_lab_marker must be non-empty")
         if self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
-        normalized_hosts = tuple(sorted({host.casefold().strip() for host in self.approved_lab_hosts}))
+        normalized_hosts = tuple(
+            sorted({host.casefold().strip() for host in self.approved_lab_hosts})
+        )
         if any(not host for host in normalized_hosts):
             raise ValueError("approved_lab_hosts cannot contain empty values")
         object.__setattr__(self, "approved_lab_hosts", normalized_hosts)
