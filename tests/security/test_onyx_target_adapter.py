@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 import socket
+from collections.abc import Mapping
+from typing import Any
 
+import pytest
+
+from aegis.targets.onyx.client import AuthorizedOnyxClient, TargetBlockedError
 from aegis.targets.onyx.config import OnyxTargetConfig
 from aegis.targets.onyx.evidence import (
     CaseEvidence,
@@ -22,12 +27,39 @@ LAB_MARKER = "aegis-onyx-o1-lab"
 def _resolver(*addresses: str):
     def resolve(host: str, port: int, *, type: int):  # noqa: A002
         del host, type
-        return [
-            (socket.AF_INET6 if ":" in address else socket.AF_INET, socket.SOCK_STREAM, 6, "", (address, port))
-            for address in addresses
-        ]
+        answers = []
+        for address in addresses:
+            family = socket.AF_INET6 if ":" in address else socket.AF_INET
+            answers.append((family, socket.SOCK_STREAM, 6, "", (address, port)))
+        return answers
 
     return resolve
+
+
+class _FakeTransport:
+    def __init__(self, marker: str = LAB_MARKER) -> None:
+        self.marker = marker
+        self.probe_calls = 0
+        self.request_calls = 0
+
+    def probe_lab_marker(self, *, base_url: str, timeout_seconds: float) -> str:
+        del base_url, timeout_seconds
+        self.probe_calls += 1
+        return self.marker
+
+    def request_json(
+        self,
+        *,
+        base_url: str,
+        method: str,
+        path: str,
+        headers: Mapping[str, str],
+        payload: Mapping[str, Any] | None,
+        timeout_seconds: float,
+    ) -> Mapping[str, Any]:
+        del base_url, method, headers, payload, timeout_seconds
+        self.request_calls += 1
+        return {"ok": True, "path": path}
 
 
 def _config(base_url: str = "http://127.0.0.1:3000") -> OnyxTargetConfig:
@@ -105,24 +137,31 @@ def test_localhost_must_resolve_exclusively_to_loopback() -> None:
 
 
 def test_public_target_is_blocked_even_with_ack_and_marker() -> None:
-    config = _config("https://example.com")
-
-    result = validate_authorized_target(config, observed_lab_marker=LAB_MARKER)
+    result = validate_authorized_target(
+        _config("https://example.com"),
+        observed_lab_marker=LAB_MARKER,
+    )
 
     assert result.status is TargetGateStatus.BLOCKED
     assert "disabled by default" in result.reason
 
 
 def test_private_hostname_requires_opt_in_allowlist_and_private_resolution() -> None:
-    base = dict(
+    no_opt_in = OnyxTargetConfig(
         base_url="http://onyx.lab.test:3000",
         expected_lab_marker=LAB_MARKER,
         lab_ack="YES",
     )
-    no_opt_in = OnyxTargetConfig(**base)
-    not_allowlisted = OnyxTargetConfig(**base, allow_private_network_targets=True)
+    not_allowlisted = OnyxTargetConfig(
+        base_url="http://onyx.lab.test:3000",
+        expected_lab_marker=LAB_MARKER,
+        lab_ack="YES",
+        allow_private_network_targets=True,
+    )
     allowed = OnyxTargetConfig(
-        **base,
+        base_url="http://onyx.lab.test:3000",
+        expected_lab_marker=LAB_MARKER,
+        lab_ack="YES",
         allow_private_network_targets=True,
         approved_lab_hosts=("onyx.lab.test",),
     )
@@ -179,6 +218,36 @@ def test_invalid_target_url_fails_closed() -> None:
     )
 
     assert result.status is TargetGateStatus.BLOCKED
+
+
+def test_client_blocks_before_marker_probe_for_public_target() -> None:
+    transport = _FakeTransport()
+
+    with pytest.raises(TargetBlockedError) as exc_info:
+        AuthorizedOnyxClient.connect(
+            config=_config("https://example.com"),
+            transport=transport,
+            resolver=_resolver("8.8.8.8"),
+        )
+
+    assert exc_info.value.validation.status is TargetGateStatus.BLOCKED
+    assert transport.probe_calls == 0
+    assert transport.request_calls == 0
+
+
+def test_client_dispatches_only_after_target_authorization() -> None:
+    transport = _FakeTransport()
+    client = AuthorizedOnyxClient.connect(
+        config=_config(),
+        transport=transport,
+        resolver=_resolver("127.0.0.1"),
+    )
+
+    response = client.request_json(method="get", path="/synthetic-o1-test")
+
+    assert response == {"ok": True, "path": "/synthetic-o1-test"}
+    assert transport.probe_calls == 1
+    assert transport.request_calls == 1
 
 
 def test_synthetic_authorization_matrix_is_deterministic() -> None:
