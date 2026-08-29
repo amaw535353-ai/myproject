@@ -320,6 +320,18 @@ def test_run_status_never_converts_blocked_to_verified() -> None:
     assert derive_run_status([passed]) is RunStatus.VERIFIED
     assert derive_run_status([passed, blocked]) is RunStatus.BLOCKED
     assert derive_run_status([passed, blocked, failed]) is RunStatus.FAILED
+    assert derive_run_status([]) is RunStatus.BLOCKED
+
+
+def test_unauthorized_effect_forces_failed_run_even_if_case_status_is_pass() -> None:
+    contradictory = _case(
+        "A1",
+        attack=True,
+        status=CaseStatus.PASS,
+        security_effect="unauthorized_effect_succeeded",
+    )
+
+    assert derive_run_status([contradictory]) is RunStatus.FAILED
 
 
 def test_evidence_sanitizer_redacts_credential_fields() -> None:
