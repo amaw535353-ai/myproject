@@ -7,6 +7,7 @@ from typing import Any, Protocol
 from aegis.targets.onyx.config import OnyxTargetConfig
 from aegis.targets.onyx.safety import (
     Resolver,
+    TargetGateStatus,
     TargetValidation,
     validate_authorized_target,
     validate_target_location,
@@ -89,7 +90,7 @@ class AuthorizedOnyxClient:
         if current.resolved_addresses != self.target_validation.resolved_addresses:
             raise TargetBlockedError(
                 TargetValidation(
-                    status=current.status.BLOCKED,
+                    status=TargetGateStatus.BLOCKED,
                     reason="target resolution changed after authorization",
                     hostname=current.hostname,
                     resolved_addresses=current.resolved_addresses,
