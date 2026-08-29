@@ -1,5 +1,6 @@
 """External Onyx target primitives for the authorized local security lab."""
 
+from aegis.targets.onyx.client import AuthorizedOnyxClient, OnyxTransport, TargetBlockedError
 from aegis.targets.onyx.config import LAB_ACK_ENV, LAB_ACK_VALUE, OnyxTargetConfig
 from aegis.targets.onyx.evidence import (
     CaseEvidence,
@@ -24,11 +25,14 @@ __all__ = [
     "LAB_ACK_ENV",
     "LAB_ACK_VALUE",
     "USERS",
+    "AuthorizedOnyxClient",
     "CaseEvidence",
     "CaseStatus",
     "Metric",
     "OnyxTargetConfig",
+    "OnyxTransport",
     "RunStatus",
+    "TargetBlockedError",
     "TargetGateStatus",
     "TargetValidation",
     "calculate_metrics",
