@@ -41,12 +41,8 @@ def _blocked(reason: str, *, hostname: str | None = None) -> TargetValidation:
     return TargetValidation(status=TargetGateStatus.BLOCKED, reason=reason, hostname=hostname)
 
 
-def _is_loopback(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    return address.is_loopback
-
-
 def _is_private_lab_address(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    if _is_loopback(address):
+    if address.is_loopback:
         return True
     if isinstance(address, ipaddress.IPv4Address):
         return any(address in network for network in _RFC1918)
@@ -101,22 +97,30 @@ def validate_target_location(
         return _blocked("target base URL must not contain an application path")
     if parsed.hostname is None:
         return _blocked("target URL must contain a hostname")
+    try:
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    except ValueError:
+        return _blocked("target URL contains an invalid port")
 
     hostname = parsed.hostname.casefold()
     literal = _literal_address(hostname)
-    if literal is not None and _is_loopback(literal):
+    if literal is not None and literal.is_loopback:
         return TargetValidation(
             status=TargetGateStatus.VERIFIED,
             reason="loopback target location verified",
             hostname=hostname,
             resolved_addresses=(str(literal),),
         )
+
     if hostname == "localhost":
+        addresses = _resolved_addresses(hostname, port, resolver)
+        if not addresses or not all(address.is_loopback for address in addresses):
+            return _blocked("localhost did not resolve exclusively to loopback", hostname=hostname)
         return TargetValidation(
             status=TargetGateStatus.VERIFIED,
             reason="localhost target location verified",
             hostname=hostname,
-            resolved_addresses=("loopback",),
+            resolved_addresses=tuple(str(address) for address in addresses),
         )
 
     if not config.allow_private_network_targets:
@@ -124,11 +128,7 @@ def validate_target_location(
     if hostname not in config.approved_lab_hosts:
         return _blocked("target hostname is not in the explicit private-lab allowlist", hostname=hostname)
 
-    if literal is not None:
-        addresses = (literal,)
-    else:
-        port = parsed.port or (443 if parsed.scheme == "https" else 80)
-        addresses = _resolved_addresses(hostname, port, resolver)
+    addresses = (literal,) if literal is not None else _resolved_addresses(hostname, port, resolver)
     if not addresses:
         return _blocked("target hostname could not be resolved safely", hostname=hostname)
     if not all(_is_private_lab_address(address) for address in addresses):
