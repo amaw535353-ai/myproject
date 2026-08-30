@@ -32,15 +32,27 @@ jobs:
       - name: Install pinned Semgrep
         run: pipx install semgrep==1.172.0
       - name: Ruff formatting
-        run: ruff format --check aegis/rag real_model_evals evals/portfolio_adaptive_security.py scripts/run_portfolio_demo.py scripts/prepare_release_candidate.py tests/security/test_portfolio_gap_controls.py tests/security/test_portfolio_demo_evidence.py tests/security/test_real_model_rag_mcp.py tests/security/test_release_candidate.py
+        run: >-
+          ruff format --check aegis/rag aegis/targets/onyx real_model_evals
+          evals/portfolio_adaptive_security.py scripts/run_portfolio_demo.py
+          scripts/prepare_release_candidate.py tests/security/test_portfolio_gap_controls.py
+          tests/security/test_portfolio_demo_evidence.py
+          tests/security/test_real_model_rag_mcp.py tests/security/test_release_candidate.py
+          tests/security/test_onyx_target_adapter.py
       - name: Ruff lint
-        run: ruff check aegis/rag real_model_evals evals/portfolio_adaptive_security.py scripts/run_portfolio_demo.py scripts/prepare_release_candidate.py tests/security/test_portfolio_gap_controls.py tests/security/test_portfolio_demo_evidence.py tests/security/test_real_model_rag_mcp.py tests/security/test_release_candidate.py
+        run: >-
+          ruff check aegis/rag aegis/targets/onyx real_model_evals
+          evals/portfolio_adaptive_security.py scripts/run_portfolio_demo.py
+          scripts/prepare_release_candidate.py tests/security/test_portfolio_gap_controls.py
+          tests/security/test_portfolio_demo_evidence.py
+          tests/security/test_real_model_rag_mcp.py tests/security/test_release_candidate.py
+          tests/security/test_onyx_target_adapter.py
       - name: Strict focused type check
-        run: mypy real_model_evals aegis/rag/evaluation.py
+        run: mypy real_model_evals aegis/rag/evaluation.py aegis/targets/onyx
       - name: Security static analysis
-        run: bandit -q -r aegis/rag real_model_evals
+        run: bandit -q -r aegis/rag aegis/targets/onyx real_model_evals
       - name: Semgrep security analysis
-        run: semgrep scan --config p/python --error aegis/rag real_model_evals
+        run: semgrep scan --config p/python --error aegis/rag aegis/targets/onyx real_model_evals
       - name: Dependency vulnerability audit
         run: pip-audit .
       - name: Validate reviewed secret baseline
@@ -61,8 +73,17 @@ jobs:
           else
             { git diff --name-only --diff-filter=ACMR HEAD; git ls-files --others --exclude-standard; } | sort -u | tr '\n' '\0'
           fi | grep -zvxF '.secrets.baseline' | xargs -0 -r detect-secrets-hook --baseline .secrets.baseline
+      - name: Onyx adapter secret detection
+        run: >-
+          detect-secrets-hook --baseline .secrets.baseline
+          aegis/targets/onyx/*.py tests/security/test_onyx_target_adapter.py
       - name: Focused tests and coverage
-        run: python -m pytest tests/security/test_portfolio_gap_controls.py tests/security/test_portfolio_demo_evidence.py tests/security/test_real_model_rag_mcp.py tests/security/test_release_candidate.py --cov=aegis.rag --cov=real_model_evals --cov-report=term-missing --cov-fail-under=65
+        run: >-
+          python -m pytest tests/security/test_portfolio_gap_controls.py
+          tests/security/test_portfolio_demo_evidence.py
+          tests/security/test_real_model_rag_mcp.py tests/security/test_release_candidate.py
+          tests/security/test_onyx_target_adapter.py --cov=aegis.rag --cov=real_model_evals
+          --cov-report=term-missing --cov-fail-under=65
       - name: Portfolio demonstration
         run: python scripts/run_portfolio_demo.py --output-dir build/portfolio-demo
       - name: Preserve commit-bound portfolio evidence
